@@ -7,5 +7,9 @@
     "tea-cup-prelude",
     "tea-cup-form",
     "tea-cup-pagination"
-  ]
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "prepare": "npm run build"
+  }
 }
