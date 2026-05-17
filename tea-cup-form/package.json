@@ -1,0 +1,52 @@
+{
+  "name": "@rinn7e/tea-cup-form",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "author": "Moremi Vannak",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "check:watch": "tsc --noEmit --watch",
+    "clean": "rimraf lib",
+    "compile": "tsup",
+    "build": "npm run clean && npm run compile",
+    "prepare": "npm run compile",
+    "typecheck": "tsc --noEmit",
+    "check-style": "prettier --check .",
+    "fix-style": "prettier --write .",
+    "lint": "eslint src",
+    "staged": "npm run fix-style && npm run typecheck && npm run lint"
+  },
+  "peerDependencies": {
+    "@rinn7e/tea-cup-prelude": "^1.0.0",
+    "fp-ts": "^2.16.11",
+    "react": "^19.2.0",
+    "react-datepicker": "^8.9.0",
+    "react-dom": "^19.2.0",
+    "react-tea-cup": "^5.1.1",
+    "tea-cup-fp": "^1.1.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@rinn7e/tea-cup-prelude": "github:rinn7e/tea-cup-prelude#096c9d7eec9132cfee035fc27818dba96e48f2e9",
+    "eslint": "^9.29.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react-dom": "^1.52.2",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.22",
+    "eslint-plugin-react-x": "^1.52.2",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "globals": "^16.2.0",
+    "prettier": "^3.8.1",
+    "prettier-plugin-tailwindcss": "^0.7.2",
+    "rimraf": "^6.1.2",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.34.1"
+  }
+}
