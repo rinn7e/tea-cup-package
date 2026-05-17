@@ -1,6 +1,6 @@
 # tea-cup-package
 
-A unified pnpm workspaces monorepo for the react-tea-cup React and functional programming library ecosystem.
+Monorepo containing components and utilities for react-tea-cup.
 
 ## Workspace Packages
 
@@ -61,9 +61,9 @@ To install any of these packages directly from GitHub into a host application, u
 
 ```json
 "dependencies": {
-  "@rinn7e/tea-cup-prelude": "github:rinn7e/tea-cup-package#8b68bcef43e99fa2fc7a97d19556b7aa500e24bf&path:tea-cup-prelude",
-  "@rinn7e/tea-cup-form": "github:rinn7e/tea-cup-package#8b68bcef43e99fa2fc7a97d19556b7aa500e24bf&path:tea-cup-form",
-  "@rinn7e/tea-cup-pagination": "github:rinn7e/tea-cup-package#8b68bcef43e99fa2fc7a97d19556b7aa500e24bf&path:tea-cup-pagination"
+  "@rinn7e/tea-cup-prelude": "github:rinn7e/tea-cup-package#[commit-hash]&path:tea-cup-prelude",
+  "@rinn7e/tea-cup-form": "github:rinn7e/tea-cup-package#[commit-hash]&path:tea-cup-form",
+  "@rinn7e/tea-cup-pagination": "github:rinn7e/tea-cup-package#[commit-hash]&path:tea-cup-pagination"
 }
 ```
 
