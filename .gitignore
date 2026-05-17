@@ -1,0 +1,21 @@
+# Dependency directories
+node_modules/
+
+# Debug and log files
+*.log
+.pnpm-debug.log*
+
+# System files
+.DS_Store
+
+# Editor directories and files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Build/Cache files
+.eslintcache

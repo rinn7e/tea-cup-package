@@ -1,0 +1,19 @@
+/* src/form.css */
+react-datepicker {
+  z-index: 40 !important;
+}
+.react-datepicker__input-container > input {
+  padding: 0.75rem 1rem;
+  outline: none;
+  width: 100%;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.react-datepicker-popper {
+  z-index: 40 !important;
+  left: 25px;
+}
+.react-datepicker-popper[data-placement^=top] .react-datepicker__triangle,
+.react-datepicker-popper[data-placement^=bottom] .react-datepicker__triangle {
+  margin-left: -125px;
+}

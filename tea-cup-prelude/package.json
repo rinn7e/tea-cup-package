@@ -10,13 +10,12 @@
   "scripts": {
     "clean": "rimraf lib",
     "compile": "tsup",
-    "build": "npm run clean && npm run compile",
-    "prepare": "npm run compile",
+    "build": "pnpm run clean && pnpm run compile",
     "typecheck": "tsc --noEmit",
     "check-style": "prettier --check .",
     "fix-style": "prettier --write .",
     "lint": "eslint src",
-    "staged": "npm run fix-style && npm run typecheck && npm run lint"
+    "staged": "pnpm run fix-style && pnpm run typecheck && pnpm run lint"
   },
   "peerDependencies": {
     "@devexperts/remote-data-ts": "^2.1.1",
