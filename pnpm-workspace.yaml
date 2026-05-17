@@ -1,0 +1,6 @@
+packages:
+  - 'tea-cup-prelude'
+  - 'tea-cup-form'
+  - 'tea-cup-pagination'
+allowBuilds:
+  esbuild: true

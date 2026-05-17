@@ -11,13 +11,12 @@
     "check:watch": "tsc --noEmit --watch",
     "clean": "rimraf lib",
     "compile": "tsup",
-    "build": "npm run clean && npm run compile",
-    "prepare": "npm run compile",
+    "build": "pnpm run clean && pnpm run compile",
     "typecheck": "tsc --noEmit",
     "check-style": "prettier --check .",
     "fix-style": "prettier --write .",
     "lint": "eslint src",
-    "staged": "npm run fix-style && npm run typecheck && npm run lint"
+    "staged": "pnpm run fix-style && pnpm run typecheck && pnpm run lint"
   },
   "peerDependencies": {
     "@rinn7e/tea-cup-prelude": "^1.0.0",
@@ -33,7 +32,7 @@
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "@rinn7e/tea-cup-prelude": "github:rinn7e/tea-cup-prelude#096c9d7eec9132cfee035fc27818dba96e48f2e9",
+    "@rinn7e/tea-cup-prelude": "workspace:*",
     "eslint": "^9.29.0",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react-dom": "^1.52.2",

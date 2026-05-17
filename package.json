@@ -3,13 +3,11 @@
   "private": true,
   "version": "1.0.0",
   "description": "Monorepo for tea-cup libraries",
-  "workspaces": [
-    "tea-cup-prelude",
-    "tea-cup-form",
-    "tea-cup-pagination"
-  ],
   "scripts": {
-    "build": "npm run build --workspaces",
-    "prepare": "npm run build"
+    "build": "pnpm --filter \"*\" build",
+    "typecheck": "pnpm --filter \"*\" typecheck",
+    "lint": "pnpm --filter \"*\" lint",
+    "fix-style": "pnpm --filter \"*\" fix-style",
+    "check-style": "pnpm --filter \"*\" check-style"
   }
 }
