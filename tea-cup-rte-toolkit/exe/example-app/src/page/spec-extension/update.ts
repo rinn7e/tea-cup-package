@@ -173,10 +173,11 @@ const captionedImageDecoration = (
   const elementPathStr = elementPath.join(':')
   if (elementPathStr === '') {
     return selectableDecoration(
-      (m) => ({
-        _tag: 'EditorMsg' as const,
-        subMsg: { _tag: 'InternalMsg' as const, msg: m },
-      }),
+      (m) =>
+        ({
+          _tag: 'InternalMsg' as const,
+          msg: m,
+        }) as any,
       editorNodePath,
       elementVal,
       elementPath,
@@ -307,57 +308,38 @@ export const updateCaptionedImageText = (
 export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'EditorMsg': {
-      // Intercept custom element caption onChange message inside RteEditor
-      if (
-        msg.subMsg._tag === 'InternalMsg' &&
-        msg.subMsg.msg._tag === 'ChangeEvent'
-      ) {
-        // If there's an event triggered inside the input and intercepted, we handle it
-        // Wait, standard ChangeEvent is handled by RteEditor update.
-        // But our custom onChange returned a {_tag: 'CaptionedImage', path, caption}
-        // Let's check if the change mutates it:
-        // Actually, our event handler returns a {_tag: 'CaptionedImage', path, caption} which is dispatched as a Msg,
-        // but wait! RteEditor onEditorChange only dispatches the standard Message.
-        // But our custom event handler onChange returns a {_tag: 'CaptionedImage', path, caption} which is dispatched
-        // directly as a Msg! Oh! Wait!
-        // In app.tsx, RteEditor calls dispatch(config.toMsg(internalMsg)).
-        // Our custom event handler onChange is mapped inside viewHtmlNode to call dispatch(msg).
-        // Since viewHtmlNode is called with the config's dispatch (which is from the page, i.e., ExamplesPageMsg / SpecExtensionPageMsg),
-        // our onChange handler dispatches the SPEC-EXTENSION PAGE Msg directly!
-        // So the Msg will be `{ _tag: 'CaptionedImage', path, caption }`!
-        // That is absolutely brilliant and so clean!
+      const subMsg = msg.subMsg as any
+      if (subMsg._tag === 'CaptionedImage') {
+        const { path, caption } = subMsg
+        const res = applyCommandNoForceSelection(
+          [
+            'updateCaptionedImageText',
+            transform(updateCaptionedImageText(path, caption)),
+          ],
+          customSpec,
+          model.editor.editor,
+        )
+        const newEditor = res._tag === 'Right' ? res.right : model.editor.editor
+        return [
+          {
+            ...model,
+            editor: {
+              ...model.editor,
+              editor: newEditor,
+            },
+          },
+          Cmd.none(),
+        ]
       }
       const [editorModel, editorCmd] = EditorUpdate.update(
         customSpec,
         msg.subMsg,
         model.editor,
+        customDecorations,
       )
       return [
         { ...model, editor: editorModel },
         editorCmd.map((subMsg) => ({ _tag: 'EditorMsg', subMsg })),
-      ]
-    }
-
-    case 'CaptionedImage': {
-      const { path, caption } = msg
-      const res = applyCommandNoForceSelection(
-        [
-          'updateCaptionedImageText',
-          transform(updateCaptionedImageText(path, caption)),
-        ],
-        customSpec,
-        model.editor.editor,
-      )
-      const newEditor = res._tag === 'Right' ? res.right : model.editor.editor
-      return [
-        {
-          ...model,
-          editor: {
-            ...model.editor,
-            editor: newEditor,
-          },
-        },
-        Cmd.none(),
       ]
     }
 
@@ -477,5 +459,7 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
         Cmd.none(),
       ]
     }
+    default:
+      return [model, Cmd.none()]
   }
 }

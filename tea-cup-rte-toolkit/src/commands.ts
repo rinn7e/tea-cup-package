@@ -20,8 +20,9 @@ import {
   shift,
   short,
 } from './config/keys'
-import { Element } from './model/element'
+import { Element, element } from './model/element'
 import * as InlineElement from './model/inline-element'
+import { hardBreak } from './definitions'
 import {
   Add,
   Mark,
@@ -42,6 +43,7 @@ import {
   decrement,
   increment,
   inlineChildren,
+  inlineElement,
   marks,
   parent,
   toBlockArray,
@@ -108,6 +110,11 @@ cmdMap = set(
     ['liftEmpty', { _tag: 'TransformCommand', transform: liftEmpty }],
     ['splitTextBlock', { _tag: 'TransformCommand', transform: splitTextBlock }],
   ],
+  cmdMap,
+)
+cmdMap = set(
+  [inputEvent('insertLineBreak'), key([shift, enter]), key([shift, returnKey])],
+  [['insertLineBreak', { _tag: 'TransformCommand', transform: insertLineBreak }]],
   cmdMap,
 )
 cmdMap = set(
@@ -1314,6 +1321,10 @@ export function splitBlockHeaderToNewParagraph(
 
     return right(splitEditorState)
   }
+}
+
+export function insertLineBreak(editorState: State): Either<string, State> {
+  return insertInline(inlineElement(element(hardBreak, []), []))(editorState)
 }
 
 export function insertInline(inlineNode: Inline): Transform {
