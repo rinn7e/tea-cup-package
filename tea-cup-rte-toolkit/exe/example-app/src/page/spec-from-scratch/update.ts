@@ -266,6 +266,26 @@ export const updateTodoListItem = (path: Path, value: boolean): Transform => {
 export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'EditorMsg': {
+      const subMsg = msg.subMsg as any
+      if (subMsg._tag === 'ToggleCheckedTodoItem') {
+        const { path, checked } = subMsg
+        const res = applyCommand(
+          ['updateTodoListItem', transform(updateTodoListItem(path, checked))],
+          todoSpec,
+          model.editor.editor,
+        )
+        const newEditor = res._tag === 'Right' ? res.right : model.editor.editor
+        return [
+          {
+            ...model,
+            editor: {
+              ...model.editor,
+              editor: newEditor,
+            },
+          },
+          Cmd.none(),
+        ]
+      }
       const [editorModel, editorCmd] = EditorUpdate.update(
         todoSpec,
         msg.subMsg,
@@ -277,25 +297,7 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
         editorCmd.map((subMsg) => ({ _tag: 'EditorMsg', subMsg })),
       ]
     }
-
-    case 'ToggleCheckedTodoItem': {
-      const { path, checked } = msg
-      const res = applyCommand(
-        ['updateTodoListItem', transform(updateTodoListItem(path, checked))],
-        todoSpec,
-        model.editor.editor,
-      )
-      const newEditor = res._tag === 'Right' ? res.right : model.editor.editor
-      return [
-        {
-          ...model,
-          editor: {
-            ...model.editor,
-            editor: newEditor,
-          },
-        },
-        Cmd.none(),
-      ]
-    }
+    default:
+      return [model, Cmd.none()]
   }
 }

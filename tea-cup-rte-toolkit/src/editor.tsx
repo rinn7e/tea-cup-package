@@ -620,6 +620,7 @@ function viewHtmlNode<Msg>(
 
   const reactProps: {
     className?: string
+    contentEditable?: unknown
     onClick?: (e: React.MouseEvent) => void
     [key: string]: unknown
   } = {}
@@ -627,6 +628,9 @@ function viewHtmlNode<Msg>(
   for (const [key, value] of node.attributes) {
     if (key === 'class') {
       reactProps.className = value
+    } else if (key === 'contenteditable') {
+      reactProps.contentEditable =
+        value === 'false' ? false : value === 'true' ? true : value
     } else {
       reactProps[key] = value
     }
