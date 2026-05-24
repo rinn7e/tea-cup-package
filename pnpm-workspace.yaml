@@ -2,5 +2,6 @@ packages:
   - 'tea-cup-prelude'
   - 'tea-cup-form'
   - 'tea-cup-pagination'
+  - 'tea-cup-intersection-observer'
 allowBuilds:
   esbuild: true
