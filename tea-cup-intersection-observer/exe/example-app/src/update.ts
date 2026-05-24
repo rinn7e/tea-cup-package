@@ -1,5 +1,5 @@
-import { Cmd } from 'tea-cup-fp'
 import { msgCmd } from '@rinn7e/tea-cup-prelude'
+import { Cmd } from 'tea-cup-fp'
 
 import { type Model, type Msg } from './type'
 
@@ -35,7 +35,10 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
 
     case 'TopReached':
       console.log('🍵 Top reached!')
-      return [{ ...model, topReachedCount: model.topReachedCount + 1 }, Cmd.none()]
+      return [
+        { ...model, topReachedCount: model.topReachedCount + 1 },
+        Cmd.none(),
+      ]
 
     case 'BottomReached':
       console.log('🍵 Bottom reached!')

@@ -1,5 +1,6 @@
-import { Sub } from 'tea-cup-fp'
 import * as TeaObserver from '@rinn7e/tea-cup-intersection-observer'
+import { Sub } from 'tea-cup-fp'
+
 import { type Model, type Msg } from './type'
 
 export const subscriptions = (model: Model): Sub<Msg> => {
