@@ -1,79 +1,79 @@
-import * as React from 'react';
-import { Option, none, some } from 'fp-ts/lib/Option';
-import * as O from 'fp-ts/lib/Option';
-import { Either, left, right } from 'fp-ts/lib/Either';
-import { pipe } from 'fp-ts/lib/function';
+import { Either } from 'fp-ts/lib/Either'
+import { Option, none, some } from 'fp-ts/lib/Option'
+import * as O from 'fp-ts/lib/Option'
+import { pipe } from 'fp-ts/lib/function'
+import * as React from 'react'
 
-import type { Spec } from './config/spec';
-import type { CommandMap, NamedCommand, NamedCommandList } from './config/command';
+import { annotateSelection } from './annotation'
+import { removeRange } from './commands'
+import type { CommandMap } from './config/command'
+import { transform } from './config/command'
 import {
-  topLevelAttributes,
   elementDecorations,
   markDecorations,
-} from './config/decorations';
-import type {
-  Decorations,
-  Attribute,
-} from './config/decorations';
-import type { Message } from './internal/message';
-import * as BeforeInput from './internal/before-input';
-import * as KeyDown from './internal/key-down';
-import * as Paste from './internal/paste';
-import * as DomNodeInternal from './internal/dom-node';
-import * as TextMod from './model/text';
-import * as NodeMod from './model/node';
-import type { EditorChange } from './internal/event';
-import * as InternalEditor from './internal/editor';
-import type { Editor } from './internal/editor';
-import { state, applyCommand, areSelectionsEqual } from './internal/editor';
-import type { State } from './model/state';
+  topLevelAttributes,
+} from './config/decorations'
+import type { Attribute, Decorations } from './config/decorations'
+import * as ElementDefinition from './config/element-definition'
+import * as MarkDefinition from './config/mark-definition'
+import type { Spec } from './config/spec'
+import * as BeforeInput from './internal/before-input'
+import { preventDefaultOnBeforeInputDecoder } from './internal/before-input'
+import * as DomNodeInternal from './internal/dom-node'
+import type { DomNode } from './internal/dom-node'
+import * as InternalEditor from './internal/editor'
+import type { Editor } from './internal/editor'
+import { applyCommand, areSelectionsEqual, state } from './internal/editor'
+import type { EditorChange } from './internal/event'
+import type { KeyboardEvent } from './internal/event'
 import {
-  withRoot,
-  withSelection,
-  selection as stateSelection,
-  root as stateRoot,
-} from './model/state';
-import type { History } from './model/history';
-import type { SelectionObject } from './web-component';
-import type { Selection } from './model/selection';
+  childNodesPlaceholder,
+  isChildNodesPlaceholder,
+} from './internal/html-node'
+import * as KeyDown from './internal/key-down'
+import { preventDefaultOn as preventDefaultOnKeyDown } from './internal/key-down'
+import type { Message } from './internal/message'
+import * as Paste from './internal/paste'
+import { domToEditor, editorToDom } from './internal/selection'
 import {
-  range,
-  anchorOffset,
-  anchorNode,
-  focusOffset,
-  focusNode,
-  isCollapsed,
-} from './model/selection';
-import type { Block, Inline, Path, InlineTree } from './model/node';
+  elementDefinitionWithDefault,
+  markDefinitionWithDefault,
+} from './internal/spec'
+import type { Element } from './model/element'
+import type { HtmlNode } from './model/html-node'
+import type { Mark } from './model/mark'
+import * as NodeMod from './model/node'
+import type { Block, Inline, InlineTree, Path } from './model/node'
 import {
+  blockChildren,
   childNodes,
+  toString as pathToString,
   toBlockArray,
   toInlineArray,
   toInlineTree,
-  toString as pathToString,
   withChildNodes,
-  blockChildren,
-} from './model/node';
-import { isChildNodesPlaceholder, childNodesPlaceholder } from './internal/html-node';
-import { elementDefinitionWithDefault, markDefinitionWithDefault } from './internal/spec';
-import * as ElementDefinition from './config/element-definition';
-import * as MarkDefinition from './config/mark-definition';
-import { nodeAt } from './node';
-import { annotateSelection } from './annotation';
-import { domToEditor, editorToDom } from './internal/selection';
-import { preventDefaultOnBeforeInputDecoder } from './internal/before-input';
-import { preventDefaultOn as preventDefaultOnKeyDown } from './internal/key-down';
-import type { HtmlNode } from './model/html-node';
-import type { Mark } from './model/mark';
-import type { Element } from './model/element';
-import type { KeyboardEvent, InputEvent } from './internal/event';
-import type { DomNode } from './internal/dom-node';
-import { domElementNodeType, domTextNodeType } from './internal/dom-node';
-import { removeRange } from './commands';
-import { transform } from './config/command';
-
+} from './model/node'
+import type { Selection } from './model/selection'
+import {
+  anchorNode,
+  anchorOffset,
+  focusNode,
+  focusOffset,
+  isCollapsed,
+  range,
+} from './model/selection'
+import type { State } from './model/state'
+import {
+  root as stateRoot,
+  selection as stateSelection,
+  withRoot,
+  withSelection,
+} from './model/state'
+import * as TextMod from './model/text'
+import { nodeAt } from './node'
+import type { SelectionObject } from './web-component'
 // Import web components to make sure they are registered
-import './web-component';
+import './web-component'
 
 /**
  * This type represents your Editor configuration, e.g. the non-comparable things that define
@@ -81,10 +81,10 @@ import './web-component';
  * bindings, decorative functions, and tagger function.
  */
 export interface Config<Msg> {
-  readonly decorations: Decorations<Msg>;
-  readonly spec: Spec;
-  readonly commandMap: CommandMap;
-  readonly toMsg: (msg: Message) => Msg;
+  readonly decorations: Decorations<Msg>
+  readonly spec: Spec
+  readonly commandMap: CommandMap
+  readonly toMsg: (msg: Message) => Msg
 }
 
 /**
@@ -108,33 +108,33 @@ export interface Config<Msg> {
  *
  */
 export function config<Msg>(cfg: {
-  decorations: Decorations<Msg>;
-  spec: Spec;
-  commandMap: CommandMap;
-  toMsg: (msg: Message) => Msg;
+  decorations: Decorations<Msg>
+  spec: Spec
+  commandMap: CommandMap
+  toMsg: (msg: Message) => Msg
 }): Config<Msg> {
-  return cfg;
+  return cfg
 }
 
 /**
  * The decorations from the config object.
  */
 export function decorations<Msg>(cfg: Config<Msg>): Decorations<Msg> {
-  return cfg.decorations;
+  return cfg.decorations
 }
 
 /**
  * The spec from the config object.
  */
 export function spec<Msg>(cfg: Config<Msg>): Spec {
-  return cfg.spec;
+  return cfg.spec
 }
 
 /**
  * The commandMap from the config object.
  */
 export function commandMap<Msg>(cfg: Config<Msg>): CommandMap {
-  return cfg.commandMap;
+  return cfg.commandMap
 }
 
 function updateSelection(
@@ -143,29 +143,36 @@ function updateSelection(
   spec_: Spec,
   editor_: Editor,
 ): Editor {
-  const editorState = state(editor_);
+  const editorState = state(editor_)
   if (maybeSelection._tag === 'None') {
     if (stateSelection(editorState)._tag === 'None') {
-      return editor_;
+      return editor_
     }
-    return InternalEditor.withState(withSelection(O.none, editorState), editor_);
+    return InternalEditor.withState(withSelection(O.none, editorState), editor_)
   }
 
-  const selection = maybeSelection.value;
+  const selection = maybeSelection.value
   const translatedSelection = isDomPath
     ? domToEditor(spec_, stateRoot(editorState), selection)
-    : O.some(selection);
+    : O.some(selection)
 
-  const currentSelection = stateSelection(editorState);
+  const currentSelection = stateSelection(editorState)
   if (areSelectionsEqual(currentSelection, translatedSelection)) {
-    return editor_;
+    return editor_
   }
 
   if (InternalEditor.isComposing(editor_)) {
-    const buffered = O.toNullable(InternalEditor.bufferedEditorState(editor_)) || editorState;
-    return InternalEditor.withBufferedEditorState(O.some(withSelection(translatedSelection, buffered)), editor_);
+    const buffered =
+      O.toNullable(InternalEditor.bufferedEditorState(editor_)) || editorState
+    return InternalEditor.withBufferedEditorState(
+      O.some(withSelection(translatedSelection, buffered)),
+      editor_,
+    )
   } else {
-    return InternalEditor.withState(withSelection(translatedSelection, editorState), editor_);
+    return InternalEditor.withState(
+      withSelection(translatedSelection, editorState),
+      editor_,
+    )
   }
 }
 
@@ -180,50 +187,59 @@ function updateSelection(
  *                 ( { model | editor = RichText.Editor.update config editorMsg model.editor }, Cmd.none )
  *
  */
-export function update<Msg>(cfg: Config<Msg>, msg: Message, editor_: Editor): Editor {
-  const spec_ = cfg.spec;
-  const commandMap_ = cfg.commandMap;
+export function update<Msg>(
+  cfg: Config<Msg>,
+  msg: Message,
+  editor_: Editor,
+): Editor {
+  const spec_ = cfg.spec
+  const commandMap_ = cfg.commandMap
 
   switch (msg._tag) {
     case 'ChangeEvent':
-      return updateChangeEvent(msg.change, spec_, editor_);
+      return updateChangeEvent(msg.change, spec_, editor_)
 
     case 'SelectionEvent':
-      return updateSelection(msg.selection, msg.force, spec_, editor_);
+      return updateSelection(msg.selection, msg.force, spec_, editor_)
 
     case 'BeforeInputEvent': {
-      return BeforeInput.handleBeforeInput(msg.event, commandMap_, spec_, editor_);
+      return BeforeInput.handleBeforeInput(
+        msg.event,
+        commandMap_,
+        spec_,
+        editor_,
+      )
     }
 
     case 'CompositionStart':
-      return InternalEditor.withComposing(true, editor_);
+      return InternalEditor.withComposing(true, editor_)
 
     case 'CompositionEnd':
-      return handleCompositionEnd(editor_);
+      return handleCompositionEnd(editor_)
 
     case 'KeyDownEvent': {
-      return KeyDown.handleKeyDown(msg.event, commandMap_, spec_, editor_);
+      return KeyDown.handleKeyDown(msg.event, commandMap_, spec_, editor_)
     }
 
     case 'PasteWithDataEvent': {
-      return Paste.handlePaste(msg.event, spec_, editor_);
+      return Paste.handlePaste(msg.event, spec_, editor_)
     }
 
     case 'CutEvent':
-      return handleCut(spec_, editor_);
+      return handleCut(spec_, editor_)
 
     case 'Init':
-      return InternalEditor.withShortKey(msg.event.shortKey, editor_);
+      return InternalEditor.withShortKey(msg.event.shortKey, editor_)
   }
 }
 
 function handleCut(spec_: Spec, editor_: Editor): Editor {
-  const cmd = transform(removeRange);
-  const res = applyCommand(['removeRangeSelection', cmd], spec_, editor_);
+  const cmd = transform(removeRange)
+  const res = applyCommand(['removeRangeSelection', cmd], spec_, editor_)
   if (res._tag === 'Right') {
-    return InternalEditor.forceRerender(res.right);
+    return InternalEditor.forceRerender(res.right)
   }
-  return editor_;
+  return editor_
 }
 
 function textChangesDomToEditor(
@@ -231,15 +247,15 @@ function textChangesDomToEditor(
   editorNode: Block,
   changes: Array<[Path, string]>,
 ): Option<Array<[Path, string]>> {
-  const result: Array<[Path, string]> = [];
+  const result: Array<[Path, string]> = []
   for (const [p, text] of changes) {
-    const translatedPath = domToEditor(spec_, editorNode, range(p, 0, p, 0));
+    const translatedPath = domToEditor(spec_, editorNode, range(p, 0, p, 0))
     if (translatedPath._tag === 'None') {
-      return none;
+      return none
     }
-    result.push([anchorNode(translatedPath.value), text]);
+    result.push([anchorNode(translatedPath.value), text])
   }
-  return some(result);
+  return some(result)
 }
 
 function deriveTextChanges(
@@ -249,34 +265,39 @@ function deriveTextChanges(
 ): Either<string, Array<[Path, string]>> {
   const htmlNode = ElementDefinition.toHtmlNode(
     elementDefinitionWithDefault(editorNode.contents.parameters, spec_),
-  )(
-    editorNode.contents.parameters,
-    childNodesPlaceholder,
-  );
-  return DomNodeInternal.findTextChanges(htmlNode, domNode);
+  )(editorNode.contents.parameters, childNodesPlaceholder)
+  return DomNodeInternal.findTextChanges(htmlNode, domNode)
 }
 
 function applyForceFunctionOnEditor(
   rerenderFunc: (e: Editor) => Editor,
   editor_: Editor,
 ): Editor {
-  const bufferedOpt = InternalEditor.bufferedEditorState(editor_);
+  const bufferedOpt = InternalEditor.bufferedEditorState(editor_)
   if (bufferedOpt._tag === 'None') {
-    return rerenderFunc(editor_);
+    return rerenderFunc(editor_)
   }
-  const buffered = bufferedOpt.value;
-  const newEditor = InternalEditor.updateEditorState('buffered', buffered, editor_);
+  const buffered = bufferedOpt.value
+  const newEditor = InternalEditor.updateEditorState(
+    'buffered',
+    buffered,
+    editor_,
+  )
   return rerenderFunc(
     InternalEditor.withComposing(
       false,
       InternalEditor.withBufferedEditorState(none, newEditor),
     ),
-  );
+  )
 }
 
-function updateChangeEvent(change: EditorChange, spec_: Spec, editor_: Editor): Editor {
+function updateChangeEvent(
+  change: EditorChange,
+  spec_: Spec,
+  editor_: Editor,
+): Editor {
   if (change.characterDataMutations._tag === 'None') {
-    const domRoot: DomNode = change.root;
+    const domRoot: DomNode = change.root
     return updateChangeEventFullScan(
       change.timestamp,
       change.isComposing,
@@ -284,7 +305,7 @@ function updateChangeEvent(change: EditorChange, spec_: Spec, editor_: Editor): 
       change.selection,
       spec_,
       editor_,
-    );
+    )
   } else {
     return updateChangeEventTextChanges(
       change.timestamp,
@@ -293,29 +314,31 @@ function updateChangeEvent(change: EditorChange, spec_: Spec, editor_: Editor): 
       change.selection,
       spec_,
       editor_,
-    );
+    )
   }
 }
 
-function sanitizeMutations(changes: Array<[Path, string]>): Array<[Path, string]> {
+function sanitizeMutations(
+  changes: Array<[Path, string]>,
+): Array<[Path, string]> {
   return changes.map(([p, t]) => {
     if (t === '\u200B') {
-      return [p, ''];
+      return [p, '']
     }
-    return [p, t];
-  });
+    return [p, t]
+  })
 }
 
 function differentText(root: Block, [path, t]: [Path, string]): boolean {
-  const nodeOpt = nodeAt(path, { _tag: 'Block', value: root });
+  const nodeOpt = nodeAt(path, { _tag: 'Block', value: root })
   if (nodeOpt._tag === 'None') {
-    return true;
+    return true
   }
-  const node = nodeOpt.value;
+  const node = nodeOpt.value
   if (node._tag === 'Inline' && node.value._tag === 'Text') {
-    return node.value.text.contents.text !== t;
+    return node.value.text.contents.text !== t
   }
-  return true;
+  return true
 }
 
 function updateChangeEventTextChanges(
@@ -326,46 +349,59 @@ function updateChangeEventTextChanges(
   spec_: Spec,
   editor_: Editor,
 ): Editor {
-  const editorComposing = composing || InternalEditor.isComposing(editor_);
+  const editorComposing = composing || InternalEditor.isComposing(editor_)
   const stateToCompare = editorComposing
-    ? O.toNullable(InternalEditor.bufferedEditorState(editor_)) || state(editor_)
-    : state(editor_);
+    ? O.toNullable(InternalEditor.bufferedEditorState(editor_)) ||
+      state(editor_)
+    : state(editor_)
 
-  const changesOpt = textChangesDomToEditor(spec_, stateRoot(stateToCompare), textChanges);
+  const changesOpt = textChangesDomToEditor(
+    spec_,
+    stateRoot(stateToCompare),
+    textChanges,
+  )
   if (changesOpt._tag === 'None') {
-    return applyForceFunctionOnEditor(InternalEditor.forceRerender, editor_);
+    return applyForceFunctionOnEditor(InternalEditor.forceRerender, editor_)
   }
 
-  const changes = changesOpt.value;
-  const editorState = state(editor_);
-  const actualChanges = changes.filter((c) => differentText(stateRoot(stateToCompare), c));
+  const changes = changesOpt.value
+  const editorState = state(editor_)
+  const actualChanges = changes.filter((c) =>
+    differentText(stateRoot(stateToCompare), c),
+  )
 
   if (actualChanges.length === 0) {
-    return editor_;
+    return editor_
   }
 
-  const replaced = replaceText(stateRoot(editorState), actualChanges);
+  const replaced = replaceText(stateRoot(editorState), actualChanges)
   if (replaced._tag === 'None') {
-    return applyForceFunctionOnEditor(InternalEditor.forceRerender, editor_);
+    return applyForceFunctionOnEditor(InternalEditor.forceRerender, editor_)
   }
 
-  const replacedEditorNodes = replaced.value;
+  const replacedEditorNodes = replaced.value
   const domSel = pipe(
     selection,
     O.chain((sel) => domToEditor(spec_, stateRoot(editorState), sel)),
-  );
-  const newEditorState = withRoot(replacedEditorNodes, withSelection(domSel, editorState));
+  )
+  const newEditorState = withRoot(
+    replacedEditorNodes,
+    withSelection(domSel, editorState),
+  )
 
   if (editorComposing) {
-    return InternalEditor.withBufferedEditorState(some(newEditorState), editor_);
+    return InternalEditor.withBufferedEditorState(some(newEditorState), editor_)
   } else {
     const newEditor = InternalEditor.updateEditorStateWithTimestamp(
       some(timestamp),
       'textChange',
       newEditorState,
       editor_,
-    );
-    return applyForceFunctionOnEditor(InternalEditor.forceReselection, newEditor);
+    )
+    return applyForceFunctionOnEditor(
+      InternalEditor.forceReselection,
+      newEditor,
+    )
   }
 }
 
@@ -377,19 +413,30 @@ function updateChangeEventFullScan(
   spec_: Spec,
   editor_: Editor,
 ): Editor {
-  const editorRootDomNodeOpt = DomNodeInternal.extractRootEditorBlockNode(domRoot);
+  const editorRootDomNodeOpt =
+    DomNodeInternal.extractRootEditorBlockNode(domRoot)
   if (editorRootDomNodeOpt._tag === 'None') {
-    return applyForceFunctionOnEditor(InternalEditor.forceCompleteRerender, editor_);
+    return applyForceFunctionOnEditor(
+      InternalEditor.forceCompleteRerender,
+      editor_,
+    )
   }
 
-  const editorRootDomNode = editorRootDomNodeOpt.value;
+  const editorRootDomNode = editorRootDomNodeOpt.value
   if (needCompleteRerender(domRoot)) {
-    return applyForceFunctionOnEditor(InternalEditor.forceCompleteRerender, editor_);
+    return applyForceFunctionOnEditor(
+      InternalEditor.forceCompleteRerender,
+      editor_,
+    )
   }
 
-  const derived = deriveTextChanges(spec_, stateRoot(state(editor_)), editorRootDomNode);
+  const derived = deriveTextChanges(
+    spec_,
+    stateRoot(state(editor_)),
+    editorRootDomNode,
+  )
   if (derived._tag === 'Left') {
-    return applyForceFunctionOnEditor(InternalEditor.forceRerender, editor_);
+    return applyForceFunctionOnEditor(InternalEditor.forceRerender, editor_)
   }
 
   return updateChangeEventTextChanges(
@@ -399,59 +446,70 @@ function updateChangeEventFullScan(
     selection,
     spec_,
     editor_,
-  );
+  )
 }
 
 function needCompleteRerender(root: DomNode): boolean {
-  const cnodes = root.childNodes || [];
-  return cnodes.length !== 1;
+  const cnodes = root.childNodes || []
+  return cnodes.length !== 1
 }
 
-function replaceText(editorNode: Block, changes: Array<[Path, string]>): Option<Block> {
-  let current: Block = editorNode;
+function replaceText(
+  editorNode: Block,
+  changes: Array<[Path, string]>,
+): Option<Block> {
+  let current: Block = editorNode
   for (const change of changes) {
-    const nextOpt = applyTextChange(current, change);
+    const nextOpt = applyTextChange(current, change)
     if (nextOpt._tag === 'None') {
-      return none;
+      return none
     }
-    current = nextOpt.value;
+    current = nextOpt.value
   }
-  return some(current);
+  return some(current)
 }
 
-function applyTextChange(editorNode: Block, [path, text]: [Path, string]): Option<Block> {
+function applyTextChange(
+  editorNode: Block,
+  [path, text]: [Path, string],
+): Option<Block> {
   if (path.length === 0) {
-    return none;
+    return none
   }
-  const x = path[0];
-  const xs = path.slice(1);
-  const c = childNodes(editorNode);
+  const x = path[0]
+  const xs = path.slice(1)
+  const c = childNodes(editorNode)
 
   if (c._tag === 'BlockChildren') {
-    const array = toBlockArray(c.blockChildren);
-    const cblock = array[x];
-    if (!cblock) return none;
-    const textChangeNodeOpt = applyTextChange(cblock, [xs, text]);
-    if (textChangeNodeOpt._tag === 'None') return none;
-    const newArray = [...array];
-    newArray[x] = textChangeNodeOpt.value;
-    return some(withChildNodes(blockChildren(newArray), editorNode));
+    const array = toBlockArray(c.blockChildren)
+    const cblock = array[x]
+    if (!cblock) return none
+    const textChangeNodeOpt = applyTextChange(cblock, [xs, text])
+    if (textChangeNodeOpt._tag === 'None') return none
+    const newArray = [...array]
+    newArray[x] = textChangeNodeOpt.value
+    return some(withChildNodes(blockChildren(newArray), editorNode))
   } else if (c._tag === 'InlineChildren') {
-    if (xs.length > 0) return none;
-    const array = toInlineArray(c.inlineChildren);
-    const inlineNode = array[x];
-    if (!inlineNode) return none;
+    if (xs.length > 0) return none
+    const array = toInlineArray(c.inlineChildren)
+    const inlineNode = array[x]
+    if (!inlineNode) return none
     if (inlineNode._tag === 'Text') {
-      const newArray = [...array];
+      const newArray = [...array]
       newArray[x] = {
         _tag: 'Text',
         text: TextMod.withText(text.replace(/\u200B/g, ''), inlineNode.text),
-      };
-      return some(NodeMod.block(editorNode.contents.parameters, NodeMod.inlineChildren(newArray)));
+      }
+      return some(
+        NodeMod.block(
+          editorNode.contents.parameters,
+          NodeMod.inlineChildren(newArray),
+        ),
+      )
     }
-    return none;
+    return none
   }
-  return none;
+  return none
 }
 
 function selectionAttribute(
@@ -460,9 +518,9 @@ function selectionAttribute(
   selectionCount: number,
 ): string {
   if (maybeSelection._tag === 'None') {
-    return `render-count=${renderCount}`;
+    return `render-count=${renderCount}`
   }
-  const selection = maybeSelection.value;
+  const selection = maybeSelection.value
   return [
     `anchor-offset=${anchorOffset(selection)}`,
     `anchor-node=${pathToString(anchorNode(selection))}`,
@@ -470,64 +528,70 @@ function selectionAttribute(
     `focus-node=${focusToString(selection)}`,
     `render-count=${renderCount}`,
     `selection-count=${selectionCount}`,
-  ].join(',');
+  ].join(',')
 }
 
 function focusToString(sel: Selection): string {
-  return pathToString(focusNode(sel));
+  return pathToString(focusNode(sel))
 }
 
 function handleCompositionEnd(editor_: Editor): Editor {
-  const buffered = InternalEditor.bufferedEditorState(editor_);
+  const buffered = InternalEditor.bufferedEditorState(editor_)
   if (buffered._tag === 'None') {
-    return InternalEditor.withComposing(false, editor_);
+    return InternalEditor.withComposing(false, editor_)
   }
-  return applyForceFunctionOnEditor(InternalEditor.forceReselection, editor_);
+  return applyForceFunctionOnEditor(InternalEditor.forceReselection, editor_)
 }
 
 function shouldHideCaret(editorState: State): boolean {
-  const selectionOpt = stateSelection(editorState);
+  const selectionOpt = stateSelection(editorState)
   if (selectionOpt._tag === 'None') {
-    return true;
+    return true
   }
-  const selection = selectionOpt.value;
+  const selection = selectionOpt.value
   if (!isCollapsed(selection)) {
-    return false;
+    return false
   }
-  const nodeOpt = nodeAt(anchorNode(selection), { _tag: 'Block', value: stateRoot(editorState) });
+  const nodeOpt = nodeAt(anchorNode(selection), {
+    _tag: 'Block',
+    value: stateRoot(editorState),
+  })
   if (nodeOpt._tag === 'None') {
-    return false;
+    return false
   }
-  const node = nodeOpt.value;
+  const node = nodeOpt.value
   if (node._tag === 'Block') {
-    return true;
+    return true
   }
   if (node._tag === 'Inline') {
     if (node.value._tag === 'InlineElement') {
-      return true;
+      return true
     }
   }
-  return false;
+  return false
 }
 
 function markCaretSelectionOnEditorNodes(editorState: State): Block {
-  const selectionOpt = stateSelection(editorState);
+  const selectionOpt = stateSelection(editorState)
   if (selectionOpt._tag === 'None') {
-    return stateRoot(editorState);
+    return stateRoot(editorState)
   }
-  const selection = selectionOpt.value;
+  const selection = selectionOpt.value
   if (isCollapsed(selection)) {
-    return annotateSelection(selection, stateRoot(editorState));
+    return annotateSelection(selection, stateRoot(editorState))
   }
-  return stateRoot(editorState);
+  return stateRoot(editorState)
 }
 
-export function editorToDomSelection(spec_: Spec, editor_: Editor): Option<Selection> {
-  const selectionOpt = stateSelection(state(editor_));
+export function editorToDomSelection(
+  spec_: Spec,
+  editor_: Editor,
+): Option<Selection> {
+  const selectionOpt = stateSelection(state(editor_))
   if (selectionOpt._tag === 'None') {
-    return none;
+    return none
   }
-  return editorToDom(spec_, stateRoot(state(editor_)), selectionOpt.value);
+  return editorToDom(spec_, stateRoot(state(editor_)), selectionOpt.value)
 }
 
 function viewHtmlNode<Msg>(
@@ -538,61 +602,69 @@ function viewHtmlNode<Msg>(
   dispatch: (msg: Msg) => void,
 ): React.ReactNode {
   if (node._tag === 'TextNode') {
-    return node.text;
+    return node.text
   }
 
-  const isPlaceholder = isChildNodesPlaceholder(node.children);
+  const isPlaceholder = isChildNodesPlaceholder(node.children)
   const childrenToRender = isPlaceholder
     ? vdomChildren
     : node.children.map((n, i) =>
-        viewHtmlNode(n, decorators, vdomChildren, [i, ...backwardsRelativePath], dispatch),
-      );
+        viewHtmlNode(
+          n,
+          decorators,
+          vdomChildren,
+          [i, ...backwardsRelativePath],
+          dispatch,
+        ),
+      )
 
   const reactProps: {
-    className?: string;
-    onClick?: (e: React.MouseEvent) => void;
-    [key: string]: unknown;
-  } = {};
+    className?: string
+    onClick?: (e: React.MouseEvent) => void
+    [key: string]: unknown
+  } = {}
 
   for (const [key, value] of node.attributes) {
     if (key === 'class') {
-      reactProps.className = value;
+      reactProps.className = value
     } else {
-      reactProps[key] = value;
+      reactProps[key] = value
     }
   }
 
-  const forwardPath = [...backwardsRelativePath].reverse();
+  const forwardPath = [...backwardsRelativePath].reverse()
   for (const dec of decorators) {
-    const attrs = dec(forwardPath);
+    const attrs = dec(forwardPath)
     for (const [key, val] of attrs) {
       if (key === 'className') {
         if (typeof val === 'string') {
-          reactProps.className = reactProps.className ? reactProps.className + ' ' + val : val;
+          reactProps.className = reactProps.className
+            ? reactProps.className + ' ' + val
+            : val
         }
       } else if (key === 'onClick') {
         reactProps.onClick = (e: React.MouseEvent) => {
-          e.preventDefault();
-          e.stopPropagation();
+          e.preventDefault()
+          e.stopPropagation()
           if (typeof val === 'function') {
-            const msg = val();
-            dispatch(msg);
+            const msg = val()
+            dispatch(msg)
           }
-        };
+        }
       } else if (key.startsWith('on') && typeof val === 'function') {
         reactProps[key] = (e: any) => {
-          const msg = (val as any)(e);
+          const msg = (val as any)(e)
           if (msg) {
-            dispatch(msg);
+            dispatch(msg)
           }
-        };
+        }
       } else {
-        reactProps[key] = val;
+        reactProps[key] = val
       }
     }
   }
 
-  return React.createElement(node.name, reactProps, ...childrenToRender);
+  return React.createElement(node.name, reactProps, ...childrenToRender)
 }
 
 function viewMark<Msg>(
@@ -603,15 +675,20 @@ function viewMark<Msg>(
   children: Array<React.ReactNode>,
   dispatch: (msg: Msg) => void,
 ): React.ReactNode {
-  const name = mark.contents.name;
-  const mDecorators = markDecorations(decorations).get(name) || [];
-  const forwardPath = [...backwardsNodePath].reverse();
-  const decorators = mDecorators.map((d) => (path: Path) => d(forwardPath, mark, path));
+  const name = mark.contents.name
+  const mDecorators = markDecorations(decorations).get(name) || []
+  const forwardPath = [...backwardsNodePath].reverse()
+  const decorators = mDecorators.map(
+    (d) => (path: Path) => d(forwardPath, mark, path),
+  )
 
-  const markDef = markDefinitionWithDefault(mark, spec);
-  const htmlNode = MarkDefinition.toHtmlNode(markDef)(mark, childNodesPlaceholder);
+  const markDef = markDefinitionWithDefault(mark, spec)
+  const htmlNode = MarkDefinition.toHtmlNode(markDef)(
+    mark,
+    childNodesPlaceholder,
+  )
 
-  return viewHtmlNode(htmlNode, decorators, children, [], dispatch);
+  return viewHtmlNode(htmlNode, decorators, children, [], dispatch)
 }
 
 function viewElement<Msg>(
@@ -622,15 +699,20 @@ function viewElement<Msg>(
   children: Array<React.ReactNode>,
   dispatch: (msg: Msg) => void,
 ): React.ReactNode {
-  const definition = elementDefinitionWithDefault(elementParameters, spec);
-  const htmlNode = ElementDefinition.toHtmlNode(definition)(elementParameters, childNodesPlaceholder);
+  const definition = elementDefinitionWithDefault(elementParameters, spec)
+  const htmlNode = ElementDefinition.toHtmlNode(definition)(
+    elementParameters,
+    childNodesPlaceholder,
+  )
 
-  const name = elementParameters.contents.name;
-  const eDecorators = elementDecorations(decorations).get(name) || [];
-  const forwardPath = [...backwardsNodePath].reverse();
-  const decorators = eDecorators.map((d) => (path: Path) => d(forwardPath, elementParameters, path));
+  const name = elementParameters.contents.name
+  const eDecorators = elementDecorations(decorations).get(name) || []
+  const forwardPath = [...backwardsNodePath].reverse()
+  const decorators = eDecorators.map(
+    (d) => (path: Path) => d(forwardPath, elementParameters, path),
+  )
 
-  return viewHtmlNode(htmlNode, decorators, children, [], dispatch);
+  return viewHtmlNode(htmlNode, decorators, children, [], dispatch)
 }
 
 function viewInlineLeafTree<Msg>(
@@ -642,9 +724,13 @@ function viewInlineLeafTree<Msg>(
   dispatch: (msg: Msg) => void,
 ): React.ReactNode {
   if (inlineLeafTree._tag === 'LeafNode') {
-    const leaf = inlineLeafArray[inlineLeafTree.value];
+    const leaf = inlineLeafArray[inlineLeafTree.value]
     if (!leaf) {
-      return React.createElement('div', { className: 'rte-error' }, 'Invalid leaf tree.');
+      return React.createElement(
+        'div',
+        { className: 'rte-error' },
+        'Invalid leaf tree.',
+      )
     }
     return viewInlineLeaf(
       spec,
@@ -652,13 +738,27 @@ function viewInlineLeafTree<Msg>(
       [inlineLeafTree.value, ...backwardsPath],
       leaf,
       dispatch,
-    );
+    )
   } else {
-    const n = inlineLeafTree.contents;
+    const n = inlineLeafTree.contents
     const children = n.children.map((c) =>
-      viewInlineLeafTree(spec, decorations, backwardsPath, inlineLeafArray, c, dispatch),
-    );
-    return viewMark(spec, decorations, backwardsPath, n.mark, children, dispatch);
+      viewInlineLeafTree(
+        spec,
+        decorations,
+        backwardsPath,
+        inlineLeafArray,
+        c,
+        dispatch,
+      ),
+    )
+    return viewMark(
+      spec,
+      decorations,
+      backwardsPath,
+      n.mark,
+      children,
+      dispatch,
+    )
   }
 }
 
@@ -669,26 +769,39 @@ function viewEditorBlockNode<Msg>(
   node: Block,
   dispatch: (msg: Msg) => void,
 ): React.ReactNode {
-  const c = childNodes(node);
-  let children: Array<React.ReactNode> = [];
+  const c = childNodes(node)
+  let children: Array<React.ReactNode> = []
   if (c._tag === 'BlockChildren') {
-    const list = toBlockArray(c.blockChildren);
+    const list = toBlockArray(c.blockChildren)
     children = list.map((n, i) =>
-      viewEditorBlockNode(spec, decorations, [i, ...backwardsPath], n, dispatch),
-    );
+      viewEditorBlockNode(
+        spec,
+        decorations,
+        [i, ...backwardsPath],
+        n,
+        dispatch,
+      ),
+    )
   } else if (c._tag === 'InlineChildren') {
-    const list = toInlineArray(c.inlineChildren);
-    const tree = toInlineTree(c.inlineChildren);
+    const list = toInlineArray(c.inlineChildren)
+    const tree = toInlineTree(c.inlineChildren)
     children = tree.map((n) =>
       viewInlineLeafTree(spec, decorations, backwardsPath, list, n, dispatch),
-    );
+    )
   }
 
-  return viewElement(spec, decorations, node.contents.parameters, backwardsPath, children, dispatch);
+  return viewElement(
+    spec,
+    decorations,
+    node.contents.parameters,
+    backwardsPath,
+    children,
+    dispatch,
+  )
 }
 
 function viewText(textVal: string): React.ReactNode {
-  return textVal === '' ? '\u200B' : textVal;
+  return textVal === '' ? '\u200B' : textVal
 }
 
 function viewInlineLeaf<Msg>(
@@ -706,33 +819,33 @@ function viewInlineLeaf<Msg>(
       backwardsPath,
       [],
       dispatch,
-    );
+    )
   } else {
-    return viewText(leaf.text.contents.text);
+    return viewText(leaf.text.contents.text)
   }
 }
 
 interface EditorChangeDetail {
-  root: Node;
-  selection: SelectionObject;
-  characterDataMutations: Array<{ path: Path | null; text: string | null }>;
-  timestamp: number;
-  isComposing: boolean;
+  root: Node
+  selection: SelectionObject
+  characterDataMutations: Array<{ path: Path | null; text: string | null }>
+  timestamp: number
+  isComposing: boolean
 }
 
 interface PasteDetail {
-  text: string;
-  html: string;
+  text: string
+  html: string
 }
 
 interface InitDetail {
-  shortKey: string;
+  shortKey: string
 }
 
 interface EditorComponentProps<Msg> {
-  readonly config: Config<Msg>;
-  readonly editor: Editor;
-  readonly dispatch: (msg: Msg) => void;
+  readonly config: Config<Msg>
+  readonly editor: Editor
+  readonly dispatch: (msg: Msg) => void
 }
 
 export function RteEditor<Msg>({
@@ -740,34 +853,36 @@ export function RteEditor<Msg>({
   editor,
   dispatch,
 }: EditorComponentProps<Msg>): React.ReactElement {
-  const state_ = state(editor);
-  const spec_ = spec(config);
-  const decorations_ = decorations(config);
+  const state_ = state(editor)
+  const spec_ = spec(config)
+  const decorations_ = decorations(config)
 
   const onEditorChange = (e: Event) => {
-    const detail = (e as CustomEvent<EditorChangeDetail>).detail;
-    console.log("RteEditor: onEditorChange", detail);
+    const detail = (e as CustomEvent<EditorChangeDetail>).detail
+    console.log('RteEditor: onEditorChange', detail)
     const changePayload = {
       root: toDomNode(detail.root),
       selection: parseSelection(detail.selection),
-      characterDataMutations: parseCharacterDataMutations(detail.characterDataMutations),
+      characterDataMutations: parseCharacterDataMutations(
+        detail.characterDataMutations,
+      ),
       timestamp: detail.timestamp,
       isComposing: detail.isComposing || false,
-    };
-    dispatch(config.toMsg({ _tag: 'ChangeEvent', change: changePayload }));
-  };
+    }
+    dispatch(config.toMsg({ _tag: 'ChangeEvent', change: changePayload }))
+  }
 
   const onSelectionChange = (e: Event) => {
-    const detail = (e as CustomEvent<SelectionObject>).detail;
-    console.log("RteEditor: onSelectionChange", detail);
-    const domSel = parseSelection(detail);
+    const detail = (e as CustomEvent<SelectionObject>).detail
+    console.log('RteEditor: onSelectionChange', detail)
+    const domSel = parseSelection(detail)
     const editorSel = pipe(
       domSel,
       O.chain((sel) => domToEditor(spec_, stateRoot(state(editor)), sel)),
-    );
-    const currentSel = stateSelection(state(editor));
+    )
+    const currentSel = stateSelection(state(editor))
     if (areSelectionsEqual(currentSel, editorSel)) {
-      return;
+      return
     }
     dispatch(
       config.toMsg({
@@ -775,40 +890,40 @@ export function RteEditor<Msg>({
         selection: domSel,
         force: true,
       }),
-    );
-  };
+    )
+  }
 
   const onCompositionStart = () => {
-    dispatch(config.toMsg({ _tag: 'CompositionStart' }));
-  };
+    dispatch(config.toMsg({ _tag: 'CompositionStart' }))
+  }
 
   const onCompositionEnd = () => {
-    dispatch(config.toMsg({ _tag: 'CompositionEnd' }));
-  };
+    dispatch(config.toMsg({ _tag: 'CompositionEnd' }))
+  }
 
   const onPaste = (e: Event) => {
-    const detail = (e as CustomEvent<PasteDetail>).detail;
+    const detail = (e as CustomEvent<PasteDetail>).detail
     dispatch(
       config.toMsg({
         _tag: 'PasteWithDataEvent',
         event: { text: detail.text, html: detail.html },
       }),
-    );
-  };
+    )
+  }
 
   const onCut = () => {
-    dispatch(config.toMsg({ _tag: 'CutEvent' }));
-  };
+    dispatch(config.toMsg({ _tag: 'CutEvent' }))
+  }
 
   const onInit = (e: Event) => {
-    const detail = (e as CustomEvent<InitDetail>).detail;
+    const detail = (e as CustomEvent<InitDetail>).detail
     dispatch(
       config.toMsg({
         _tag: 'Init',
         event: { shortKey: detail.shortKey },
       }),
-    );
-  };
+    )
+  }
 
   const handleBeforeInput = (e: React.FormEvent<HTMLDivElement>) => {
     const decoder = preventDefaultOnBeforeInputDecoder(
@@ -816,34 +931,45 @@ export function RteEditor<Msg>({
       config.commandMap,
       config.spec,
       editor,
-    );
-    const [msg, prevent] = decoder(e.nativeEvent as unknown as { readonly data: string | null; readonly isComposing?: boolean; readonly inputType?: string });
+    )
+    const [msg, prevent] = decoder(
+      e.nativeEvent as unknown as {
+        readonly data: string | null
+        readonly isComposing?: boolean
+        readonly inputType?: string
+      },
+    )
     if (prevent) {
-      e.preventDefault();
+      e.preventDefault()
     }
-    dispatch(msg);
-  };
+    dispatch(msg)
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const keyboardEvent = mapKeyboardEvent(e);
-    const msg: Message = { _tag: 'KeyDownEvent', event: keyboardEvent };
-    const [_, prevent] = preventDefaultOnKeyDown(config.commandMap, config.spec, editor, msg);
+    const keyboardEvent = mapKeyboardEvent(e)
+    const msg: Message = { _tag: 'KeyDownEvent', event: keyboardEvent }
+    const [_, prevent] = preventDefaultOnKeyDown(
+      config.commandMap,
+      config.spec,
+      editor,
+      msg,
+    )
     if (prevent) {
-      e.preventDefault();
+      e.preventDefault()
     }
-    dispatch(config.toMsg(msg));
-  };
+    dispatch(config.toMsg(msg))
+  }
 
-  const topAttrs = topLevelAttributes(decorations_);
+  const topAttrs = topLevelAttributes(decorations_)
   const topProps: {
-    className?: string;
-    [key: string]: unknown;
-  } = {};
+    className?: string
+    [key: string]: unknown
+  } = {}
   for (const [key, val] of topAttrs) {
     if (key === 'className') {
-      topProps.className = typeof val === 'string' ? val : undefined;
+      topProps.className = typeof val === 'string' ? val : undefined
     } else {
-      topProps[key] = val;
+      topProps[key] = val
     }
   }
 
@@ -851,7 +977,7 @@ export function RteEditor<Msg>({
     editorToDomSelection(spec_, editor),
     InternalEditor.renderCount(editor),
     InternalEditor.selectionCount(editor),
-  );
+  )
 
   return React.createElement(
     'elm-editor',
@@ -881,13 +1007,19 @@ export function RteEditor<Msg>({
         {
           key: InternalEditor.renderCount(editor),
         },
-        viewEditorBlockNode(spec_, decorations_, [], markCaretSelectionOnEditorNodes(state_), dispatch),
+        viewEditorBlockNode(
+          spec_,
+          decorations_,
+          [],
+          markCaretSelectionOnEditorNodes(state_),
+          dispatch,
+        ),
       ),
     ),
     React.createElement('selection-state', {
       selection: selectionStateSelection,
     }),
-  );
+  )
 }
 
 function toDomNode(node: Node): DomNode {
@@ -895,30 +1027,42 @@ function toDomNode(node: Node): DomNode {
     nodeType: node.nodeType,
     tagName: node instanceof Element ? node.tagName : null,
     nodeValue: node.nodeValue,
-    childNodes: node.childNodes ? Array.from(node.childNodes).map(toDomNode) : null,
-  };
+    childNodes: node.childNodes
+      ? Array.from(node.childNodes).map(toDomNode)
+      : null,
+  }
 }
 
 function parseSelection(detail: SelectionObject): Option<Selection> {
   if (!detail || !detail.selectionExists) {
-    return none;
+    return none
   }
-  return some(range(detail.anchorNode, detail.anchorOffset, detail.focusNode, detail.focusOffset));
+  return some(
+    range(
+      detail.anchorNode,
+      detail.anchorOffset,
+      detail.focusNode,
+      detail.focusOffset,
+    ),
+  )
 }
 
 function parseCharacterDataMutations(
-  mutations: Array<{ path: Path | null; text: string | null }> | null | undefined,
+  mutations:
+    | Array<{ path: Path | null; text: string | null }>
+    | null
+    | undefined,
 ): Option<Array<[Path, string]>> {
   if (!mutations || !Array.isArray(mutations)) {
-    return none;
+    return none
   }
-  const result: Array<[Path, string]> = [];
+  const result: Array<[Path, string]> = []
   for (const m of mutations) {
     if (m.path !== null && m.text !== null) {
-      result.push([m.path, m.text]);
+      result.push([m.path, m.text])
     }
   }
-  return some(result);
+  return some(result)
 }
 
 function mapKeyboardEvent(e: React.KeyboardEvent): KeyboardEvent {
@@ -930,7 +1074,7 @@ function mapKeyboardEvent(e: React.KeyboardEvent): KeyboardEvent {
     ctrlKey: e.ctrlKey,
     shiftKey: e.shiftKey,
     isComposing: e.nativeEvent.isComposing || false,
-  };
+  }
 }
 
 /**
@@ -941,32 +1085,35 @@ export function view<Msg>(
   editor: Editor,
   dispatch: (msg: Msg) => void,
 ): React.ReactElement {
-  return <RteEditor config={cfg} editor={editor} dispatch={dispatch} />;
+  return <RteEditor config={cfg} editor={editor} dispatch={dispatch} />
 }
 
 /**
  * Renders the contents of the editor with `contenteditable` set to false and the event listeners
  * removed.
  */
-export function readOnlyView<Msg>(cfg: Config<Msg>, editor: Editor): React.ReactElement {
-  const state_ = state(editor);
-  const spec_ = spec(cfg);
-  const decorations_ = decorations(cfg);
+export function readOnlyView<Msg>(
+  cfg: Config<Msg>,
+  editor: Editor,
+): React.ReactElement {
+  const state_ = state(editor)
+  const spec_ = spec(cfg)
+  const decorations_ = decorations(cfg)
 
-  const topAttrs = topLevelAttributes(decorations_);
+  const topAttrs = topLevelAttributes(decorations_)
   const topProps: {
-    className?: string;
-    [key: string]: unknown;
-  } = {};
+    className?: string
+    [key: string]: unknown
+  } = {}
   for (const [key, val] of topAttrs) {
     if (key === 'className') {
-      topProps.className = typeof val === 'string' ? val : undefined;
+      topProps.className = typeof val === 'string' ? val : undefined
     } else {
-      topProps[key] = val;
+      topProps[key] = val
     }
   }
 
-  const dummyDispatch = () => {};
+  const dummyDispatch = () => {}
 
   return React.createElement(
     'div',
@@ -975,6 +1122,12 @@ export function readOnlyView<Msg>(cfg: Config<Msg>, editor: Editor): React.React
       'data-rte-main': 'true',
       ...topProps,
     },
-    viewEditorBlockNode(spec_, decorations_, [], markCaretSelectionOnEditorNodes(state_), dummyDispatch),
-  );
+    viewEditorBlockNode(
+      spec_,
+      decorations_,
+      [],
+      markCaretSelectionOnEditorNodes(state_),
+      dummyDispatch,
+    ),
+  )
 }

@@ -1,42 +1,46 @@
-import { some } from 'fp-ts/lib/Option';
-import { ElementDefinition } from './element-definition';
-import { MarkDefinition } from './mark-definition';
-import { selection } from '../internal/constants';
-import { Message, Tagger } from '../internal/message';
-import { Element, annotations } from '../model/element';
-import { Mark } from '../model/mark';
-import { Path } from '../model/node';
-import { caret } from '../model/selection';
+import { some } from 'fp-ts/lib/Option'
 
-export type Attribute<Msg> = [string, string | (() => Msg)];
+import { selection } from '../internal/constants'
+import { Tagger } from '../internal/message'
+import { Element, annotations } from '../model/element'
+import { Mark } from '../model/mark'
+import { Path } from '../model/node'
+import { caret } from '../model/selection'
+import { ElementDefinition } from './element-definition'
+import { MarkDefinition } from './mark-definition'
+
+export type Attribute<Msg> = [string, string | (() => Msg)]
 
 export const Attributes = {
   class: (className: string): Attribute<never> => ['className', className],
-};
+}
 
 export const Events = {
   onClick: <Msg>(msg: Msg): Attribute<Msg> => ['onClick', () => msg],
-};
+}
 
 export type ElementDecoration<Msg> = (
   editorNodePath: Path,
   element: Element,
   relativeHtmlNodePath: Path,
-) => Array<Attribute<Msg>>;
+) => Array<Attribute<Msg>>
 
 export type MarkDecoration<Msg> = (
   editorNodePath: Path,
   mark: Mark,
   relativeHtmlNodePath: Path,
-) => Array<Attribute<Msg>>;
+) => Array<Attribute<Msg>>
 
 export interface DecorationsContents<Msg> {
-  readonly marks: Map<string, Array<MarkDecoration<Msg>>>;
-  readonly elements: Map<string, Array<ElementDecoration<Msg>>>;
-  readonly topLevelAttributes: Array<Attribute<Msg>>;
+  readonly marks: Map<string, Array<MarkDecoration<Msg>>>
+  readonly elements: Map<string, Array<ElementDecoration<Msg>>>
+  readonly topLevelAttributes: Array<Attribute<Msg>>
 }
 
-export type Decorations<Msg> = { readonly _tag: 'Decorations'; readonly contents: DecorationsContents<Msg> };
+export type Decorations<Msg> = {
+  readonly _tag: 'Decorations'
+  readonly contents: DecorationsContents<Msg>
+}
 
 export function emptyDecorations<Msg>(): Decorations<Msg> {
   return {
@@ -46,19 +50,25 @@ export function emptyDecorations<Msg>(): Decorations<Msg> {
       elements: new Map(),
       topLevelAttributes: [],
     },
-  };
+  }
 }
 
-export function markDecorations<Msg>(d: Decorations<Msg>): Map<string, Array<MarkDecoration<Msg>>> {
-  return d.contents.marks;
+export function markDecorations<Msg>(
+  d: Decorations<Msg>,
+): Map<string, Array<MarkDecoration<Msg>>> {
+  return d.contents.marks
 }
 
-export function elementDecorations<Msg>(d: Decorations<Msg>): Map<string, Array<ElementDecoration<Msg>>> {
-  return d.contents.elements;
+export function elementDecorations<Msg>(
+  d: Decorations<Msg>,
+): Map<string, Array<ElementDecoration<Msg>>> {
+  return d.contents.elements
 }
 
-export function topLevelAttributes<Msg>(d: Decorations<Msg>): Array<Attribute<Msg>> {
-  return d.contents.topLevelAttributes;
+export function topLevelAttributes<Msg>(
+  d: Decorations<Msg>,
+): Array<Attribute<Msg>> {
+  return d.contents.topLevelAttributes
 }
 
 export function withMarkDecorations<Msg>(
@@ -71,7 +81,7 @@ export function withMarkDecorations<Msg>(
       ...d.contents,
       marks,
     },
-  };
+  }
 }
 
 export function withElementDecorations<Msg>(
@@ -84,7 +94,7 @@ export function withElementDecorations<Msg>(
       ...d.contents,
       elements,
     },
-  };
+  }
 }
 
 export function withTopLevelAttributes<Msg>(
@@ -97,7 +107,7 @@ export function withTopLevelAttributes<Msg>(
       ...d.contents,
       topLevelAttributes: topLevelAttributes_,
     },
-  };
+  }
 }
 
 export function addElementDecoration<Msg>(
@@ -105,11 +115,11 @@ export function addElementDecoration<Msg>(
   decorator: ElementDecoration<Msg>,
   decorations: Decorations<Msg>,
 ): Decorations<Msg> {
-  const eleDecorators = new Map(elementDecorations(decorations));
-  const nameStr = definition.contents.name;
-  const previousDecorations = eleDecorators.get(nameStr) || [];
-  eleDecorators.set(nameStr, [decorator, ...previousDecorations]);
-  return withElementDecorations(eleDecorators, decorations);
+  const eleDecorators = new Map(elementDecorations(decorations))
+  const nameStr = definition.contents.name
+  const previousDecorations = eleDecorators.get(nameStr) || []
+  eleDecorators.set(nameStr, [decorator, ...previousDecorations])
+  return withElementDecorations(eleDecorators, decorations)
 }
 
 export function addMarkDecoration<Msg>(
@@ -117,11 +127,11 @@ export function addMarkDecoration<Msg>(
   decorator: MarkDecoration<Msg>,
   decorations: Decorations<Msg>,
 ): Decorations<Msg> {
-  const mDecorators = new Map(markDecorations(decorations));
-  const nameStr = definition.contents.name;
-  const previousDecorations = mDecorators.get(nameStr) || [];
-  mDecorators.set(nameStr, [decorator, ...previousDecorations]);
-  return withMarkDecorations(mDecorators, decorations);
+  const mDecorators = new Map(markDecorations(decorations))
+  const nameStr = definition.contents.name
+  const previousDecorations = mDecorators.get(nameStr) || []
+  mDecorators.set(nameStr, [decorator, ...previousDecorations])
+  return withMarkDecorations(mDecorators, decorations)
 }
 
 export function selectableDecoration<Msg>(
@@ -130,7 +140,9 @@ export function selectableDecoration<Msg>(
   elementParameters: Element,
   _: Path,
 ): Array<Attribute<Msg>> {
-  const classes = annotations(elementParameters).has(selection) ? [Attributes.class('rte-selected')] : [];
+  const classes = annotations(elementParameters).has(selection)
+    ? [Attributes.class('rte-selected')]
+    : []
   return [
     ...classes,
     Events.onClick(
@@ -140,5 +152,5 @@ export function selectableDecoration<Msg>(
         force: false,
       }),
     ),
-  ];
+  ]
 }

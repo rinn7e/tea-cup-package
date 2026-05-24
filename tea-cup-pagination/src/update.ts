@@ -19,31 +19,31 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-import * as RD from "@devexperts/remote-data-ts";
-import { attemptTE, cmdSucceed } from "@rinn7e/tea-cup-prelude";
-import { Cmd } from "tea-cup-fp";
+import * as RD from '@devexperts/remote-data-ts'
+import { attemptTE, cmdSucceed } from '@rinn7e/tea-cup-prelude'
+import { Cmd } from 'tea-cup-fp'
 
-import { type Config, type Model, type Msg } from "./type";
+import { type Config, type Model, type Msg } from './type'
 
 export const scrollToTopCmd = (
   scrollContainerId?: string,
-): Cmd<{ _tag: "NoOp" }> =>
+): Cmd<{ _tag: 'NoOp' }> =>
   cmdSucceed(() => {
     if (scrollContainerId) {
-      const container = document.getElementById(scrollContainerId);
+      const container = document.getElementById(scrollContainerId)
       if (container) {
         container.scrollTo({
           top: 0,
-          behavior: "smooth",
-        });
-        return;
+          behavior: 'smooth',
+        })
+        return
       }
     }
     window.scrollTo({
       top: 0,
-      behavior: "smooth",
-    });
-  });
+      behavior: 'smooth',
+    })
+  })
 
 export const init = <Item, ItemMsg, Err>(
   config: Config<Item, ItemMsg, Err>,
@@ -53,10 +53,10 @@ export const init = <Item, ItemMsg, Err>(
     items: RD.pending,
     page,
     pageAmount: 0,
-  };
+  }
 
-  return [model, fetchCmd(config, page)];
-};
+  return [model, fetchCmd(config, page)]
+}
 
 export const update =
   <Item, ItemMsg, Err>(config: Config<Item, ItemMsg, Err>) =>
@@ -65,9 +65,9 @@ export const update =
     model: Model<Item, Err>,
   ): [Model<Item, Err>, Cmd<Msg<Item, ItemMsg, Err>>] => {
     switch (msg._tag) {
-      case "ChangePage": {
+      case 'ChangePage': {
         if (msg.page === model.page) {
-          return [model, Cmd.none()];
+          return [model, Cmd.none()]
         } else {
           return [
             {
@@ -78,15 +78,15 @@ export const update =
               fetchCmd(config, msg.page),
               scrollToTopCmd(config.scrollContainerId),
             ]),
-          ];
+          ]
         }
       }
-      case "FetchResponse": {
+      case 'FetchResponse': {
         if (msg.page !== model.page) {
-          return [model, Cmd.none()];
+          return [model, Cmd.none()]
         } else {
           switch (msg.result._tag) {
-            case "RemoteSuccess": {
+            case 'RemoteSuccess': {
               return [
                 {
                   ...model,
@@ -96,54 +96,54 @@ export const update =
                   ),
                 },
                 scrollToTopCmd(),
-              ];
+              ]
             }
-            case "RemoteFailure": {
+            case 'RemoteFailure': {
               return [
                 { ...model, items: RD.failure(msg.result.error) },
                 Cmd.none(),
-              ];
+              ]
             }
             default: {
-              return [model, Cmd.none()];
+              return [model, Cmd.none()]
             }
           }
         }
       }
-      case "ItemMsg": {
-        return [model, Cmd.none()];
+      case 'ItemMsg': {
+        return [model, Cmd.none()]
       }
-      case "NoOp": {
-        return [model, Cmd.none()];
+      case 'NoOp': {
+        return [model, Cmd.none()]
       }
     }
-  };
+  }
 
 const fetchCmd = <Item, ItemMsg, Err>(
   config: Config<Item, ItemMsg, Err>,
   page: number,
 ): Cmd<Msg<Item, ItemMsg, Err>> => {
-  const offset = (page - 1) * config.limit;
-  const limit = config.limit;
+  const offset = (page - 1) * config.limit
+  const limit = config.limit
   return attemptTE(
     config.handler(offset, limit),
     (result): Msg<Item, ItemMsg, Err> => {
       switch (result.tag) {
-        case "Ok": {
+        case 'Ok': {
           return {
-            _tag: "FetchResponse",
+            _tag: 'FetchResponse',
             page,
             result: RD.success(result.value),
-          };
+          }
         }
-        case "Err": {
+        case 'Err': {
           return {
-            _tag: "FetchResponse",
+            _tag: 'FetchResponse',
             page,
             result: RD.failure(result.err),
-          };
+          }
         }
       }
     },
-  );
-};
+  )
+}

@@ -1,8 +1,8 @@
-import { Option } from 'fp-ts/lib/Option';
-import { Path } from '../model/node';
-import { Selection } from '../model/selection';
+import { Option } from 'fp-ts/lib/Option'
 
-import { DomNode } from './dom-node';
+import { Path } from '../model/node'
+import { Selection } from '../model/selection'
+import { DomNode } from './dom-node'
 
 /**
  * Whenever the elm-editor MutationObserver detects a change, it triggers an editor change event
@@ -11,52 +11,52 @@ import { DomNode } from './dom-node';
  * it's expecting.
  */
 export interface EditorChange {
-  readonly root: DomNode;
-  readonly selection: Option<Selection>;
-  readonly characterDataMutations: Option<Array<TextChange>>;
-  readonly timestamp: number;
-  readonly isComposing: boolean;
+  readonly root: DomNode
+  readonly selection: Option<Selection>
+  readonly characterDataMutations: Option<Array<TextChange>>
+  readonly timestamp: number
+  readonly isComposing: boolean
 }
 
 /**
  * The attributes parsed from an input event.
  */
 export interface InputEvent {
-  readonly data: Option<string>;
-  readonly isComposing: boolean;
-  readonly inputType: string;
+  readonly data: Option<string>
+  readonly isComposing: boolean
+  readonly inputType: string
 }
 
 /**
  * The attributes parsed from a keyboard event.
  */
 export interface KeyboardEvent {
-  readonly keyCode: number;
-  readonly key: string;
-  readonly altKey: boolean;
-  readonly metaKey: boolean;
-  readonly ctrlKey: boolean;
-  readonly shiftKey: boolean;
-  readonly isComposing: boolean;
+  readonly keyCode: number
+  readonly key: string
+  readonly altKey: boolean
+  readonly metaKey: boolean
+  readonly ctrlKey: boolean
+  readonly shiftKey: boolean
+  readonly isComposing: boolean
 }
 
 /**
  * The attributes parsed from a `pastewithdata` event.
  */
 export interface PasteEvent {
-  readonly text: string;
-  readonly html: string;
+  readonly text: string
+  readonly html: string
 }
 
 /**
  * The attributes parsed from an `editorinit` event.
  */
 export interface InitEvent {
-  readonly shortKey: string;
+  readonly shortKey: string
 }
 
 /**
  * A represents a text change at the given path in an editor node or DOM tree. The string provided
  * is the new text at that path.
  */
-export type TextChange = [Path, string];
+export type TextChange = [Path, string]

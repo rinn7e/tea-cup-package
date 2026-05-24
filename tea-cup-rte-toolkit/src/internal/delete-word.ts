@@ -3,42 +3,43 @@
  */
 
 export const punctuationRegexString =
-  "[.,+*?$|#{}()'\\^\\-\\[\\]\\\\\\/!@%\"~=<>_:;" +
-  "・、。〈-】〔-〟：-？！-／" +
-  "［-｀｛-･⸮؟٪-٬؛،؍" +
-  "﴾﴿᠁।၊။‐-‧‰-⁞]";
+  '[.,+*?$|#{}()\'\\^\\-\\[\\]\\\\\\/!@%"~=<>_:;' +
+  '・、。〈-】〔-〟：-？！-／' +
+  '［-｀｛-･⸮؟٪-٬؛،؍' +
+  '﴾﴿᠁।၊။‐-‧‰-⁞]'
 
-export const chameleonCharactersRegexString = "['‘’]";
+export const chameleonCharactersRegexString = "['‘’]"
 
-export const whitespaceAndPunctuationRegexString = "\\s|(?![_])" + punctuationRegexString;
+export const whitespaceAndPunctuationRegexString =
+  '\\s|(?![_])' + punctuationRegexString
 
 export const deleteWordRegexString =
-  "^" +
-  "(?:" +
+  '^' +
+  '(?:' +
   whitespaceAndPunctuationRegexString +
-  ")*" +
-  "(?:" +
+  ')*' +
+  '(?:' +
   chameleonCharactersRegexString +
-  "|(?!" +
+  '|(?!' +
   whitespaceAndPunctuationRegexString +
-  ").)*" +
-  "(?:(?!" +
+  ').)*' +
+  '(?:(?!' +
   whitespaceAndPunctuationRegexString +
-  ").)";
+  ').)'
 
 export const backspaceWordRegexString =
-  "(?:(?!" +
+  '(?:(?!' +
   whitespaceAndPunctuationRegexString +
-  ").)" +
-  "(?:" +
+  ').)' +
+  '(?:' +
   chameleonCharactersRegexString +
-  "|(?!" +
+  '|(?!' +
   whitespaceAndPunctuationRegexString +
-  ").)*" +
-  "(?:" +
+  ').)*' +
+  '(?:' +
   whitespaceAndPunctuationRegexString +
-  ")*" +
-  "$";
+  ')*' +
+  '$'
 
-export const deleteWordRegex = new RegExp(deleteWordRegexString);
-export const backspaceWordRegex = new RegExp(backspaceWordRegexString);
+export const deleteWordRegex = new RegExp(deleteWordRegexString)
+export const backspaceWordRegex = new RegExp(backspaceWordRegexString)

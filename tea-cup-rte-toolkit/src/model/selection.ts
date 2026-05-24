@@ -1,50 +1,58 @@
-import { Path } from './node';
+import { Path } from './node'
 
 export interface SelectionContents {
-  readonly anchorOffset: number;
-  readonly anchorNode: Path;
-  readonly focusOffset: number;
-  readonly focusNode: Path;
+  readonly anchorOffset: number
+  readonly anchorNode: Path
+  readonly focusOffset: number
+  readonly focusNode: Path
 }
 
 /**
  * A `Selection` represents the information received and translated from the selection API. Note that
  * the `anchorNode` and `focusNode` are translations of the node paths relative to the editor.
  */
-export type Selection = { readonly _tag: 'Selection'; readonly contents: SelectionContents };
+export type Selection = {
+  readonly _tag: 'Selection'
+  readonly contents: SelectionContents
+}
 
 /**
  * The path to the selection anchor node
  */
 export function anchorNode(selection: Selection): Path {
-  return selection.contents.anchorNode;
+  return selection.contents.anchorNode
 }
 
 /**
  * The selection anchor offset
  */
 export function anchorOffset(selection: Selection): number {
-  return selection.contents.anchorOffset;
+  return selection.contents.anchorOffset
 }
 
 /**
  * The path to the selection focus node
  */
 export function focusNode(selection: Selection): Path {
-  return selection.contents.focusNode;
+  return selection.contents.focusNode
 }
 
 /**
  * The selection focus offset
  */
 export function focusOffset(selection: Selection): number {
-  return selection.contents.focusOffset;
+  return selection.contents.focusOffset
 }
 
 /**
  * This is a helper method for creating a range selection
  */
-export function range(aNode: Path, aOffset: number, fNode: Path, fOffset: number): Selection {
+export function range(
+  aNode: Path,
+  aOffset: number,
+  fNode: Path,
+  fOffset: number,
+): Selection {
   return {
     _tag: 'Selection',
     contents: {
@@ -53,52 +61,56 @@ export function range(aNode: Path, aOffset: number, fNode: Path, fOffset: number
       focusOffset: fOffset,
       focusNode: fNode,
     },
-  };
+  }
 }
 
 /**
  * This is a helper method for creating a selection over a single node
  */
-export function singleNodeRange(node: Path, aOffset: number, fOffset: number): Selection {
-  return range(node, aOffset, node, fOffset);
+export function singleNodeRange(
+  node: Path,
+  aOffset: number,
+  fOffset: number,
+): Selection {
+  return range(node, aOffset, node, fOffset)
 }
 
 /**
  * This is a helper method for constructing a caret selection.
  */
 export function caret(nodePath: Path, offset: number): Selection {
-  return singleNodeRange(nodePath, offset, offset);
+  return singleNodeRange(nodePath, offset, offset)
 }
 
 /**
  * This is a helper method for determining if a selection is collapsed.
  */
 export function isCollapsed(selection: Selection): boolean {
-  const c = selection.contents;
+  const c = selection.contents
   if (c.anchorOffset !== c.focusOffset) {
-    return false;
+    return false
   }
   if (c.anchorNode.length !== c.focusNode.length) {
-    return false;
+    return false
   }
-  return c.anchorNode.every((v, i) => v === c.focusNode[i]);
+  return c.anchorNode.every((v, i) => v === c.focusNode[i])
 }
 
 function comparePaths(a: Path, b: Path): 'LT' | 'EQ' | 'GT' {
-  const minLen = Math.min(a.length, b.length);
+  const minLen = Math.min(a.length, b.length)
   for (let i = 0; i < minLen; i++) {
     if (a[i] < b[i]) {
-      return 'LT';
+      return 'LT'
     } else if (a[i] > b[i]) {
-      return 'GT';
+      return 'GT'
     }
   }
   if (a.length < b.length) {
-    return 'LT';
+    return 'LT'
   } else if (a.length > b.length) {
-    return 'GT';
+    return 'GT'
   }
-  return 'EQ';
+  return 'EQ'
 }
 
 /**
@@ -107,8 +119,8 @@ function comparePaths(a: Path, b: Path): 'LT' | 'EQ' | 'GT' {
  * operations, we want the anchor to be before the focus.
  */
 export function normalize(selection: Selection): Selection {
-  const c = selection.contents;
-  const cmp = comparePaths(c.anchorNode, c.focusNode);
+  const c = selection.contents
+  const cmp = comparePaths(c.anchorNode, c.focusNode)
   if (cmp === 'EQ') {
     return {
       _tag: 'Selection',
@@ -117,9 +129,9 @@ export function normalize(selection: Selection): Selection {
         anchorOffset: Math.min(c.focusOffset, c.anchorOffset),
         focusOffset: Math.max(c.focusOffset, c.anchorOffset),
       },
-    };
+    }
   } else if (cmp === 'LT') {
-    return selection;
+    return selection
   } else {
     return {
       _tag: 'Selection',
@@ -129,6 +141,6 @@ export function normalize(selection: Selection): Selection {
         focusNode: c.anchorNode,
         focusOffset: c.anchorOffset,
       },
-    };
+    }
   }
 }
