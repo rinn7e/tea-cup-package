@@ -9,6 +9,7 @@ This monorepo manages the following sub-packages:
 *   **[tea-cup-prelude](file:///home/rinne/projects/my-package/tea-cup-package/tea-cup-prelude)**: Core prelude, types, and Elm Architecture runtime utilities.
 *   **[tea-cup-form](file:///home/rinne/projects/my-package/tea-cup-package/tea-cup-form)**: Reusable, type-safe form validation and state management components.
 *   **[tea-cup-pagination](file:///home/rinne/projects/my-package/tea-cup-package/tea-cup-pagination)**: Standard React pagination component following Elm Architecture principles.
+*   **[tea-cup-intersection-observer](file:///home/rinne/projects/my-package/tea-cup-package/tea-cup-intersection-observer)**: Intersection Observer subscription for React Tea-Cup applications.
 
 ---
 
@@ -63,7 +64,8 @@ To install any of these packages directly from GitHub into a host application, u
 "dependencies": {
   "@rinn7e/tea-cup-prelude": "github:rinn7e/tea-cup-package#[commit-hash]&path:tea-cup-prelude",
   "@rinn7e/tea-cup-form": "github:rinn7e/tea-cup-package#[commit-hash]&path:tea-cup-form",
-  "@rinn7e/tea-cup-pagination": "github:rinn7e/tea-cup-package#[commit-hash]&path:tea-cup-pagination"
+  "@rinn7e/tea-cup-pagination": "github:rinn7e/tea-cup-package#[commit-hash]&path:tea-cup-pagination",
+  "@rinn7e/tea-cup-intersection-observer": "github:rinn7e/tea-cup-package#[commit-hash]&path:tea-cup-intersection-observer"
 }
 ```
 

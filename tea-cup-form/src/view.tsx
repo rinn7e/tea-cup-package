@@ -204,7 +204,9 @@ export const formView = (
                     <div className='flex text-xs text-slate-400'>
                       <p>{limitDecimal2Digit(file.size / 1000)} KB</p>
                       <p className='px-2 font-semibold'>⋅</p>
-                      <p className='uppercase'>{file.type.split('/')[1] || file.type}</p>
+                      <p className='uppercase'>
+                        {file.type.split('/')[1] || file.type}
+                      </p>
                     </div>
                   </div>
                   <button

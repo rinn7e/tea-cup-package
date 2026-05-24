@@ -35,15 +35,15 @@ import { Dispatcher } from 'tea-cup-fp'
 import { errorTooltipContainer } from '../error-tooltip/helper'
 import {
   type CalendarTypeUiArg,
-  type CheckboxesTypeUiArg,
   type CheckboxChoice,
-  TextTypeUiArg,
-  type TextPillTypeUiArg,
+  type CheckboxesTypeUiArg,
   type DropdownTypeUiArg,
   type FileTypeUiArg,
   type Msg,
-  type RadiosTypeUiArg,
   type RadioChoice,
+  type RadiosTypeUiArg,
+  type TextPillTypeUiArg,
+  TextTypeUiArg,
   autocompleteToString,
   textInputVariantToString,
 } from '../type'
@@ -330,7 +330,12 @@ export const defaultCheckboxesView = ({
       {pipe(
         currentValues,
         A.map((checkboxChoice) =>
-          defaultCheckboxView({ dispatch, fieldKey, checkboxChoice, isMarkdown }),
+          defaultCheckboxView({
+            dispatch,
+            fieldKey,
+            checkboxChoice,
+            isMarkdown,
+          }),
         ),
       )}
     </div>
@@ -391,7 +396,8 @@ export const defaultRadiosView = ({
         choices,
         A.map((radioChoice) => {
           const isActive =
-            currentValue._tag === 'Some' && currentValue.value === radioChoice.key
+            currentValue._tag === 'Some' &&
+            currentValue.value === radioChoice.key
           return defaultRadioView({ dispatch, fieldKey, radioChoice, isActive })
         }),
       )}
@@ -625,7 +631,9 @@ export const defaultFileView = ({
           type='file'
           multiple={isMultiple}
           className='absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0'
-          onInput={(event) => dispatch({ _tag: 'AddFile', key: fieldKey, event })}
+          onInput={(event) =>
+            dispatch({ _tag: 'AddFile', key: fieldKey, event })
+          }
         />
         <div className='flex flex-col items-center gap-4 px-6 text-center'>
           <div
