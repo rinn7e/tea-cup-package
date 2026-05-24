@@ -1,0 +1,36 @@
+{
+  "name": "@rinn7e/tea-cup-rte-toolkit",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Rich Text Editor toolkit for React Tea-Cup applications",
+  "author": "Moremi Vannak",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "clean": "rimraf lib",
+    "compile": "tsup",
+    "build": "pnpm run clean && pnpm run compile",
+    "typecheck": "tsc --noEmit",
+    "check-style": "prettier --check .",
+    "fix-style": "prettier --write .",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "fp-ts": "^2.16.0"
+  },
+  "peerDependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "eslint": "^9.29.0",
+    "prettier": "^3.8.1",
+    "rimraf": "^6.1.2",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  }
+}
