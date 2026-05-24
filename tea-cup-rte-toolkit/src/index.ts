@@ -130,6 +130,7 @@ export type {
   Decorations,
   ElementDecoration,
   MarkDecoration,
+  Attribute as DecorationAttribute,
 } from './config/decorations'
 export {
   emptyDecorations,

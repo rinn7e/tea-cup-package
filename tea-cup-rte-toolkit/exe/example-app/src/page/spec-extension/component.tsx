@@ -2,8 +2,9 @@ import React from 'react'
 import { type Dispatcher } from 'tea-cup-fp'
 
 import { examplesPage } from '@/common/type/route'
-import { Link } from '@/component/link'
-import { EditorComponent } from '@/editor/component'
+import { editorComponentView } from '@/component/editor/component'
+import { linkView } from '@/component/link'
+import type { Msg as GlobalMsg } from '@/type'
 
 import type { Model, Msg } from './type'
 import { customDecorations, customSpec } from './update'
@@ -11,16 +12,24 @@ import { customDecorations, customSpec } from './update'
 interface Props {
   model: Model
   dispatch: Dispatcher<Msg>
+  setGlobalMsg: Dispatcher<GlobalMsg>
 }
 
-export const SpecExtensionPage: React.FC<Props> = ({ model, dispatch }) => {
+export const specExtensionPageView = ({
+  model,
+  dispatch,
+  setGlobalMsg,
+}: Props): React.ReactElement => {
   const modal = model.insertCaptionedImageModal
 
   return (
     <div>
-      <Link route={{ page: examplesPage() }} className='back-link'>
-        ← Back to Examples
-      </Link>
+      {linkView({
+        route: { page: examplesPage() },
+        className: 'back-link',
+        setGlobalMsg,
+        children: '← Back to Examples',
+      })}
 
       <h1 className='page-title'>Extending a Specification 🚀</h1>
       <p className='page-description'>
@@ -46,12 +55,12 @@ export const SpecExtensionPage: React.FC<Props> = ({ model, dispatch }) => {
         </button>
       </div>
 
-      <EditorComponent
-        model={model.editor}
-        spec={customSpec}
-        decorations={customDecorations}
-        dispatch={(msg) => dispatch({ _tag: 'EditorMsg', subMsg: msg })}
-      />
+      {editorComponentView({
+        model: model.editor,
+        spec: customSpec,
+        decorations: customDecorations,
+        dispatch: (msg) => dispatch({ _tag: 'EditorMsg', subMsg: msg }),
+      })}
 
       {/* INSERT CAPTIONED IMAGE MODAL */}
       {modal.visible && (
@@ -123,5 +132,3 @@ export const SpecExtensionPage: React.FC<Props> = ({ model, dispatch }) => {
     </div>
   )
 }
-
-export const SpecExtensionPageMemo = React.memo(SpecExtensionPage)

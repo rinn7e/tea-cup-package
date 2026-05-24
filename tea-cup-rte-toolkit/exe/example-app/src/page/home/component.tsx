@@ -2,7 +2,7 @@ import { markdown } from '@rinn7e/tea-cup-rte-toolkit'
 import React from 'react'
 import { type Dispatcher } from 'tea-cup-fp'
 
-import { EditorComponent } from '@/editor/component'
+import { editorComponentView } from '@/component/editor/component'
 
 import type { Model, Msg } from './type'
 
@@ -34,7 +34,10 @@ const features = [
   },
 ]
 
-export const HomePage: React.FC<Props> = ({ model, dispatch }) => {
+export const homePageView = ({
+  model,
+  dispatch,
+}: Props): React.ReactElement => {
   return (
     <div>
       <div className='home-hero'>
@@ -47,11 +50,11 @@ export const HomePage: React.FC<Props> = ({ model, dispatch }) => {
         </p>
       </div>
 
-      <EditorComponent
-        model={model.editor}
-        spec={markdown}
-        dispatch={(msg) => dispatch({ _tag: 'EditorMsg', subMsg: msg })}
-      />
+      {editorComponentView({
+        model: model.editor,
+        spec: markdown,
+        dispatch: (msg) => dispatch({ _tag: 'EditorMsg', subMsg: msg }),
+      })}
 
       <h2
         className='page-title'
@@ -93,5 +96,3 @@ export const HomePage: React.FC<Props> = ({ model, dispatch }) => {
     </div>
   )
 }
-
-export const HomePageMemo = React.memo(HomePage)

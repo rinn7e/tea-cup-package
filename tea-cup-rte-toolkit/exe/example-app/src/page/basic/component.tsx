@@ -3,22 +3,31 @@ import React from 'react'
 import { type Dispatcher } from 'tea-cup-fp'
 
 import { examplesPage } from '@/common/type/route'
-import { Link } from '@/component/link'
-import { EditorComponent } from '@/editor/component'
+import { editorComponentView } from '@/component/editor/component'
+import { linkView } from '@/component/link'
+import type { Msg as GlobalMsg } from '@/type'
 
 import type { Model, Msg } from './type'
 
 interface Props {
   model: Model
   dispatch: Dispatcher<Msg>
+  setGlobalMsg: Dispatcher<GlobalMsg>
 }
 
-export const BasicPage: React.FC<Props> = ({ model, dispatch }) => {
+export const basicPageView = ({
+  model,
+  dispatch,
+  setGlobalMsg,
+}: Props): React.ReactElement => {
   return (
     <div>
-      <Link route={{ page: examplesPage() }} className='back-link'>
-        ← Back to Examples
-      </Link>
+      {linkView({
+        route: { page: examplesPage() },
+        className: 'back-link',
+        setGlobalMsg,
+        children: '← Back to Examples',
+      })}
 
       <h1 className='page-title'>Basic Example ✍️</h1>
       <p className='page-description'>
@@ -30,13 +39,11 @@ export const BasicPage: React.FC<Props> = ({ model, dispatch }) => {
         images.
       </p>
 
-      <EditorComponent
-        model={model.editor}
-        spec={markdown}
-        dispatch={(msg) => dispatch({ _tag: 'EditorMsg', subMsg: msg })}
-      />
+      {editorComponentView({
+        model: model.editor,
+        spec: markdown,
+        dispatch: (msg) => dispatch({ _tag: 'EditorMsg', subMsg: msg }),
+      })}
     </div>
   )
 }
-
-export const BasicPageMemo = React.memo(BasicPage)

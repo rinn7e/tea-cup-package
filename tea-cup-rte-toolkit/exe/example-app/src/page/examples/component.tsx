@@ -1,4 +1,5 @@
 import React from 'react'
+import { type Dispatcher } from 'tea-cup-fp'
 
 import {
   basicPage,
@@ -6,9 +7,16 @@ import {
   specExtensionPage,
   specFromScratchPage,
 } from '@/common/type/route'
-import { Link } from '@/component/link'
+import { linkView } from '@/component/link'
+import type { Msg as GlobalMsg } from '@/type'
 
-export const ExamplesPage: React.FC = () => {
+interface Props {
+  setGlobalMsg: Dispatcher<GlobalMsg>
+}
+
+export const examplesPageView = ({
+  setGlobalMsg,
+}: Props): React.ReactElement => {
   const exampleItems = [
     {
       title: 'Basics ✍️',
@@ -41,15 +49,21 @@ export const ExamplesPage: React.FC = () => {
       </p>
 
       <div className='examples-grid'>
-        {exampleItems.map((item, idx) => (
-          <Link key={idx} route={item.route} className='example-item-card'>
-            <h3 className='example-item-title'>{item.title}</h3>
-            <p className='example-item-desc'>{item.text}</p>
-          </Link>
-        ))}
+        {exampleItems.map((item, idx) =>
+          linkView({
+            key: idx,
+            route: item.route,
+            className: 'example-item-card',
+            setGlobalMsg,
+            children: (
+              <>
+                <h3 className='example-item-title'>{item.title}</h3>
+                <p className='example-item-desc'>{item.text}</p>
+              </>
+            ),
+          }),
+        )}
       </div>
     </div>
   )
 }
-
-export const ExamplesPageMemo = React.memo(ExamplesPage)
