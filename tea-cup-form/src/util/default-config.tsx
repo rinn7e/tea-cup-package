@@ -20,10 +20,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as E from 'fp-ts/lib/Either'
-import { type Either } from 'fp-ts/lib/Either'
 import { type Option } from 'fp-ts/lib/Option'
 import { type JSX } from 'react'
-import { Dispatcher } from 'tea-cup-fp'
 
 import {
   type CalendarType,
@@ -35,7 +33,6 @@ import {
   type DropdownTypeUiArg,
   type FileType,
   type FileTypeUiArg,
-  type Msg,
   type RadioChoice,
   type RadioType,
   type RadiosTypeUiArg,

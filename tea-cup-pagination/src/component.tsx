@@ -19,33 +19,33 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-import React, { memo } from "react";
+import React, { memo } from 'react'
 
-import { type Props, mkPropsEq } from "./type";
+import { type Props, mkPropsEq } from './type'
 
 export const PaginationComponent = <Item, ItemMsg, Err>({
   model,
   dispatch,
   config,
 }: Props<Item, ItemMsg, Err>) => {
-  const { page, pageAmount } = model;
+  const { page, pageAmount } = model
 
   return (
     <>
       {config.renderItems(model.items, (item, msg) => {
-        dispatch({ _tag: "ItemMsg", item, msg });
+        dispatch({ _tag: 'ItemMsg', item, msg })
       })}
 
       {config.renderPagination(page, pageAmount, (p) =>
-        dispatch({ _tag: "ChangePage", page: p }),
+        dispatch({ _tag: 'ChangePage', page: p }),
       )}
     </>
-  );
-};
+  )
+}
 
 export const PaginationMemo = memo(PaginationComponent, (prev, next) => {
-  const propEq = mkPropsEq(prev.itemEq, prev.errEq);
-  return propEq.equals(prev, next);
+  const propEq = mkPropsEq(prev.itemEq, prev.errEq)
+  return propEq.equals(prev, next)
 }) as <Item, ItemMsg, Err>(
   props: Props<Item, ItemMsg, Err>,
-) => React.ReactElement;
+) => React.ReactElement

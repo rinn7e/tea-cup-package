@@ -1,6 +1,5 @@
 import js from '@eslint/js'
 import importPlugin from 'eslint-plugin-import'
-import reactDom from 'eslint-plugin-react-dom'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import reactX from 'eslint-plugin-react-x'
@@ -10,7 +9,7 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config([
-  globalIgnores(['dist', 'lib', 'src/generated', 'exe']),
+  globalIgnores(['dist', 'lib', 'node_modules']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -18,22 +17,17 @@ export default tseslint.config([
       tseslint.configs.recommended,
       reactHooks.configs['recommended-latest'],
       reactRefresh.configs.vite,
-      {
-        rules: {
-          'react-refresh/only-export-components': 'off',
-        },
-      },
-      // Enable lint rules for React
       reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
     ],
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['*.config.ts'],
+          allowDefaultProject: [
+            '*.config.ts',
+            'exe/example-app/vite.config.ts',
+          ],
         },
         tsconfigRootDir: import.meta.dirname,
       },
@@ -65,14 +59,14 @@ export default tseslint.config([
           caughtErrorsIgnorePattern: '^_',
         },
       ],
-      // TODO: Fix this later
+
       'react-hooks/exhaustive-deps': 'off',
+
+      'react-refresh/only-export-components': 'off',
 
       'react-x/no-use-context': 'off',
       'react-x/no-forward-ref': 'off',
       'react-x/no-array-index-key': 'off',
-
-      'react-dom/no-dangerously-set-innerhtml': 'off',
     },
   },
 ])

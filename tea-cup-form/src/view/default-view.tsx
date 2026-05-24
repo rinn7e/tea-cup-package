@@ -20,7 +20,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as A from 'fp-ts/lib/Array'
-import { type Either } from 'fp-ts/lib/Either'
 import * as M from 'fp-ts/lib/Map'
 import * as O from 'fp-ts/lib/Option'
 import { type Option } from 'fp-ts/lib/Option'

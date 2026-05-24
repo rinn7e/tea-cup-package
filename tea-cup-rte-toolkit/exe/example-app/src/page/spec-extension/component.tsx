@@ -1,19 +1,19 @@
-import React from 'react'
-import { type Dispatcher } from 'tea-cup-fp'
+import React from "react";
+import { type Dispatcher } from "tea-cup-fp";
 
-import { examplesPage } from '@/common/type/route'
-import { Link } from '@/component/link'
-import { EditorComponent } from '@/editor/component'
-import { customSpec, customDecorations } from './update'
-import type { Model, Msg } from './type'
+import { examplesPage } from "@/common/type/route";
+import { Link } from "@/component/link";
+import { EditorComponent } from "@/editor/component";
+import { customSpec, customDecorations } from "./update";
+import type { Model, Msg } from "./type";
 
 interface Props {
-  model: Model
-  dispatch: Dispatcher<Msg>
+  model: Model;
+  dispatch: Dispatcher<Msg>;
 }
 
 export const SpecExtensionPage: React.FC<Props> = ({ model, dispatch }) => {
-  const modal = model.insertCaptionedImageModal
+  const modal = model.insertCaptionedImageModal;
 
   return (
     <div>
@@ -23,16 +23,23 @@ export const SpecExtensionPage: React.FC<Props> = ({ model, dispatch }) => {
 
       <h1 className="page-title">Extending a Specification 🚀</h1>
       <p className="page-description">
-        This example shows how you can extend a specification. Namely, we add two extra marks for <u>underline</u> and <s>strikethrough</s>, and we add a new block leaf element to display a captioned image with an interactive caption input box inside.
+        This example shows how you can extend a specification. Namely, we add
+        two extra marks for <u>underline</u> and <s>strikethrough</s>, and we
+        add a new block leaf element to display a captioned image with an
+        interactive caption input box inside.
       </p>
 
       {/* Insert Captioned Image Button */}
-      <div style={{ marginBottom: '1.5rem' }}>
+      <div style={{ marginBottom: "1.5rem" }}>
         <button
           type="button"
           className="home-cta-btn"
-          style={{ padding: '0.6rem 1.2rem', fontSize: '0.9rem', boxShadow: 'none' }}
-          onClick={() => dispatch({ _tag: 'ShowUpdateCaptionedImageModel' })}
+          style={{
+            padding: "0.6rem 1.2rem",
+            fontSize: "0.9rem",
+            boxShadow: "none",
+          }}
+          onClick={() => dispatch({ _tag: "ShowUpdateCaptionedImageModel" })}
         >
           🖼️ Insert Captioned Image
         </button>
@@ -42,7 +49,7 @@ export const SpecExtensionPage: React.FC<Props> = ({ model, dispatch }) => {
         model={model.editor}
         spec={customSpec}
         decorations={customDecorations}
-        dispatch={(msg) => dispatch({ _tag: 'EditorMsg', subMsg: msg })}
+        dispatch={(msg) => dispatch({ _tag: "EditorMsg", subMsg: msg })}
       />
 
       {/* INSERT CAPTIONED IMAGE MODAL */}
@@ -57,7 +64,10 @@ export const SpecExtensionPage: React.FC<Props> = ({ model, dispatch }) => {
                 className="modal-input"
                 value={modal.src}
                 onChange={(e) =>
-                  dispatch({ _tag: 'UpdateCaptionedImageSrc', src: e.target.value })
+                  dispatch({
+                    _tag: "UpdateCaptionedImageSrc",
+                    src: e.target.value,
+                  })
                 }
                 placeholder="logo.svg"
                 autoFocus
@@ -70,7 +80,10 @@ export const SpecExtensionPage: React.FC<Props> = ({ model, dispatch }) => {
                 className="modal-input"
                 value={modal.alt}
                 onChange={(e) =>
-                  dispatch({ _tag: 'UpdateCaptionedImageAlt', alt: e.target.value })
+                  dispatch({
+                    _tag: "UpdateCaptionedImageAlt",
+                    alt: e.target.value,
+                  })
                 }
                 placeholder="Alternative text description"
               />
@@ -82,7 +95,7 @@ export const SpecExtensionPage: React.FC<Props> = ({ model, dispatch }) => {
                 className="modal-input"
                 value={modal.caption}
                 onChange={(e) =>
-                  dispatch({ _tag: 'UpdateCaption', caption: e.target.value })
+                  dispatch({ _tag: "UpdateCaption", caption: e.target.value })
                 }
                 placeholder="The caption goes here..."
               />
@@ -91,14 +104,14 @@ export const SpecExtensionPage: React.FC<Props> = ({ model, dispatch }) => {
               <button
                 type="button"
                 className="modal-btn modal-btn-cancel"
-                onClick={() => dispatch({ _tag: 'CancelInsertCaptionedImage' })}
+                onClick={() => dispatch({ _tag: "CancelInsertCaptionedImage" })}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 className="modal-btn modal-btn-confirm"
-                onClick={() => dispatch({ _tag: 'InsertCaptionedImage' })}
+                onClick={() => dispatch({ _tag: "InsertCaptionedImage" })}
               >
                 Insert
               </button>
@@ -107,7 +120,7 @@ export const SpecExtensionPage: React.FC<Props> = ({ model, dispatch }) => {
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export const SpecExtensionPageMemo = React.memo(SpecExtensionPage)
+export const SpecExtensionPageMemo = React.memo(SpecExtensionPage);

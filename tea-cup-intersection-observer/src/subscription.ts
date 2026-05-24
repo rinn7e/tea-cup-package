@@ -1,62 +1,62 @@
-import { Sub } from "tea-cup-fp";
+import { Sub } from 'tea-cup-fp'
 
-import { observe } from "./observe";
-import { IntersectionOptions } from "./type";
+import { observe } from './observe'
+import { IntersectionOptions } from './type'
 
-const RETRY_DELAY_MS = 50;
+const RETRY_DELAY_MS = 50
 
 class IntersectionObserverSubscription<Msg> extends Sub<Msg> {
-  private unobserve: (() => void) | null = null;
-  private retryTimeout: ReturnType<typeof setTimeout> | null = null;
-  private readonly elementId: string;
-  private readonly options: IntersectionOptions;
+  private unobserve: (() => void) | null = null
+  private retryTimeout: ReturnType<typeof setTimeout> | null = null
+  private readonly elementId: string
+  private readonly options: IntersectionOptions
   private readonly tagger: (
     inView: boolean,
     entry: IntersectionObserverEntry,
-  ) => Msg;
+  ) => Msg
 
   constructor(
     elementId: string,
     options: IntersectionOptions,
     tagger: (inView: boolean, entry: IntersectionObserverEntry) => Msg,
   ) {
-    super();
-    this.elementId = elementId;
-    this.options = options;
-    this.tagger = tagger;
+    super()
+    this.elementId = elementId
+    this.options = options
+    this.tagger = tagger
   }
 
   private tryObserve(): void {
-    const el = document.getElementById(this.elementId);
+    const el = document.getElementById(this.elementId)
     if (el) {
       this.unobserve = observe(
         el,
         (inView, entry) => {
-          this.dispatch(this.tagger(inView, entry));
+          this.dispatch(this.tagger(inView, entry))
         },
         this.options,
-      );
+      )
     } else {
       // Element not yet in DOM — retry after a short delay to handle React mount timing
       this.retryTimeout = setTimeout(() => {
-        this.retryTimeout = null;
-        this.tryObserve();
-      }, RETRY_DELAY_MS);
+        this.retryTimeout = null
+        this.tryObserve()
+      }, RETRY_DELAY_MS)
     }
   }
 
   protected override onInit(): void {
-    this.tryObserve();
+    this.tryObserve()
   }
 
   protected override onRelease(): void {
     if (this.retryTimeout !== null) {
-      clearTimeout(this.retryTimeout);
-      this.retryTimeout = null;
+      clearTimeout(this.retryTimeout)
+      this.retryTimeout = null
     }
     if (this.unobserve) {
-      this.unobserve();
-      this.unobserve = null;
+      this.unobserve()
+      this.unobserve = null
     }
   }
 }
@@ -92,7 +92,7 @@ export const watch = <Msg>(
   options: IntersectionOptions,
   tagger: (inView: boolean, entry: IntersectionObserverEntry) => Msg,
 ): Sub<Msg> => {
-  return new IntersectionObserverSubscription(elementId, options, tagger);
-};
+  return new IntersectionObserverSubscription(elementId, options, tagger)
+}
 
-export type { IntersectionOptions } from "./type";
+export type { IntersectionOptions } from './type'

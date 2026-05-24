@@ -24,9 +24,9 @@
     "io-ts": "^2.2.0",
     "io-ts-types": "^0.5.0",
     "react": "^19.0.0",
-    "react-tea-cup": "^5.0.0",
+    "react-tea-cup": "^5.1.1",
     "tailwind-merge": "^3.3.1",
-    "tea-cup-fp": "^1.0.0"
+    "tea-cup-fp": "^1.1.1"
   },
   "devDependencies": {
     "@devexperts/remote-data-ts": "^2.1.1",
@@ -46,10 +46,10 @@
     "io-ts-types": "^0.5.0",
     "prettier": "^3.8.1",
     "react": "^19.0.0",
-    "react-tea-cup": "^5.0.0",
+    "react-tea-cup": "^5.1.1",
     "rimraf": "^6.1.2",
     "tailwind-merge": "^3.3.1",
-    "tea-cup-fp": "^1.0.0",
+    "tea-cup-fp": "^1.1.1",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.34.1",

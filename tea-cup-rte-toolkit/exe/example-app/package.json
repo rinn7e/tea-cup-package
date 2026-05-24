@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@rinn7e/fp-ts-routing": "github:rinn7e/fp-ts-routing#0d9ec901639572171d6ada5b75aeee6ff945dc43",
-    "@rinn7e/tea-cup-prelude": "github:rinn7e/tea-cup-prelude#096c9d7eec9132cfee035fc27818dba96e48f2e9",
+    "@rinn7e/tea-cup-prelude": "workspace:*",
     "@rinn7e/tea-cup-rte-toolkit": "workspace:*",
     "fp-ts": "^2.16.0",
     "io-ts": "^2.2.21",
