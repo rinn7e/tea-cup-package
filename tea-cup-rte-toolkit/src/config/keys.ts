@@ -1,0 +1,11 @@
+export const short = "__Short__";
+export const alt = "Alt";
+export const meta = "Meta";
+export const ctrl = "Control";
+export const shift = "Shift";
+const return_ = "Return";
+export { return_ as return };
+export const enter = "Enter";
+export const backspace = "Backspace";
+const delete_ = "Delete";
+export { delete_ as delete };
