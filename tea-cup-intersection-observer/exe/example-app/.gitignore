@@ -1,0 +1,22 @@
+# Dependency directories
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+
+# Vite Cache
+.vite/
+
+# TS build info
+*.tsbuildinfo
+
+# Logs
+*.log
+pnpm-debug.log*
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.suo

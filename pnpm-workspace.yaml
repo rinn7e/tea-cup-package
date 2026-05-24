@@ -3,5 +3,7 @@ packages:
   - 'tea-cup-form'
   - 'tea-cup-pagination'
   - 'tea-cup-intersection-observer'
+  - 'tea-cup-intersection-observer/exe/example-app'
 allowBuilds:
   esbuild: true
+  "@rinn7e/tea-cup-prelude": true
