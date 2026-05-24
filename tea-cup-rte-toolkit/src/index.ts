@@ -77,7 +77,7 @@ export type {
   Inline,
   Path,
   Children,
-  Leaf,
+  Leaf as LeafType,
 } from './model/node';
 export {
   block,
@@ -87,6 +87,12 @@ export {
   markedText,
   parent,
   childNodes,
+  Leaf,
+  withElement,
+  toBlockArray,
+  toInlineArray,
+  marks,
+  inlineElement,
 } from './model/node';
 
 export type { Selection } from './model/selection';
@@ -102,6 +108,8 @@ export {
 export type { State } from './model/state';
 export {
   state as createState,
+  withRoot,
+  withSelection,
 } from './model/state';
 
 export type { History } from './model/history';
@@ -110,9 +118,13 @@ export {
   redoList,
 } from './model/history';
 
-export type { Mark, MarkOrder } from './model/mark';
+export type { Mark, MarkOrder, ToggleAction } from './model/mark';
+export { mark, markOrderFromSpec, sort, Add, Remove, Flip, toggle, hasMarkWithName, withAttributes as withMarkAttributes } from './model/mark';
 
-export type { Decorations } from './config/decorations';
+export type { Element } from './model/element';
+export { element, withAttributes as withElementAttributes } from './model/element';
+
+export type { Decorations, ElementDecoration, MarkDecoration } from './config/decorations';
 export {
   emptyDecorations,
   withMarkDecorations,
@@ -120,9 +132,49 @@ export {
   withTopLevelAttributes,
   addElementDecoration,
   addMarkDecoration,
+  selectableDecoration,
 } from './config/decorations';
 
 export type { Spec } from './config/spec';
+export {
+  emptySpec,
+  withElementDefinitions,
+  withMarkDefinitions,
+  elementDefinitions,
+  markDefinitions,
+} from './config/spec';
 
 export type { Editor } from './internal/editor';
+export {
+  editor,
+  state,
+  applyCommand,
+  applyCommandNoForceSelection,
+  applyNamedCommandList,
+} from './internal/editor';
+
 export type { Message } from './internal/message';
+export * from './model/attribute';
+
+export {
+  elementDefinition,
+  blockNode,
+  blockLeaf,
+  textBlock,
+  inlineLeaf,
+  defaultElementToHtml,
+  defaultHtmlToElement,
+} from './config/element-definition';
+export type { ElementDefinition, ContentType } from './config/element-definition';
+
+export {
+  markDefinition,
+  defaultHtmlToMark,
+} from './config/mark-definition';
+export type { MarkDefinition } from './config/mark-definition';
+
+export * from './config/command';
+export * from './model/html-node';
+export { Option, some, none } from 'fp-ts/lib/Option';
+export * from './config/keys';
+

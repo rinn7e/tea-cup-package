@@ -1,0 +1,53 @@
+{
+  "name": "tea-cup-rte-toolkit-example",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "check:watch": "tsc --noEmit --watch"
+  },
+  "dependencies": {
+    "@rinn7e/fp-ts-routing": "github:rinn7e/fp-ts-routing#0d9ec901639572171d6ada5b75aeee6ff945dc43",
+    "@rinn7e/tea-cup-prelude": "github:rinn7e/tea-cup-prelude#096c9d7eec9132cfee035fc27818dba96e48f2e9",
+    "@rinn7e/tea-cup-rte-toolkit": "workspace:*",
+    "fp-ts": "^2.16.0",
+    "io-ts": "^2.2.21",
+    "marked": "^15.0.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-tea-cup": "5.1.1",
+    "tea-cup-fp": "1.1.1",
+    "turndown": "^7.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@tailwindcss/vite": "^4.1.18",
+    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@types/turndown": "^5.0.6",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.14",
+    "eslint": "^9.21.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-react-dom": "^1.1.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "eslint-plugin-react-x": "^1.1.0",
+    "eslint-plugin-unused-imports": "^4.1.4",
+    "globals": "^15.15.0",
+    "postcss": "^8.5.9",
+    "prettier": "^3.5.2",
+    "prettier-plugin-tailwindcss": "^0.6.11",
+    "tailwindcss": "^4.1.18",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.24.1",
+    "vite": "^7.0.0",
+    "vite-tsconfig-paths": "^4.3.2"
+  }
+}
