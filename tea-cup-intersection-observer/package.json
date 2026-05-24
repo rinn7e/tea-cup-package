@@ -1,0 +1,40 @@
+{
+  "name": "@rinn7e/tea-cup-intersection-observer",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Intersection Observer subscription for React Tea-Cup applications",
+  "author": "Moremi Vannak",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "clean": "rimraf lib",
+    "compile": "tsup",
+    "build": "pnpm run clean && pnpm run compile",
+    "typecheck": "tsc --noEmit",
+    "check-style": "prettier --check .",
+    "fix-style": "prettier --write .",
+    "lint": "eslint src",
+    "staged": "pnpm run fix-style && pnpm run typecheck && pnpm run lint"
+  },
+  "peerDependencies": {
+    "tea-cup-fp": "^1.1.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "eslint": "^9.29.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.22",
+    "eslint-plugin-react-x": "^1.52.2",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "globals": "^16.2.0",
+    "prettier": "^3.8.1",
+    "rimraf": "^6.1.2",
+    "tea-cup-fp": "^1.1.1",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.34.1"
+  }
+}

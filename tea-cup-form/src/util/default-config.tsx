@@ -31,8 +31,6 @@ import {
   type CheckboxChoice,
   type CheckboxType,
   type CheckboxesTypeUiArg,
-  TextTypeUiArg,
-  type TextPillTypeUiArg,
   type DropdownType,
   type DropdownTypeUiArg,
   type FileType,
@@ -42,7 +40,9 @@ import {
   type RadioType,
   type RadiosTypeUiArg,
   type TextPillType,
+  type TextPillTypeUiArg,
   type TextType,
+  TextTypeUiArg,
 } from '../type'
 
 export const defaultTextType = (
