@@ -4,6 +4,7 @@ packages:
   - 'tea-cup-form'
   - 'tea-cup-pagination'
   - 'tea-cup-intersection-observer'
+  - 'tea-cup-rte-toolkit'
   # example apps
   - 'tea-cup-intersection-observer/exe/example-app'
   - 'tea-cup-form/exe/example-app'
