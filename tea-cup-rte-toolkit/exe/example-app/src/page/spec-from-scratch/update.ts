@@ -5,6 +5,9 @@ import {
   type Path,
   type State,
   type Transform,
+  type ElementDefinition,
+  type ElementDecoration,
+  type Attribute,
   emptySpec,
   withElementDefinitions,
   elementDefinition,
@@ -106,7 +109,7 @@ export const item = elementDefinition({
     };
   },
   fromHtmlNode: (
-    def: any,
+    def: ElementDefinition,
     node: HtmlNode,
   ): Option<[RteElement, Array<HtmlNode>]> => {
     if (node._tag === "ElementNode" && node.name === "li") {
@@ -150,7 +153,7 @@ const toggleCheckboxDecoration = (
   editorNodePath: Path,
   elementVal: RteElement,
   elementPath: Path,
-): Array<[string, any]> => {
+): Array<Attribute<Msg>> => {
   const checkedOpt = findBoolAttribute(
     "checked",
     elementVal.contents.attributes,
@@ -175,7 +178,12 @@ const toggleCheckboxDecoration = (
 
 export const todoDecorations = pipe(
   emptyDecorations<Msg>(),
-  (d) => addElementDecoration(item, toggleCheckboxDecoration as any, d),
+  (d) =>
+    addElementDecoration(
+      item,
+      toggleCheckboxDecoration satisfies ElementDecoration<Msg>,
+      d,
+    ),
   (d) => withTopLevelAttributes([["data-gramm_editor", "false"]], d),
 );
 

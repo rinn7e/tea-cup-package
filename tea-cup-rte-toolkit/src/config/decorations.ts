@@ -9,7 +9,7 @@ import { caret } from '../model/selection'
 import { ElementDefinition } from './element-definition'
 import { MarkDefinition } from './mark-definition'
 
-export type Attribute<Msg> = [string, string | (() => Msg)]
+export type Attribute<Msg> = [string, string | ((event: never) => Msg | void)]
 
 export const Attributes = {
   class: (className: string): Attribute<never> => ['className', className],

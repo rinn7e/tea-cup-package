@@ -647,14 +647,16 @@ function viewHtmlNode<Msg>(
           e.preventDefault()
           e.stopPropagation()
           if (typeof val === 'function') {
-            const msg = val()
-            dispatch(msg)
+            const msg = val(undefined as never)
+            if (msg !== undefined) {
+              dispatch(msg)
+            }
           }
         }
       } else if (key.startsWith('on') && typeof val === 'function') {
-        reactProps[key] = (e: any) => {
-          const msg = (val as any)(e)
-          if (msg) {
+        reactProps[key] = (e: unknown) => {
+          const msg = (val as (event: unknown) => Msg | void)(e)
+          if (msg !== undefined) {
             dispatch(msg)
           }
         }
@@ -857,8 +859,8 @@ export function RteEditor<Msg>({
   const spec_ = spec(config)
   const decorations_ = decorations(config)
 
-  const onEditorChange = (e: Event) => {
-    const detail = (e as CustomEvent<EditorChangeDetail>).detail
+  const onEditorChange = (e: CustomEvent<EditorChangeDetail>) => {
+    const detail = e.detail
     console.log('RteEditor: onEditorChange', detail)
     const changePayload = {
       root: toDomNode(detail.root),
@@ -872,8 +874,8 @@ export function RteEditor<Msg>({
     dispatch(config.toMsg({ _tag: 'ChangeEvent', change: changePayload }))
   }
 
-  const onSelectionChange = (e: Event) => {
-    const detail = (e as CustomEvent<SelectionObject>).detail
+  const onSelectionChange = (e: CustomEvent<SelectionObject>) => {
+    const detail = e.detail
     console.log('RteEditor: onSelectionChange', detail)
     const domSel = parseSelection(detail)
     const editorSel = pipe(
@@ -901,8 +903,8 @@ export function RteEditor<Msg>({
     dispatch(config.toMsg({ _tag: 'CompositionEnd' }))
   }
 
-  const onPaste = (e: Event) => {
-    const detail = (e as CustomEvent<PasteDetail>).detail
+  const onPaste = (e: CustomEvent<PasteDetail>) => {
+    const detail = e.detail
     dispatch(
       config.toMsg({
         _tag: 'PasteWithDataEvent',
@@ -915,8 +917,8 @@ export function RteEditor<Msg>({
     dispatch(config.toMsg({ _tag: 'CutEvent' }))
   }
 
-  const onInit = (e: Event) => {
-    const detail = (e as CustomEvent<InitDetail>).detail
+  const onInit = (e: CustomEvent<InitDetail>) => {
+    const detail = e.detail
     dispatch(
       config.toMsg({
         _tag: 'Init',

@@ -15,7 +15,7 @@ import {
   markDefinition,
   markDefinitions,
 } from '../config/spec'
-import { Element } from '../model/element'
+import type { Element as RteElement } from '../model/element'
 import { HtmlNode } from '../model/html-node'
 import { Add, Mark, markOrderFromSpec, toggle } from '../model/mark'
 import { inlineElement } from '../model/node'
@@ -87,7 +87,7 @@ export function htmlNodeToEditorFragment(
   // ElementNode
   const definitions = elementDefinitions(spec)
   let maybeElementAndChildren:
-    | [ElementDefinition.ElementDefinition, [Element, Array<HtmlNode>]]
+    | [ElementDefinition.ElementDefinition, [RteElement, Array<HtmlNode>]]
     | null = null
   for (const definition of definitions) {
     const fromHtmlNode = definition.contents.fromHtmlNode
@@ -273,8 +273,8 @@ function domNodeListToHtmlNodeArray(nodes: NodeListOf<Node>): Array<HtmlNode> {
   const result: Array<HtmlNode> = []
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i]
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const element = node as HTMLElement
+    if (node instanceof Element) {
+      const element = node
       const name = element.tagName.toLowerCase()
       if (name !== 'meta') {
         const attributes: Array<[string, string]> = []
@@ -312,7 +312,7 @@ export function markDefinitionWithDefault(
 }
 
 export function elementDefinitionWithDefault(
-  ele: Element,
+  ele: RteElement,
   spec: Spec,
 ): ElementDefinition.ElementDefinition {
   const name = nameFromElement(ele)
