@@ -17,7 +17,10 @@ const getSelectionPath = (
   const path: Node[] = []
   try {
     let curr: Node | null = node
-    while (curr && (curr as HTMLElement).tagName !== 'BODY') {
+    while (
+      curr &&
+      (curr instanceof HTMLElement ? curr.tagName : '') !== 'BODY'
+    ) {
       path.push(curr)
       if (curr === editor) {
         break
@@ -207,11 +210,17 @@ export class SelectionState extends HTMLElement {
   }
 
   getSelectionPath(node: Node | null, offset: number): number[] | null {
-    return getSelectionPath(node, this.parentNode as HTMLElement, offset)
+    if (!(this.parentNode instanceof HTMLElement)) {
+      return null
+    }
+    return getSelectionPath(node, this.parentNode, offset)
   }
 
   findNodeFromPath(path: string | number[] | null): Node | null {
-    return findNodeFromPath(path, this.parentNode as HTMLElement)
+    if (!(this.parentNode instanceof HTMLElement)) {
+      return null
+    }
+    return findNodeFromPath(path, this.parentNode)
   }
 
   getSelectionObject(): SelectionObject {
@@ -369,8 +378,12 @@ export class ElmEditor extends HTMLElement {
 
   mutationObserverCallback(mutationsList: MutationRecord[]): void {
     const element = this.querySelector('[data-rte-main="true"]')
-    const selectionStateEl = this.childNodes[1] as SelectionState
-    const selection = selectionStateEl?.getSelectionObject?.() || {
+    const selectionStateCandidate = this.querySelector('selection-state')
+    const selectionStateEl =
+      selectionStateCandidate instanceof SelectionState
+        ? selectionStateCandidate
+        : null
+    const selection = selectionStateEl?.getSelectionObject() ?? {
       selectionExists: false,
     }
 
