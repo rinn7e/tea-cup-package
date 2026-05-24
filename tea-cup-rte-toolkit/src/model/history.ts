@@ -1,9 +1,9 @@
-import * as Internal from '../internal/history';
+import * as Internal from '../internal/history'
 
 /**
  * `History` contains the undo deque and redo stack related to undo history.
  */
-export type History = Internal.History;
+export type History = Internal.History
 
 /**
  * Provides an empty `History` with the given config. The config values are as follows:
@@ -12,19 +12,19 @@ export type History = Internal.History;
  *     so the history doesn't get overwhelmed by single character changes.
  *   - `size` is the number of states stored in the history
  */
-export const empty = Internal.empty;
+export const empty = Internal.empty
 
 /**
  * Returns the last executed action and previous state on the undo stack.
  */
-export const peek = Internal.peek;
+export const peek = Internal.peek
 
 /**
  * Returns the entire undo stack.
  */
-export const undoList = Internal.undoList;
+export const undoList = Internal.undoList
 
 /**
  * Returns the entire redo stack.
  */
-export const redoList = Internal.redoList;
+export const redoList = Internal.redoList

@@ -90,11 +90,11 @@ importers:
   tea-cup-form/exe/example-app:
     dependencies:
       '@rinn7e/tea-cup-form':
-        specifier: file:../..
-        version: file:tea-cup-form(@rinn7e/tea-cup-prelude@https://codeload.github.com/rinn7e/tea-cup-prelude/tar.gz/096c9d7eec9132cfee035fc27818dba96e48f2e9(@devexperts/remote-data-ts@2.1.1(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11)))(clsx@2.1.1)(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11))(react-tea-cup@5.1.1(react@19.2.6)(tea-cup-fp@1.1.1))(react@19.2.6)(tailwind-merge@3.6.0)(tea-cup-fp@1.1.1))(fp-ts@2.16.11)(react-datepicker@8.10.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react-tea-cup@5.1.1(react@19.2.6)(tea-cup-fp@1.1.1))(react@19.2.6)(tea-cup-fp@1.1.1)
+        specifier: workspace:*
+        version: link:../..
       '@rinn7e/tea-cup-prelude':
-        specifier: github:rinn7e/tea-cup-prelude#096c9d7eec9132cfee035fc27818dba96e48f2e9
-        version: https://codeload.github.com/rinn7e/tea-cup-prelude/tar.gz/096c9d7eec9132cfee035fc27818dba96e48f2e9(@devexperts/remote-data-ts@2.1.1(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11)))(clsx@2.1.1)(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11))(react-tea-cup@5.1.1(react@19.2.6)(tea-cup-fp@1.1.1))(react@19.2.6)(tailwind-merge@3.6.0)(tea-cup-fp@1.1.1)
+        specifier: workspace:*
+        version: link:../../../tea-cup-prelude
       fp-ts:
         specifier: ^2.16.0
         version: 2.16.11
@@ -271,11 +271,11 @@ importers:
   tea-cup-intersection-observer/exe/example-app:
     dependencies:
       '@rinn7e/tea-cup-intersection-observer':
-        specifier: file:../..
+        specifier: workspace:*
         version: link:../..
       '@rinn7e/tea-cup-prelude':
-        specifier: github:rinn7e/tea-cup-prelude#096c9d7eec9132cfee035fc27818dba96e48f2e9
-        version: https://codeload.github.com/rinn7e/tea-cup-prelude/tar.gz/096c9d7eec9132cfee035fc27818dba96e48f2e9(@devexperts/remote-data-ts@2.1.1(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11)))(clsx@2.1.1)(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11))(react-tea-cup@5.1.1(react@19.2.6)(tea-cup-fp@1.1.1))(react@19.2.6)(tailwind-merge@3.6.0)(tea-cup-fp@1.1.1)
+        specifier: workspace:*
+        version: link:../../../tea-cup-prelude
       fp-ts:
         specifier: ^2.16.0
         version: 2.16.11
@@ -492,8 +492,8 @@ importers:
         specifier: ^19.0.0
         version: 19.2.6
       react-tea-cup:
-        specifier: ^5.0.0
-        version: 5.1.3(react@19.2.6)(tea-cup-fp@1.1.1)
+        specifier: ^5.1.1
+        version: 5.1.1(react@19.2.6)(tea-cup-fp@1.1.1)
       rimraf:
         specifier: ^6.1.2
         version: 6.1.3
@@ -501,7 +501,7 @@ importers:
         specifier: ^3.3.1
         version: 3.6.0
       tea-cup-fp:
-        specifier: ^1.0.0
+        specifier: ^1.1.1
         version: 1.1.1
       tsup:
         specifier: ^8.5.1
@@ -531,6 +531,9 @@ importers:
       '@eslint/js':
         specifier: ^9.29.0
         version: 9.39.4
+      '@trivago/prettier-plugin-sort-imports':
+        specifier: ^6.0.2
+        version: 6.0.2(prettier@3.8.3)
       '@types/react':
         specifier: ^19.1.8
         version: 19.2.14
@@ -540,6 +543,24 @@ importers:
       eslint:
         specifier: ^9.29.0
         version: 9.39.4(jiti@2.7.0)
+      eslint-plugin-import:
+        specifier: ^2.32.0
+        version: 2.32.0(@typescript-eslint/parser@8.59.3(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))
+      eslint-plugin-react-hooks:
+        specifier: ^5.2.0
+        version: 5.2.0(eslint@9.39.4(jiti@2.7.0))
+      eslint-plugin-react-refresh:
+        specifier: ^0.4.20
+        version: 0.4.26(eslint@9.39.4(jiti@2.7.0))
+      eslint-plugin-react-x:
+        specifier: ^1.52.2
+        version: 1.53.1(eslint@9.39.4(jiti@2.7.0))(ts-api-utils@2.5.0(typescript@5.9.3))(typescript@5.9.3)
+      eslint-plugin-unused-imports:
+        specifier: ^4.4.1
+        version: 4.4.1(@typescript-eslint/eslint-plugin@8.59.3(@typescript-eslint/parser@8.59.3(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))
+      globals:
+        specifier: ^16.2.0
+        version: 16.5.0
       prettier:
         specifier: ^3.8.1
         version: 3.8.3
@@ -552,6 +573,9 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      typescript-eslint:
+        specifier: ^8.34.1
+        version: 8.59.3(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
 
   tea-cup-rte-toolkit/exe/example-app:
     dependencies:
@@ -559,8 +583,8 @@ importers:
         specifier: github:rinn7e/fp-ts-routing#0d9ec901639572171d6ada5b75aeee6ff945dc43
         version: fp-ts-routing@https://codeload.github.com/rinn7e/fp-ts-routing/tar.gz/0d9ec901639572171d6ada5b75aeee6ff945dc43(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))
       '@rinn7e/tea-cup-prelude':
-        specifier: github:rinn7e/tea-cup-prelude#096c9d7eec9132cfee035fc27818dba96e48f2e9
-        version: https://codeload.github.com/rinn7e/tea-cup-prelude/tar.gz/096c9d7eec9132cfee035fc27818dba96e48f2e9(@devexperts/remote-data-ts@2.1.1(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11)))(clsx@2.1.1)(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11))(react-tea-cup@5.1.1(react@19.2.6)(tea-cup-fp@1.1.1))(react@19.2.6)(tailwind-merge@3.6.0)(tea-cup-fp@1.1.1)
+        specifier: workspace:*
+        version: link:../../../tea-cup-prelude
       '@rinn7e/tea-cup-rte-toolkit':
         specifier: workspace:*
         version: link:../..
@@ -1054,31 +1078,6 @@ packages:
     resolution: {integrity: sha512-O71yZIbAh/PxDMNGns37GHBIfrVkEVyn+AXyIa5dOTfb4/xNvRWV+Vv/NMbNCtODB/pO7vLlF2OTmMVLhmr7Ag==}
     engines: {node: '>=18'}
     hasBin: true
-
-  '@rinn7e/tea-cup-form@file:tea-cup-form':
-    resolution: {directory: tea-cup-form, type: directory}
-    peerDependencies:
-      '@rinn7e/tea-cup-prelude': ^1.0.0
-      fp-ts: ^2.16.11
-      react: ^19.2.0
-      react-datepicker: ^8.9.0
-      react-dom: ^19.2.0
-      react-tea-cup: ^5.1.1
-      tea-cup-fp: ^1.1.1
-
-  '@rinn7e/tea-cup-prelude@https://codeload.github.com/rinn7e/tea-cup-prelude/tar.gz/096c9d7eec9132cfee035fc27818dba96e48f2e9':
-    resolution: {gitHosted: true, integrity: sha512-5WRzRsCb9Y/zamUZxOoigfpN2Y7b7xWgLQosaa82S8YjJQ6iPzAvNoYXN7X365k/teVhfJomlXPyYdyXNzVM/A==, tarball: https://codeload.github.com/rinn7e/tea-cup-prelude/tar.gz/096c9d7eec9132cfee035fc27818dba96e48f2e9}
-    version: 1.0.0
-    peerDependencies:
-      '@devexperts/remote-data-ts': ^2.1.1
-      clsx: ^2.0.0
-      fp-ts: ^2.16.0
-      io-ts: ^2.2.0
-      io-ts-types: ^0.5.0
-      react: ^19.0.0
-      react-tea-cup: ^5.0.0
-      tailwind-merge: ^3.3.1
-      tea-cup-fp: ^1.0.0
 
   '@rolldown/binding-android-arm64@1.0.1':
     resolution: {integrity: sha512-fJI3I0r3C3Oj/zdBCpaCmBRZYf07xpaq4yCfDDoSFm+beWNzbIl26puW8RraUdugoJw/95zerNOn6jasAhzSmg==}
@@ -3649,28 +3648,6 @@ snapshots:
   '@playwright/test@1.60.0':
     dependencies:
       playwright: 1.60.0
-
-  '@rinn7e/tea-cup-form@file:tea-cup-form(@rinn7e/tea-cup-prelude@https://codeload.github.com/rinn7e/tea-cup-prelude/tar.gz/096c9d7eec9132cfee035fc27818dba96e48f2e9(@devexperts/remote-data-ts@2.1.1(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11)))(clsx@2.1.1)(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11))(react-tea-cup@5.1.1(react@19.2.6)(tea-cup-fp@1.1.1))(react@19.2.6)(tailwind-merge@3.6.0)(tea-cup-fp@1.1.1))(fp-ts@2.16.11)(react-datepicker@8.10.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react-tea-cup@5.1.1(react@19.2.6)(tea-cup-fp@1.1.1))(react@19.2.6)(tea-cup-fp@1.1.1)':
-    dependencies:
-      '@rinn7e/tea-cup-prelude': https://codeload.github.com/rinn7e/tea-cup-prelude/tar.gz/096c9d7eec9132cfee035fc27818dba96e48f2e9(@devexperts/remote-data-ts@2.1.1(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11)))(clsx@2.1.1)(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11))(react-tea-cup@5.1.1(react@19.2.6)(tea-cup-fp@1.1.1))(react@19.2.6)(tailwind-merge@3.6.0)(tea-cup-fp@1.1.1)
-      fp-ts: 2.16.11
-      react: 19.2.6
-      react-datepicker: 8.10.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      react-dom: 19.2.6(react@19.2.6)
-      react-tea-cup: 5.1.1(react@19.2.6)(tea-cup-fp@1.1.1)
-      tea-cup-fp: 1.1.1
-
-  '@rinn7e/tea-cup-prelude@https://codeload.github.com/rinn7e/tea-cup-prelude/tar.gz/096c9d7eec9132cfee035fc27818dba96e48f2e9(@devexperts/remote-data-ts@2.1.1(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11)))(clsx@2.1.1)(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11))(react-tea-cup@5.1.1(react@19.2.6)(tea-cup-fp@1.1.1))(react@19.2.6)(tailwind-merge@3.6.0)(tea-cup-fp@1.1.1)':
-    dependencies:
-      '@devexperts/remote-data-ts': 2.1.1(fp-ts@2.16.11)(io-ts-types@0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11))))(io-ts@2.2.22(fp-ts@2.16.11))
-      clsx: 2.1.1
-      fp-ts: 2.16.11
-      io-ts: 2.2.22(fp-ts@2.16.11)
-      io-ts-types: 0.5.19(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))(monocle-ts@2.3.13(fp-ts@2.16.11))(newtype-ts@0.3.5(fp-ts@2.16.11)(monocle-ts@2.3.13(fp-ts@2.16.11)))
-      react: 19.2.6
-      react-tea-cup: 5.1.1(react@19.2.6)(tea-cup-fp@1.1.1)
-      tailwind-merge: 3.6.0
-      tea-cup-fp: 1.1.1
 
   '@rolldown/binding-android-arm64@1.0.1':
     optional: true

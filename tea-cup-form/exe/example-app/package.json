@@ -12,8 +12,8 @@
     "check:watch": "tsc --noEmit --watch"
   },
   "dependencies": {
-    "@rinn7e/tea-cup-form": "file:../..",
-    "@rinn7e/tea-cup-prelude": "github:rinn7e/tea-cup-prelude#096c9d7eec9132cfee035fc27818dba96e48f2e9",
+    "@rinn7e/tea-cup-form": "workspace:*",
+    "@rinn7e/tea-cup-prelude": "workspace:*",
     "fp-ts": "^2.16.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

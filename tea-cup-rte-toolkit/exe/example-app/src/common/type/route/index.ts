@@ -1,2 +1,2 @@
-export * from './type'
-export * from './parser'
+export * from "./type";
+export * from "./parser";

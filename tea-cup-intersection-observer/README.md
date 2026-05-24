@@ -41,27 +41,27 @@ export function MyComponent(): ReactNode {
 In your application's `subscriptions` function, watch the element ID and map the intersection state to a message:
 
 ```typescript
-import * as TeaObserver from "@rinn7e/tea-cup-intersection-observer";
-import { Sub } from "tea-cup-fp";
+import * as TeaObserver from '@rinn7e/tea-cup-intersection-observer'
+import { Sub } from 'tea-cup-fp'
 
 export type Msg = {
-  type: "ElementInViewChanged";
-  inView: boolean;
-  entry: IntersectionObserverEntry;
-};
+  type: 'ElementInViewChanged'
+  inView: boolean
+  entry: IntersectionObserverEntry
+}
 
 export function subscriptions(model: Model): Sub<Msg> {
   return TeaObserver.watch(
-    "my-observed-element",
+    'my-observed-element',
     {
       threshold: 0.5, // Trigger when 50% of the element is visible
     },
     (inView, entry) => ({
-      type: "ElementInViewChanged",
+      type: 'ElementInViewChanged',
       inView,
       entry,
     }),
-  );
+  )
 }
 ```
 
@@ -72,8 +72,8 @@ Handle the state changes in your `update` function:
 ```typescript
 export function update(msg: Msg, model: Model): [Model, Cmd<Msg>] {
   switch (msg.type) {
-    case "ElementInViewChanged":
-      return [{ ...model, isElementVisible: msg.inView }, Cmd.none()];
+    case 'ElementInViewChanged':
+      return [{ ...model, isElementVisible: msg.inView }, Cmd.none()]
   }
 }
 ```
