@@ -6,7 +6,9 @@
     "outDir": "lib",
     "strict": true,
     "moduleResolution": "node",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "rootDir": "src",
+    "ignoreDeprecations": "6.0"
   },
   "include": ["src"]
 }
