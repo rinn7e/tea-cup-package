@@ -6,7 +6,7 @@ import {
 import * as O from 'fp-ts/lib/Option'
 import { Cmd } from 'tea-cup-fp'
 
-import * as EditorUpdate from '@/editor/update'
+import * as EditorUpdate from '@/component/editor/update'
 
 import type { Model, Msg } from './type'
 

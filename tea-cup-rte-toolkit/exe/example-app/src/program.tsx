@@ -1,7 +1,7 @@
 import { ProgramWithNav } from 'react-tea-cup'
 import { type Dispatcher, Sub } from 'tea-cup-fp'
 
-import { App } from './app'
+import { appView } from './app'
 import type { Model, Msg } from './type'
 import { preInit, preUpdate } from './update'
 
@@ -14,7 +14,7 @@ const preLoadingView = () => {
 }
 
 const preView = (dispatch: Dispatcher<Msg>, model: Model | null) => {
-  return model ? <App model={model} dispatch={dispatch} /> : preLoadingView()
+  return model ? appView({ model, dispatch }) : preLoadingView()
 }
 
 export const AppProgram = () => {

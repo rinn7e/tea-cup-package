@@ -1,4 +1,4 @@
-import type * as EditorType from '@/editor/type'
+import type * as EditorType from '@/component/editor/type'
 
 export type Model = {
   editor: EditorType.Model

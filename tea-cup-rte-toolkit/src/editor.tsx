@@ -29,6 +29,7 @@ import type { KeyboardEvent } from './internal/event'
 import {
   childNodesPlaceholder,
   isChildNodesPlaceholder,
+  editorBlockNodeToHtmlNode,
 } from './internal/html-node'
 import * as KeyDown from './internal/key-down'
 import { preventDefaultOn as preventDefaultOnKeyDown } from './internal/key-down'
@@ -263,9 +264,7 @@ function deriveTextChanges(
   editorNode: Block,
   domNode: DomNode,
 ): Either<string, Array<[Path, string]>> {
-  const htmlNode = ElementDefinition.toHtmlNode(
-    elementDefinitionWithDefault(editorNode.contents.parameters, spec_),
-  )(editorNode.contents.parameters, childNodesPlaceholder)
+  const htmlNode = editorBlockNodeToHtmlNode(spec_, editorNode)
   return DomNodeInternal.findTextChanges(htmlNode, domNode)
 }
 
@@ -436,6 +435,7 @@ function updateChangeEventFullScan(
     editorRootDomNode,
   )
   if (derived._tag === 'Left') {
+    console.warn('deriveTextChanges failed:', derived.left)
     return applyForceFunctionOnEditor(InternalEditor.forceRerender, editor_)
   }
 
@@ -850,7 +850,7 @@ interface EditorComponentProps<Msg> {
   readonly dispatch: (msg: Msg) => void
 }
 
-export function RteEditor<Msg>({
+export function rteEditorView<Msg>({
   config,
   editor,
   dispatch,
@@ -1004,18 +1004,17 @@ export function RteEditor<Msg>({
         onKeyDown: handleKeyDown,
         ...topProps,
       },
-      React.createElement(
-        'div',
-        {
-          key: InternalEditor.renderCount(editor),
-        },
+      React.cloneElement(
         viewEditorBlockNode(
           spec_,
           decorations_,
           [],
           markCaretSelectionOnEditorNodes(state_),
           dispatch,
-        ),
+        ) as React.ReactElement,
+        {
+          key: InternalEditor.renderCount(editor),
+        },
       ),
     ),
     React.createElement('selection-state', {
@@ -1087,7 +1086,7 @@ export function view<Msg>(
   editor: Editor,
   dispatch: (msg: Msg) => void,
 ): React.ReactElement {
-  return <RteEditor config={cfg} editor={editor} dispatch={dispatch} />
+  return rteEditorView({ config: cfg, editor, dispatch })
 }
 
 /**

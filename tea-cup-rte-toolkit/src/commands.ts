@@ -21,7 +21,17 @@ import {
   short,
 } from './config/keys'
 import { Element } from './model/element'
-import { Mark, MarkOrder, ToggleAction } from './model/mark'
+import * as InlineElement from './model/inline-element'
+import {
+  Add,
+  Mark,
+  MarkOrder,
+  Remove,
+  ToggleAction,
+  hasMarkWithName,
+  name as markName,
+  toggle,
+} from './model/mark'
 import {
   Block,
   Inline,
@@ -29,12 +39,15 @@ import {
   block,
   blockChildren,
   childNodes,
+  decrement,
   increment,
   inlineChildren,
+  marks,
   parent,
   toBlockArray,
   toInlineArray,
   withChildNodes,
+  withElement,
 } from './model/node'
 import {
   anchorNode,
@@ -45,20 +58,25 @@ import {
   isCollapsed,
   normalize,
   range,
+  singleNodeRange,
 } from './model/selection'
 import { State, withRoot, withSelection } from './model/state'
 import * as Text from './model/text'
 import {
   Node,
+  allRange,
   findBackwardFromExclusive,
+  findClosestBlockPath,
   findForwardFromExclusive,
   findTextBlockNodeAncestor,
+  indexedMap,
   insertAfter,
   isEmptyTextBlock,
   last,
+  next,
   nodeAt,
   joinBlocks as nodeJoinBlocks,
-  toggleMark as nodeToggleMark,
+  previous,
   removeInRange,
   removeNodeAndEmptyParents,
   replace,
@@ -787,15 +805,368 @@ export function toggleMark(
   action: ToggleAction,
 ): Transform {
   return (editorState: State): Either<string, State> => {
+    return toggleMarkFull(order, markVal, action)(hug(editorState))
+  }
+}
+
+export function toggleMarkFull(
+  markOrder: MarkOrder,
+  mark: Mark,
+  action: ToggleAction,
+): Transform {
+  return (editorState: State): Either<string, State> => {
     const selectionOpt = editorState.contents.selection
-    if (selectionOpt._tag === 'None') return left('No selection')
-    const sel = selectionOpt.value
-    const path = anchorNode(sel)
-    return pipe(
-      nodeToggleMark(order, markVal, action, path, editorState.contents.root),
-      E_map((root) => withRoot(root, editorState)),
+    if (selectionOpt._tag === 'None') {
+      return left('Nothing is selected')
+    }
+    const selection = selectionOpt.value
+    const aN = anchorNode(selection)
+    const fN = focusNode(selection)
+
+    if (aN.join(':') === fN.join(':')) {
+      return toggleMarkSingleInlineNode(markOrder, mark, action)(editorState)
+    }
+
+    const normalizedSelection = normalize(selection)
+    const normAN = anchorNode(normalizedSelection)
+    const normFN = focusNode(normalizedSelection)
+
+    let toggleAction: ToggleAction
+    if (action._tag !== 'Flip') {
+      toggleAction = action
+    } else {
+      const allHaveMark = allRange(
+        (node) => isBlockOrInlineNodeWithMark(markName(mark), node),
+        normAN,
+        normFN,
+        editorState.contents.root,
+      )
+      toggleAction = allHaveMark ? Remove : Add
+    }
+
+    // betweenRoot: toggle marks on all inline nodes strictly between anchor and focus
+    let betweenRoot: Block = editorState.contents.root
+    const afterAnchorOpt = next(normAN, editorState.contents.root)
+    if (afterAnchorOpt._tag === 'Some') {
+      const [afterAnchor] = afterAnchorOpt.value
+      const beforeFocusOpt = previous(normFN, editorState.contents.root)
+      if (beforeFocusOpt._tag === 'Some') {
+        const [beforeFocus] = beforeFocusOpt.value
+        const mappedNode = indexedMap(
+          (path, node) => {
+            if (
+              comparePath(path, afterAnchor) < 0 ||
+              comparePath(path, beforeFocus) > 0
+            ) {
+              return node
+            }
+            if (node._tag === 'Block') {
+              return node
+            }
+            // inline node: toggle mark
+            const il = node.value
+            const newMarks = toggle(toggleAction, markOrder, mark, marks(il))
+            if (il._tag === 'Text') {
+              return {
+                _tag: 'Inline' as const,
+                value: {
+                  _tag: 'Text' as const,
+                  text: Text.withMarks(newMarks, il.text),
+                },
+              }
+            } else {
+              return {
+                _tag: 'Inline' as const,
+                value: {
+                  _tag: 'InlineElement' as const,
+                  inlineElement: InlineElement.withMarks(
+                    newMarks,
+                    il.inlineElement,
+                  ),
+                },
+              }
+            }
+          },
+          { _tag: 'Block', value: editorState.contents.root },
+        )
+
+        if (mappedNode._tag === 'Block') {
+          betweenRoot = mappedNode.value
+        }
+      }
+    }
+
+    // modifiedEndNodeEditorState
+    const endSel = singleNodeRange(normFN, 0, focusOffset(normalizedSelection))
+    const endStateRes = toggleMarkSingleInlineNode(
+      markOrder,
+      mark,
+      toggleAction,
+    )(withSelection(some(endSel), withRoot(betweenRoot, editorState)))
+    const modifiedEndNodeEditorState =
+      endStateRes._tag === 'Right'
+        ? endStateRes.right
+        : withRoot(betweenRoot, editorState)
+
+    // modifiedStartNodeEditorState
+    let modifiedStartNodeEditorState = modifiedEndNodeEditorState
+    const startNodeOpt = nodeAt(normAN, {
+      _tag: 'Block',
+      value: modifiedEndNodeEditorState.contents.root,
+    })
+    if (startNodeOpt._tag === 'Some') {
+      const startNode = startNodeOpt.value
+      if (startNode._tag === 'Inline') {
+        const il = startNode.value
+        const startFocusOffset =
+          il._tag === 'Text' ? il.text.contents.text.length : 0
+        const startSel = singleNodeRange(
+          normAN,
+          anchorOffset(normalizedSelection),
+          startFocusOffset,
+        )
+        const startStateRes = toggleMarkSingleInlineNode(
+          markOrder,
+          mark,
+          toggleAction,
+        )(withSelection(some(startSel), modifiedEndNodeEditorState))
+        if (startStateRes._tag === 'Right') {
+          modifiedStartNodeEditorState = startStateRes.right
+        }
+      }
+    }
+
+    const incrementAnchorOffset = anchorOffset(normalizedSelection) !== 0
+    const anchorAndFocusHaveSameParent =
+      parent(normAN).join(':') === parent(normFN).join(':')
+
+    const newSelection = range(
+      incrementAnchorOffset ? increment(normAN) : normAN,
+      0,
+      incrementAnchorOffset && anchorAndFocusHaveSameParent
+        ? increment(normFN)
+        : normFN,
+      focusOffset(normalizedSelection),
+    )
+
+    return right(
+      withSelection(some(newSelection), modifiedStartNodeEditorState),
     )
   }
+}
+
+export function toggleMarkSingleInlineNode(
+  markOrder: MarkOrder,
+  mark: Mark,
+  action: ToggleAction,
+): Transform {
+  return (editorState: State): Either<string, State> => {
+    const selectionOpt = editorState.contents.selection
+    if (selectionOpt._tag === 'None') {
+      return left('Nothing is selected')
+    }
+    const selection = selectionOpt.value
+    if (anchorNode(selection).join(':') !== focusNode(selection).join(':')) {
+      return left('I can only toggle a single inline node')
+    }
+
+    const normalizedSelection = normalize(selection)
+    const anchorPath = anchorNode(normalizedSelection)
+    const nodeOpt = nodeAt(anchorPath, {
+      _tag: 'Block',
+      value: editorState.contents.root,
+    })
+    if (nodeOpt._tag === 'None') {
+      return left('No node at selection')
+    }
+
+    const node = nodeOpt.value
+    if (node._tag === 'Block') {
+      return left('Cannot toggle a block node')
+    }
+
+    const il = node.value
+    const newMarks = toggle(action, markOrder, mark, marks(il))
+
+    let leaves: Array<Inline>
+    if (il._tag === 'InlineElement') {
+      leaves = [
+        {
+          _tag: 'InlineElement',
+          inlineElement: InlineElement.withMarks(newMarks, il.inlineElement),
+        },
+      ]
+    } else {
+      // il._tag === 'Text'
+      const leafText = il.text.contents.text
+      const fO = focusOffset(normalizedSelection)
+      const aO = anchorOffset(normalizedSelection)
+      if (leafText.length === fO && aO === 0) {
+        leaves = [{ _tag: 'Text', text: Text.withMarks(newMarks, il.text) }]
+      } else {
+        const newNode: Inline = {
+          _tag: 'Text',
+          text: Text.withMarks(
+            newMarks,
+            Text.withText(leafText.substring(aO, fO), il.text),
+          ),
+        }
+        const leftNode: Inline = {
+          _tag: 'Text',
+          text: Text.withText(leafText.substring(0, aO), il.text),
+        }
+        const rightNode: Inline = {
+          _tag: 'Text',
+          text: Text.withText(leafText.substring(fO), il.text),
+        }
+
+        if (aO === 0) {
+          leaves = [newNode, rightNode]
+        } else if (leafText.length === fO) {
+          leaves = [leftNode, newNode]
+        } else {
+          leaves = [leftNode, newNode, rightNode]
+        }
+      }
+    }
+
+    const path =
+      anchorOffset(normalizedSelection) === 0
+        ? anchorPath
+        : increment(anchorPath)
+    const newSelection = singleNodeRange(
+      path,
+      0,
+      focusOffset(normalizedSelection) - anchorOffset(normalizedSelection),
+    )
+
+    const replaceRes = replaceWithFragment(
+      anchorPath,
+      {
+        _tag: 'InlineFragment',
+        inlineFragment: leaves,
+      },
+      editorState.contents.root,
+    )
+
+    if (replaceRes._tag === 'Left') {
+      return replaceRes
+    }
+
+    return right(
+      withSelection(
+        some(newSelection),
+        withRoot(replaceRes.right, editorState),
+      ),
+    )
+  }
+}
+
+export function hugLeft(state: State): State {
+  const selectionOpt = state.contents.selection
+  if (selectionOpt._tag === 'None') return state
+  const selection = selectionOpt.value
+  if (isCollapsed(selection)) return state
+
+  const normalizedSelection = normalize(selection)
+  const anchorPath = anchorNode(normalizedSelection)
+  const root = state.contents.root
+
+  const nodeOpt = nodeAt(anchorPath, { _tag: 'Block', value: root })
+  if (nodeOpt._tag === 'None') return state
+
+  const node = nodeOpt.value
+  if (node._tag !== 'Inline') return state
+
+  const il = node.value
+  if (il._tag !== 'Text') return state
+
+  if (il.text.contents.text.length === anchorOffset(normalizedSelection)) {
+    const nextPath = increment(anchorPath)
+    const nextNodeOpt = nodeAt(nextPath, { _tag: 'Block', value: root })
+    if (nextNodeOpt._tag === 'None') return state
+
+    const nextNode = nextNodeOpt.value
+    if (nextNode._tag === 'Inline' && nextNode.value._tag === 'Text') {
+      return withSelection(
+        some(
+          range(
+            nextPath,
+            0,
+            focusNode(normalizedSelection),
+            focusOffset(normalizedSelection),
+          ),
+        ),
+        state,
+      )
+    }
+  }
+
+  return state
+}
+
+export function hugRight(state: State): State {
+  const selectionOpt = state.contents.selection
+  if (selectionOpt._tag === 'None') return state
+  const selection = selectionOpt.value
+  if (isCollapsed(selection)) return state
+
+  const normalizedSelection = normalize(selection)
+  const focusPath = focusNode(normalizedSelection)
+  const root = state.contents.root
+
+  const nodeOpt = nodeAt(focusPath, { _tag: 'Block', value: root })
+  if (nodeOpt._tag === 'None') return state
+
+  const node = nodeOpt.value
+  if (node._tag !== 'Inline') return state
+
+  const il = node.value
+  if (il._tag !== 'Text') return state
+
+  if (0 === focusOffset(normalizedSelection)) {
+    const prevPath = decrement(focusPath)
+    const prevNodeOpt = nodeAt(prevPath, { _tag: 'Block', value: root })
+    if (prevNodeOpt._tag === 'None') return state
+
+    const prevNode = prevNodeOpt.value
+    if (prevNode._tag === 'Inline' && prevNode.value._tag === 'Text') {
+      return withSelection(
+        some(
+          range(
+            anchorNode(normalizedSelection),
+            anchorOffset(normalizedSelection),
+            prevPath,
+            prevNode.value.text.contents.text.length,
+          ),
+        ),
+        state,
+      )
+    }
+  }
+
+  return state
+}
+
+export function hug(state: State): State {
+  return hugRight(hugLeft(state))
+}
+
+function isBlockOrInlineNodeWithMark(markNameStr: string, node: Node): boolean {
+  if (node._tag === 'Inline') {
+    return hasMarkWithName(markNameStr, marks(node.value))
+  }
+  return true
+}
+
+function comparePath(p1: Path, p2: Path): number {
+  const len = Math.min(p1.length, p2.length)
+  for (let i = 0; i < len; i++) {
+    if (p1[i] !== p2[i]) {
+      return p1[i] - p2[i]
+    }
+  }
+  return p1.length - p2.length
 }
 
 export function toggleTextBlock(
@@ -840,7 +1211,31 @@ export function toggleTextBlock(
 
 export function insertNewline(allowedGroups: Array<string>): Transform {
   return (editorState: State): Either<string, State> => {
-    return splitTextBlock(editorState)
+    const rangeRes = removeRange(editorState)
+    const removedRangeEditorState =
+      rangeRes._tag === 'Right' ? rangeRes.right : editorState
+    const selectionOpt = removedRangeEditorState.contents.selection
+    if (selectionOpt._tag === 'None') {
+      return left('Invalid selection')
+    }
+    const selection = selectionOpt.value
+    if (!isCollapsed(selection)) {
+      return left(
+        'I can only try to insert a newline if the selection is collapsed',
+      )
+    }
+    const tbOpt = findTextBlockNodeAncestor(
+      anchorNode(selection),
+      removedRangeEditorState.contents.root,
+    )
+    if (tbOpt._tag === 'None') {
+      return left('No textblock node ancestor found')
+    }
+    const [, textblock] = tbOpt.value
+    if (allowedGroups.includes(textblock.contents.parameters.contents.name)) {
+      return insertText('\n')(removedRangeEditorState)
+    }
+    return left('Selection is not in a whitelisted textblock element')
   }
 }
 
@@ -866,7 +1261,58 @@ export function splitBlockHeaderToNewParagraph(
   paragraphBlock: Element,
 ): Transform {
   return (editorState: State): Either<string, State> => {
-    return splitTextBlock(editorState)
+    const splitRes = splitTextBlock(editorState)
+    if (splitRes._tag === 'Left') {
+      return splitRes
+    }
+    const splitEditorState = splitRes.right
+    const selectionOpt = splitEditorState.contents.selection
+    if (selectionOpt._tag === 'None') {
+      return right(splitEditorState)
+    }
+    const selection = selectionOpt.value
+    if (!isCollapsed(selection) || anchorOffset(selection) !== 0) {
+      return right(splitEditorState)
+    }
+
+    const p = findClosestBlockPath(
+      anchorNode(selection),
+      splitEditorState.contents.root,
+    )
+    const nodeOpt = nodeAt(p, {
+      _tag: 'Block',
+      value: splitEditorState.contents.root,
+    })
+    if (nodeOpt._tag === 'None') {
+      return right(splitEditorState)
+    }
+
+    const node = nodeOpt.value
+    if (node._tag !== 'Block') {
+      return right(splitEditorState)
+    }
+
+    const bn = node.value
+    const parameters = bn.contents.parameters
+    if (
+      headerGroup.includes(parameters.contents.name) &&
+      isEmptyTextBlock(bn)
+    ) {
+      const replacedRes = replace(
+        p,
+        {
+          _tag: 'Block',
+          value: withElement(paragraphBlock, bn),
+        },
+        splitEditorState.contents.root,
+      )
+      if (replacedRes._tag === 'Left') {
+        return right(splitEditorState)
+      }
+      return right(withRoot(replacedRes.right, splitEditorState))
+    }
+
+    return right(splitEditorState)
   }
 }
 

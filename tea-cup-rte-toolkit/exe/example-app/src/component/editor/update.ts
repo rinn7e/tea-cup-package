@@ -24,6 +24,7 @@ import {
   config as createConfig,
   defaultCommandMap,
   defaultListDefinition,
+  doc,
   element,
   emptyDecorations,
   enter,
@@ -84,7 +85,7 @@ export type { Msg } from './type'
 
 export const docInitNode = (): Block =>
   block(
-    element(heading, [{ _tag: 'IntegerAttribute', key: 'level', value: 1 }]),
+    element(doc, []),
     blockChildren([
       block(
         element(paragraph, []),
@@ -250,6 +251,7 @@ export const init = (editorVal: Editor): Model => ({
   editor: editorVal,
   insertLinkModal: initInsertLinkModal(),
   insertImageModal: initInsertImageModal(),
+  styles: ['Bold', 'Italic'],
 })
 
 export const update = (

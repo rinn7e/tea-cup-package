@@ -1,4 +1,4 @@
-import { RteEditor, type Spec } from '@rinn7e/tea-cup-rte-toolkit'
+import { type Spec, rteEditorView } from '@rinn7e/tea-cup-rte-toolkit'
 import React from 'react'
 import { type Dispatcher } from 'tea-cup-fp'
 
@@ -250,12 +250,12 @@ const RedoIcon = () => (
   </svg>
 )
 
-export const EditorComponent: React.FC<Props> = ({
+export const editorComponentView = ({
   model,
   spec,
   dispatch,
   decorations,
-}) => {
+}: Props): React.ReactElement => {
   const cs = deriveControlState(model.editor)
   const config = createEditorConfig(
     spec,
@@ -360,11 +360,11 @@ export const EditorComponent: React.FC<Props> = ({
 
         {/* Styles */}
         <div className='toolbar-group'>
-          {renderStyleButton('Bold', 'Bold', <BoldIcon />)}
-          {renderStyleButton('Italic', 'Italic', <ItalicIcon />)}
-          {renderStyleButton('Code', 'Code', <CodeIcon />)}
-          {renderStyleButton('Underline', 'Underline', <UnderlineIcon />)}
-          {renderStyleButton('Strikethrough', 'Strikethrough', <StrikeIcon />)}
+          {model.styles.includes('Bold') && renderStyleButton('Bold', 'Bold', <BoldIcon />)}
+          {model.styles.includes('Italic') && renderStyleButton('Italic', 'Italic', <ItalicIcon />)}
+          {model.styles.includes('Code') && renderStyleButton('Code', 'Code', <CodeIcon />)}
+          {model.styles.includes('Underline') && renderStyleButton('Underline', 'Underline', <UnderlineIcon />)}
+          {model.styles.includes('Strikethrough') && renderStyleButton('Strikethrough', 'Strikethrough', <StrikeIcon />)}
         </div>
 
         {/* Links and Images */}
@@ -472,7 +472,7 @@ export const EditorComponent: React.FC<Props> = ({
 
       {/* EDITOR CONTENT */}
       <div className='web-component-editor-wrap'>
-        <RteEditor config={config} editor={model.editor} dispatch={dispatch} />
+        {rteEditorView({ config, editor: model.editor, dispatch })}
       </div>
 
       {/* INSERT LINK MODAL */}

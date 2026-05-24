@@ -22,6 +22,7 @@ export type Model = {
   editor: Editor
   insertLinkModal: InsertLinkModal
   insertImageModal: InsertImageModal
+  styles: Array<Style>
 }
 
 export type Msg =

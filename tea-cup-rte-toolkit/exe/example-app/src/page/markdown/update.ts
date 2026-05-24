@@ -13,7 +13,7 @@ import { marked } from 'marked'
 import { Cmd } from 'tea-cup-fp'
 import TurndownService from 'turndown'
 
-import * as EditorUpdate from '@/editor/update'
+import * as EditorUpdate from '@/component/editor/update'
 
 import type { Model, Msg } from './type'
 
