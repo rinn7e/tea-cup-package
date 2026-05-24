@@ -1,6 +1,7 @@
 import {
   type Attribute,
   type Block,
+  type DecorationAttribute,
   type ElementDecoration,
   type ElementDefinition,
   HtmlNode,
@@ -51,8 +52,9 @@ import { pipe } from 'fp-ts/lib/function'
 import * as React from 'react'
 import { Cmd } from 'tea-cup-fp'
 
-import { strikethrough, underline } from '@/editor/extra-marks'
-import * as EditorUpdate from '@/editor/update'
+import { strikethrough, underline } from '@/component/editor/extra-marks'
+import type { Style } from '@/component/editor/type'
+import * as EditorUpdate from '@/component/editor/update'
 
 import type { Model, Msg } from './type'
 
@@ -167,11 +169,14 @@ const captionedImageDecoration = (
   editorNodePath: Path,
   elementVal: RteElement,
   elementPath: Path,
-): Array<Attribute<Msg>> => {
+): Array<DecorationAttribute<Msg>> => {
   const elementPathStr = elementPath.join(':')
   if (elementPathStr === '') {
     return selectableDecoration(
-      (m) => ({ _tag: 'InternalMsg' as const, msg: m }),
+      (m) => ({
+        _tag: 'EditorMsg' as const,
+        subMsg: { _tag: 'InternalMsg' as const, msg: m },
+      }),
       editorNodePath,
       elementVal,
       elementPath,
@@ -229,8 +234,7 @@ const initialCaptionedImage = (): Block =>
       {
         _tag: 'StringAttribute',
         key: 'src',
-        value:
-          'https://raw.githubusercontent.com/elm-explorations/rte-toolkit/master/logo.png',
+        value: '/logo.png',
       },
     ]),
     Leaf,

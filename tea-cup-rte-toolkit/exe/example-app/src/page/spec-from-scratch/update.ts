@@ -1,6 +1,7 @@
 import {
   type Attribute,
   type Block,
+  type DecorationAttribute,
   type ElementDecoration,
   type ElementDefinition,
   HtmlNode,
@@ -44,7 +45,7 @@ import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
-import * as EditorUpdate from '@/editor/update'
+import * as EditorUpdate from '@/component/editor/update'
 
 import type { Model, Msg } from './type'
 
@@ -154,7 +155,7 @@ const toggleCheckboxDecoration = (
   editorNodePath: Path,
   elementVal: RteElement,
   elementPath: Path,
-): Array<Attribute<Msg>> => {
+): Array<DecorationAttribute<Msg>> => {
   const checkedOpt = findBoolAttribute(
     'checked',
     elementVal.contents.attributes,

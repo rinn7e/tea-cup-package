@@ -1,7 +1,7 @@
 import { State } from '@rinn7e/tea-cup-rte-toolkit'
 import { Option } from 'fp-ts/lib/Option'
 
-import type * as Editor from '@/editor/type'
+import type * as Editor from '@/component/editor/type'
 
 export type InsertCaptionedImageModal = {
   visible: boolean

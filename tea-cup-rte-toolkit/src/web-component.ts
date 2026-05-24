@@ -60,7 +60,7 @@ const getSelectionPath = (
       return null
     }
 
-    // Drop the first two nodes
+    // Drop the first two nodes (elm-editor -> outer div)
     indexPath.shift()
     indexPath.shift()
 

@@ -1,4 +1,4 @@
-import type * as Editor from '@/editor/type'
+import type * as Editor from '@/component/editor/type'
 
 export type EditorType = 'Markdown' | 'WYSIWYG'
 
