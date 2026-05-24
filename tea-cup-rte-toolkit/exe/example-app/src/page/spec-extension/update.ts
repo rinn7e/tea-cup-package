@@ -1,157 +1,158 @@
-import { Cmd } from "tea-cup-fp";
 import {
-  type Spec,
+  type Attribute,
   type Block,
+  type ElementDecoration,
+  type ElementDefinition,
+  HtmlNode,
+  Leaf,
+  Option,
   type Path,
+  Element as RteElement,
+  type Spec,
   type State,
   type Transform,
-  type ElementDefinition,
-  type ElementDecoration,
-  type Attribute,
-  markdown,
-  withElementDefinitions,
-  withMarkDefinitions,
-  elementDefinitions,
-  markDefinitions,
-  elementDefinition,
-  blockLeaf,
-  findStringAttribute,
-  HtmlNode,
-  Element as RteElement,
-  element,
-  some,
-  none,
-  Option,
-  emptyDecorations,
   addElementDecoration,
-  selectableDecoration,
-  paragraph,
-  doc,
-  block,
-  plainText,
-  blockChildren,
-  inlineChildren,
-  Leaf,
-  createState,
-  editor as createEditor,
-  withRoot,
-  nodeAt,
-  replace,
-  replaceOrAddStringAttribute,
-  withElement,
-  withElementAttributes,
-  insertBlock,
-  state as getEditorState,
   applyCommand,
   applyCommandNoForceSelection,
+  block,
+  blockChildren,
+  blockLeaf,
+  editor as createEditor,
+  createState,
+  doc,
+  element,
+  elementDefinition,
+  elementDefinitions,
+  emptyDecorations,
+  findStringAttribute,
+  state as getEditorState,
+  inlineChildren,
+  insertBlock,
+  markDefinitions,
+  markdown,
+  nodeAt,
+  none,
+  paragraph,
+  plainText,
+  replace,
+  replaceOrAddStringAttribute,
+  selectableDecoration,
+  some,
   transform,
-} from "@rinn7e/tea-cup-rte-toolkit";
-import * as React from "react";
-import * as O from "fp-ts/lib/Option";
-import * as E from "fp-ts/lib/Either";
-import { pipe } from "fp-ts/lib/function";
+  withElement,
+  withElementAttributes,
+  withElementDefinitions,
+  withMarkDefinitions,
+  withRoot,
+} from '@rinn7e/tea-cup-rte-toolkit'
+import * as E from 'fp-ts/lib/Either'
+import * as O from 'fp-ts/lib/Option'
+import { pipe } from 'fp-ts/lib/function'
+import * as React from 'react'
+import { Cmd } from 'tea-cup-fp'
 
-import { strikethrough, underline } from "@/editor/extra-marks";
-import * as EditorUpdate from "@/editor/update";
-import type { Model, Msg } from "./type";
+import { strikethrough, underline } from '@/editor/extra-marks'
+import * as EditorUpdate from '@/editor/update'
+
+import type { Model, Msg } from './type'
 
 // 1. Captioned Image Element Definition
 export const captionedImage = elementDefinition({
-  name: "captioned_image",
-  group: "block",
+  name: 'captioned_image',
+  group: 'block',
   contentType: blockLeaf,
   toHtmlNode: (params: RteElement, children: Array<HtmlNode>): HtmlNode => {
-    const srcOpt = findStringAttribute("src", params.contents.attributes);
-    const altOpt = findStringAttribute("alt", params.contents.attributes);
-    const titleOpt = findStringAttribute("title", params.contents.attributes);
+    const srcOpt = findStringAttribute('src', params.contents.attributes)
+    const altOpt = findStringAttribute('alt', params.contents.attributes)
+    const titleOpt = findStringAttribute('title', params.contents.attributes)
     const captionOpt = findStringAttribute(
-      "caption",
+      'caption',
       params.contents.attributes,
-    );
+    )
 
-    const caption = captionOpt._tag === "Some" ? captionOpt.value : "";
+    const caption = captionOpt._tag === 'Some' ? captionOpt.value : ''
 
     const imgAttrs: Array<[string, string]> = [
-      ["src", srcOpt._tag === "Some" ? srcOpt.value : ""],
-      ["data-caption", caption],
-    ];
-    if (altOpt._tag === "Some") imgAttrs.push(["alt", altOpt.value]);
-    if (titleOpt._tag === "Some") imgAttrs.push(["title", titleOpt.value]);
+      ['src', srcOpt._tag === 'Some' ? srcOpt.value : ''],
+      ['data-caption', caption],
+    ]
+    if (altOpt._tag === 'Some') imgAttrs.push(['alt', altOpt.value])
+    if (titleOpt._tag === 'Some') imgAttrs.push(['title', titleOpt.value])
 
     return {
-      _tag: "ElementNode",
-      name: "figure",
-      attributes: [["contenteditable", "false"]],
+      _tag: 'ElementNode',
+      name: 'figure',
+      attributes: [['contenteditable', 'false']],
       children: [
         {
-          _tag: "ElementNode",
-          name: "img",
+          _tag: 'ElementNode',
+          name: 'img',
           attributes: imgAttrs,
           children: [],
         },
         {
-          _tag: "ElementNode",
-          name: "figcaption",
+          _tag: 'ElementNode',
+          name: 'figcaption',
           attributes: [],
           children: [
             {
-              _tag: "ElementNode",
-              name: "input",
+              _tag: 'ElementNode',
+              name: 'input',
               attributes: [
-                ["value", caption],
-                ["type", "text"],
-                ["class", "caption-input"],
-                ["placeholder", "Add a caption..."],
+                ['value', caption],
+                ['type', 'text'],
+                ['class', 'caption-input'],
+                ['placeholder', 'Add a caption...'],
               ],
               children: [],
             },
           ],
         },
       ],
-    };
+    }
   },
   fromHtmlNode: (
     def: ElementDefinition,
     node: HtmlNode,
   ): Option<[RteElement, Array<HtmlNode>]> => {
-    if (node._tag === "ElementNode" && node.name === "figure") {
-      const img = node.children[0];
-      if (img && img._tag === "ElementNode" && img.name === "img") {
+    if (node._tag === 'ElementNode' && node.name === 'figure') {
+      const img = node.children[0]
+      if (img && img._tag === 'ElementNode' && img.name === 'img') {
         const attributes: Array<
-          | { _tag: "StringAttribute"; key: string; value: string }
-          | { _tag: "BoolAttribute"; key: string; value: boolean }
-        > = [];
-        let hasSrc = false;
+          | { _tag: 'StringAttribute'; key: string; value: string }
+          | { _tag: 'BoolAttribute'; key: string; value: boolean }
+        > = []
+        let hasSrc = false
         for (const [k, v] of img.attributes) {
-          if (k === "src") {
-            hasSrc = true;
-            attributes.push({ _tag: "StringAttribute", key: "src", value: v });
-          } else if (k === "alt") {
-            attributes.push({ _tag: "StringAttribute", key: "alt", value: v });
-          } else if (k === "title") {
+          if (k === 'src') {
+            hasSrc = true
+            attributes.push({ _tag: 'StringAttribute', key: 'src', value: v })
+          } else if (k === 'alt') {
+            attributes.push({ _tag: 'StringAttribute', key: 'alt', value: v })
+          } else if (k === 'title') {
             attributes.push({
-              _tag: "StringAttribute",
-              key: "title",
+              _tag: 'StringAttribute',
+              key: 'title',
               value: v,
-            });
-          } else if (k === "data-caption") {
+            })
+          } else if (k === 'data-caption') {
             attributes.push({
-              _tag: "StringAttribute",
-              key: "caption",
+              _tag: 'StringAttribute',
+              key: 'caption',
               value: v,
-            });
+            })
           }
         }
         if (hasSrc) {
-          const el = element(def, attributes);
-          return some([el, []]);
+          const el = element(def, attributes)
+          return some([el, []])
         }
       }
     }
-    return none;
+    return none
   },
   selectable: true,
-});
+})
 
 // 2. Custom Spec (extending markdown with strikethrough, underline, and captioned image)
 export const customSpec: Spec = pipe(
@@ -159,7 +160,7 @@ export const customSpec: Spec = pipe(
   (s) => withElementDefinitions([...elementDefinitions(s), captionedImage], s),
   (s) =>
     withMarkDefinitions([...markDefinitions(s), strikethrough, underline], s),
-);
+)
 
 // 3. Decorations for captioned image
 const captionedImageDecoration = (
@@ -167,48 +168,48 @@ const captionedImageDecoration = (
   elementVal: RteElement,
   elementPath: Path,
 ): Array<Attribute<Msg>> => {
-  const elementPathStr = elementPath.join(":");
-  if (elementPathStr === "") {
+  const elementPathStr = elementPath.join(':')
+  if (elementPathStr === '') {
     return selectableDecoration(
-      (m) => ({ _tag: "InternalMsg" as const, msg: m }),
+      (m) => ({ _tag: 'InternalMsg' as const, msg: m }),
       editorNodePath,
       elementVal,
       elementPath,
-    );
-  } else if (elementPathStr === "1:0") {
+    )
+  } else if (elementPathStr === '1:0') {
     return [
       [
-        "onKeyDown",
+        'onKeyDown',
         (e: React.KeyboardEvent) => {
-          e.stopPropagation();
+          e.stopPropagation()
         },
       ],
       [
-        "onBeforeInput",
+        'onBeforeInput',
         (e: React.FormEvent) => {
-          e.stopPropagation();
+          e.stopPropagation()
         },
       ],
       [
-        "onChange",
+        'onChange',
         (e: React.ChangeEvent<HTMLInputElement>) => {
           return {
-            _tag: "CaptionedImage" as const,
+            _tag: 'CaptionedImage' as const,
             path: editorNodePath,
             caption: e.target.value,
-          };
+          }
         },
       ],
-    ];
+    ]
   }
-  return [];
-};
+  return []
+}
 
 export const customDecorations = addElementDecoration(
   captionedImage,
   captionedImageDecoration satisfies ElementDecoration<Msg>,
   emptyDecorations(),
-);
+)
 
 // 4. Initial Editor Document State
 const loremParagraph = (): Block =>
@@ -216,24 +217,24 @@ const loremParagraph = (): Block =>
     element(paragraph, []),
     inlineChildren([
       plainText(
-        "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
+        'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.',
       ),
     ]),
-  );
+  )
 
 const initialCaptionedImage = (): Block =>
   block(
     element(captionedImage, [
-      { _tag: "StringAttribute", key: "caption", value: "The Tea-Cup logo!" },
+      { _tag: 'StringAttribute', key: 'caption', value: 'The Tea-Cup logo!' },
       {
-        _tag: "StringAttribute",
-        key: "src",
+        _tag: 'StringAttribute',
+        key: 'src',
         value:
-          "https://raw.githubusercontent.com/elm-explorations/rte-toolkit/master/logo.png",
+          'https://raw.githubusercontent.com/elm-explorations/rte-toolkit/master/logo.png',
       },
     ]),
     Leaf,
-  );
+  )
 
 const docInitNode = (): Block =>
   block(
@@ -243,11 +244,11 @@ const docInitNode = (): Block =>
       initialCaptionedImage(),
       loremParagraph(),
     ]),
-  );
+  )
 
 export const init = (): [Model, Cmd<Msg>] => {
-  const editorState = createState(docInitNode(), O.none);
-  const editorModel = EditorUpdate.init(createEditor(editorState));
+  const editorState = createState(docInitNode(), O.none)
+  const editorModel = EditorUpdate.init(createEditor(editorState))
 
   return [
     {
@@ -255,14 +256,14 @@ export const init = (): [Model, Cmd<Msg>] => {
       insertCaptionedImageModal: {
         visible: false,
         editorState: O.none,
-        src: "",
-        alt: "",
-        caption: "",
+        src: '',
+        alt: '',
+        caption: '',
       },
     },
     Cmd.none(),
-  ];
-};
+  ]
+}
 
 // 5. Update Captioned Image Text Transform
 export const updateCaptionedImageText = (
@@ -270,42 +271,42 @@ export const updateCaptionedImageText = (
   value: string,
 ): Transform => {
   return (editorState: State): E.Either<string, State> => {
-    const root = editorState.contents.root;
-    const nodeOpt = nodeAt(path, { _tag: "Block", value: root });
+    const root = editorState.contents.root
+    const nodeOpt = nodeAt(path, { _tag: 'Block', value: root })
     if (O.isNone(nodeOpt)) {
-      return E.left("There is no node at the given path");
+      return E.left('There is no node at the given path')
     }
-    const node = nodeOpt.value;
-    if (node._tag !== "Block") {
-      return E.left("Expected a block node");
+    const node = nodeOpt.value
+    if (node._tag !== 'Block') {
+      return E.left('Expected a block node')
     }
-    const bn = node.value;
-    const ep = bn.contents.parameters;
-    if (ep.contents.name !== "captioned_image") {
-      return E.left("Node is not a captioned image");
+    const bn = node.value
+    const ep = bn.contents.parameters
+    if (ep.contents.name !== 'captioned_image') {
+      return E.left('Node is not a captioned image')
     }
 
     const newAttributes = replaceOrAddStringAttribute(
-      "caption",
+      'caption',
       value,
       ep.contents.attributes,
-    );
-    const newElementParameters = withElementAttributes(newAttributes, ep);
-    const newBlockNode = withElement(newElementParameters, bn);
+    )
+    const newElementParameters = withElementAttributes(newAttributes, ep)
+    const newBlockNode = withElement(newElementParameters, bn)
     return pipe(
-      replace(path, { _tag: "Block", value: newBlockNode }, root),
+      replace(path, { _tag: 'Block', value: newBlockNode }, root),
       E.map((newRoot) => withRoot(newRoot, editorState)),
-    );
-  };
-};
+    )
+  }
+}
 
 export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
-    case "EditorMsg": {
+    case 'EditorMsg': {
       // Intercept custom element caption onChange message inside RteEditor
       if (
-        msg.subMsg._tag === "InternalMsg" &&
-        msg.subMsg.msg._tag === "ChangeEvent"
+        msg.subMsg._tag === 'InternalMsg' &&
+        msg.subMsg.msg._tag === 'ChangeEvent'
       ) {
         // If there's an event triggered inside the input and intercepted, we handle it
         // Wait, standard ChangeEvent is handled by RteEditor update.
@@ -326,24 +327,24 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
         customSpec,
         msg.subMsg,
         model.editor,
-      );
+      )
       return [
         { ...model, editor: editorModel },
-        editorCmd.map((subMsg) => ({ _tag: "EditorMsg", subMsg })),
-      ];
+        editorCmd.map((subMsg) => ({ _tag: 'EditorMsg', subMsg })),
+      ]
     }
 
-    case "CaptionedImage": {
-      const { path, caption } = msg;
+    case 'CaptionedImage': {
+      const { path, caption } = msg
       const res = applyCommandNoForceSelection(
         [
-          "updateCaptionedImageText",
+          'updateCaptionedImageText',
           transform(updateCaptionedImageText(path, caption)),
         ],
         customSpec,
         model.editor.editor,
-      );
-      const newEditor = res._tag === "Right" ? res.right : model.editor.editor;
+      )
+      const newEditor = res._tag === 'Right' ? res.right : model.editor.editor
       return [
         {
           ...model,
@@ -353,26 +354,26 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
           },
         },
         Cmd.none(),
-      ];
+      ]
     }
 
-    case "ShowUpdateCaptionedImageModel": {
+    case 'ShowUpdateCaptionedImageModel': {
       return [
         {
           ...model,
           insertCaptionedImageModal: {
             visible: true,
-            src: "",
-            alt: "",
-            caption: "",
+            src: '',
+            alt: '',
+            caption: '',
             editorState: O.some(getEditorState(model.editor.editor)),
           },
         },
         Cmd.none(),
-      ];
+      ]
     }
 
-    case "UpdateCaptionedImageSrc": {
+    case 'UpdateCaptionedImageSrc': {
       return [
         {
           ...model,
@@ -382,10 +383,10 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
           },
         },
         Cmd.none(),
-      ];
+      ]
     }
 
-    case "UpdateCaptionedImageAlt": {
+    case 'UpdateCaptionedImageAlt': {
       return [
         {
           ...model,
@@ -395,10 +396,10 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
           },
         },
         Cmd.none(),
-      ];
+      ]
     }
 
-    case "UpdateCaption": {
+    case 'UpdateCaption': {
       return [
         {
           ...model,
@@ -408,49 +409,49 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
           },
         },
         Cmd.none(),
-      ];
+      ]
     }
 
-    case "CancelInsertCaptionedImage": {
+    case 'CancelInsertCaptionedImage': {
       return [
         {
           ...model,
           insertCaptionedImageModal: {
             visible: false,
-            src: "",
-            alt: "",
-            caption: "",
+            src: '',
+            alt: '',
+            caption: '',
             editorState: O.none,
           },
         },
         Cmd.none(),
-      ];
+      ]
     }
 
-    case "InsertCaptionedImage": {
-      const modal = model.insertCaptionedImageModal;
+    case 'InsertCaptionedImage': {
+      const modal = model.insertCaptionedImageModal
       if (O.isNone(modal.editorState)) {
-        return [model, Cmd.none()];
+        return [model, Cmd.none()]
       }
-      const state_ = modal.editorState.value;
+      const state_ = modal.editorState.value
       const params = element(captionedImage, [
-        { _tag: "StringAttribute", key: "src", value: modal.src },
-        { _tag: "StringAttribute", key: "alt", value: modal.alt },
-        { _tag: "StringAttribute", key: "caption", value: modal.caption },
-      ]);
-      const img = block(params, Leaf);
-      const insertTransform = insertBlock(img);
-      const resState = insertTransform(state_);
+        { _tag: 'StringAttribute', key: 'src', value: modal.src },
+        { _tag: 'StringAttribute', key: 'alt', value: modal.alt },
+        { _tag: 'StringAttribute', key: 'caption', value: modal.caption },
+      ])
+      const img = block(params, Leaf)
+      const insertTransform = insertBlock(img)
+      const resState = insertTransform(state_)
 
-      let newEditor = model.editor.editor;
-      if (resState._tag === "Right") {
+      let newEditor = model.editor.editor
+      if (resState._tag === 'Right') {
         const applyRes = applyCommand(
-          ["insertCaptionedImage", transform(() => resState)],
+          ['insertCaptionedImage', transform(() => resState)],
           customSpec,
           model.editor.editor,
-        );
-        if (applyRes._tag === "Right") {
-          newEditor = applyRes.right;
+        )
+        if (applyRes._tag === 'Right') {
+          newEditor = applyRes.right
         }
       }
 
@@ -463,14 +464,14 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
           },
           insertCaptionedImageModal: {
             visible: false,
-            src: "",
-            alt: "",
-            caption: "",
+            src: '',
+            alt: '',
+            caption: '',
             editorState: O.none,
           },
         },
         Cmd.none(),
-      ];
+      ]
     }
   }
-};
+}

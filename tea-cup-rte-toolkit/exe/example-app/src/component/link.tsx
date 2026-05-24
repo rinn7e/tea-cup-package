@@ -1,12 +1,12 @@
-import React, { useContext } from "react";
+import React, { useContext } from 'react'
 
-import { SetGlobalMsgContext } from "@/common/global-context";
-import { type AppRoute, toUrlString } from "@/common/type/route";
+import { SetGlobalMsgContext } from '@/common/global-context'
+import { type AppRoute, toUrlString } from '@/common/type/route'
 
 interface Props extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
-  route: AppRoute;
-  className?: string;
-  children: React.ReactNode;
+  route: AppRoute
+  className?: string
+  children: React.ReactNode
 }
 
 export const Link: React.FC<Props> = ({
@@ -15,8 +15,8 @@ export const Link: React.FC<Props> = ({
   children,
   ...rest
 }) => {
-  const setGlobalMsg = useContext(SetGlobalMsgContext);
-  const href = toUrlString(route);
+  const setGlobalMsg = useContext(SetGlobalMsgContext)
+  const href = toUrlString(route)
 
   return (
     <a
@@ -24,11 +24,11 @@ export const Link: React.FC<Props> = ({
       href={href}
       className={className}
       onClick={(e) => {
-        e.preventDefault();
-        setGlobalMsg({ _tag: "ChangeRoute", route });
+        e.preventDefault()
+        setGlobalMsg({ _tag: 'ChangeRoute', route })
       }}
     >
       {children}
     </a>
-  );
-};
+  )
+}

@@ -1,72 +1,73 @@
-import { Cmd } from "tea-cup-fp";
 import {
-  createState,
+  blockFromHtml,
   editor as createEditor,
+  createState,
+  state as getEditorState,
   markdown,
   toHtml,
-  blockFromHtml,
   withRoot,
-  state as getEditorState,
-} from "@rinn7e/tea-cup-rte-toolkit";
-import * as O from "fp-ts/lib/Option";
-import * as E from "fp-ts/lib/Either";
-import { marked } from "marked";
-import TurndownService from "turndown";
+} from '@rinn7e/tea-cup-rte-toolkit'
+import * as E from 'fp-ts/lib/Either'
+import * as O from 'fp-ts/lib/Option'
+import { marked } from 'marked'
+import { Cmd } from 'tea-cup-fp'
+import TurndownService from 'turndown'
 
-import * as EditorUpdate from "@/editor/update";
-import type { Model, Msg } from "./type";
+import * as EditorUpdate from '@/editor/update'
+
+import type { Model, Msg } from './type'
 
 const turndownService = new TurndownService({
-  headingStyle: "atx",
-  hr: "---",
-  bulletListMarker: "-",
-  codeBlockStyle: "fenced",
-});
+  headingStyle: 'atx',
+  hr: '---',
+  bulletListMarker: '-',
+  codeBlockStyle: 'fenced',
+})
 
 export const init = (): [Model, Cmd<Msg>] => {
-  const initialBlock = EditorUpdate.docInitNode();
-  const initialEditorState = createState(initialBlock, O.none);
-  const editorModel = EditorUpdate.init(createEditor(initialEditorState));
+  const initialBlock = EditorUpdate.docInitNode()
+  const initialEditorState = createState(initialBlock, O.none)
+  const editorModel = EditorUpdate.init(createEditor(initialEditorState))
 
-  const html = toHtml(markdown, initialBlock);
-  const initialMarkdown = turndownService.turndown(html);
+  const html = toHtml(markdown, initialBlock)
+  const initialMarkdown = turndownService.turndown(html)
 
   return [
     {
       editor: editorModel,
       textMarkdown: initialMarkdown,
       markdownError: null,
-      editorType: "WYSIWYG",
+      editorType: 'WYSIWYG',
     },
     Cmd.none(),
-  ];
-};
+  ]
+}
 
 export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
-    case "EditorMsg": {
+    case 'EditorMsg': {
       const [editorModel, editorCmd] = EditorUpdate.update(
         markdown,
         msg.subMsg,
         model.editor,
-      );
+      )
       return [
         { ...model, editor: editorModel },
-        editorCmd.map((subMsg) => ({ _tag: "EditorMsg", subMsg })),
-      ];
+        editorCmd.map((subMsg) => ({ _tag: 'EditorMsg', subMsg })),
+      ]
     }
 
-    case "EditorChange": {
-      const targetType = msg.editorType;
+    case 'EditorChange': {
+      const targetType = msg.editorType
       if (targetType === model.editorType) {
-        return [model, Cmd.none()];
+        return [model, Cmd.none()]
       }
 
-      if (targetType === "WYSIWYG") {
+      if (targetType === 'WYSIWYG') {
         // Parse markdown text area to Editor block state
         try {
-          const html = marked.parse(model.textMarkdown) as string;
-          const blockRes = blockFromHtml(markdown, html);
+          const html = marked.parse(model.textMarkdown) as string
+          const blockRes = blockFromHtml(markdown, html)
 
           if (E.isLeft(blockRes)) {
             return [
@@ -75,13 +76,13 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
                 markdownError: `Failed to parse HTML from Markdown: ${blockRes.left}`,
               },
               Cmd.none(),
-            ];
+            ]
           }
 
-          const newBlock = blockRes.right;
-          const currentEditorState = getEditorState(model.editor.editor);
-          const newEditorState = withRoot(newBlock, currentEditorState);
-          const newEditor = createEditor(newEditorState);
+          const newBlock = blockRes.right
+          const currentEditorState = getEditorState(model.editor.editor)
+          const newEditorState = withRoot(newBlock, currentEditorState)
+          const newEditor = createEditor(newEditorState)
 
           return [
             {
@@ -90,11 +91,11 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
                 ...model.editor,
                 editor: newEditor,
               },
-              editorType: "WYSIWYG",
+              editorType: 'WYSIWYG',
               markdownError: null,
             },
             Cmd.none(),
-          ];
+          ]
         } catch (e: any) {
           return [
             {
@@ -102,27 +103,27 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
               markdownError: `Markdown compiler error: ${e.message || String(e)}`,
             },
             Cmd.none(),
-          ];
+          ]
         }
       } else {
         // Convert Editor block state to Markdown
-        const currentBlock = getEditorState(model.editor.editor).contents.root;
-        const html = toHtml(markdown, currentBlock);
-        const textMarkdown = turndownService.turndown(html);
+        const currentBlock = getEditorState(model.editor.editor).contents.root
+        const html = toHtml(markdown, currentBlock)
+        const textMarkdown = turndownService.turndown(html)
 
         return [
           {
             ...model,
             textMarkdown,
-            editorType: "Markdown",
+            editorType: 'Markdown',
             markdownError: null,
           },
           Cmd.none(),
-        ];
+        ]
       }
     }
 
-    case "TextAreaChange": {
+    case 'TextAreaChange': {
       return [
         {
           ...model,
@@ -130,7 +131,7 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
           markdownError: null,
         },
         Cmd.none(),
-      ];
+      ]
     }
   }
-};
+}

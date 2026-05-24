@@ -1,57 +1,56 @@
-import React from "react";
-import { type Dispatcher } from "tea-cup-fp";
+import React from 'react'
+import { type Dispatcher } from 'tea-cup-fp'
 
+import { SetGlobalMsgContext } from './common/global-context'
 import {
   type AppRoute,
   examplesPage,
   homePage,
   toUrlString,
-} from "./common/type/route";
-import { BasicPageMemo } from "./page/basic/component";
-import { ExamplesPageMemo } from "./page/examples/component";
-import { HomePageMemo } from "./page/home/component";
-import { MarkdownPageMemo } from "./page/markdown/component";
-import { SpecExtensionPageMemo } from "./page/spec-extension/component";
-import { SpecFromScratchPageMemo } from "./page/spec-from-scratch/component";
-import type { Model, Msg } from "./type";
-
-import { SetGlobalMsgContext } from "./common/global-context";
+} from './common/type/route'
+import { BasicPageMemo } from './page/basic/component'
+import { ExamplesPageMemo } from './page/examples/component'
+import { HomePageMemo } from './page/home/component'
+import { MarkdownPageMemo } from './page/markdown/component'
+import { SpecExtensionPageMemo } from './page/spec-extension/component'
+import { SpecFromScratchPageMemo } from './page/spec-from-scratch/component'
+import type { Model, Msg } from './type'
 
 interface Props {
-  model: Model;
-  dispatch: Dispatcher<Msg>;
+  model: Model
+  dispatch: Dispatcher<Msg>
 }
 
 export const App: React.FC<Props> = ({ model, dispatch }) => {
-  const currentTag = model.route.page._tag;
+  const currentTag = model.route.page._tag
 
   const navigateTo = (route: AppRoute, e: React.MouseEvent) => {
-    e.preventDefault();
-    dispatch({ _tag: "ChangeRoute", route });
-  };
+    e.preventDefault()
+    dispatch({ _tag: 'ChangeRoute', route })
+  }
 
   return (
     <SetGlobalMsgContext value={dispatch}>
-      <div className="app-container">
-        <header className="header">
+      <div className='app-container'>
+        <header className='header'>
           <a
             href={toUrlString({ page: homePage() })}
-            className="logo-section"
+            className='logo-section'
             onClick={(e) => navigateTo({ page: homePage() }, e)}
           >
             <img
-              src="https://raw.githubusercontent.com/elm-explorations/rte-toolkit/master/logo.png"
-              alt="Logo"
-              className="logo-icon"
+              src='https://raw.githubusercontent.com/elm-explorations/rte-toolkit/master/logo.png'
+              alt='Logo'
+              className='logo-icon'
             />
-            <span className="logo-text">Tea Cup RTE</span>
+            <span className='logo-text'>Tea Cup RTE</span>
           </a>
           <nav>
-            <ul className="nav-links">
+            <ul className='nav-links'>
               <li>
                 <a
                   href={toUrlString({ page: homePage() })}
-                  className={`nav-link ${currentTag === "HomePage" ? "active" : ""}`}
+                  className={`nav-link ${currentTag === 'HomePage' ? 'active' : ''}`}
                   onClick={(e) => navigateTo({ page: homePage() }, e)}
                 >
                   Home
@@ -61,7 +60,7 @@ export const App: React.FC<Props> = ({ model, dispatch }) => {
                 <a
                   href={toUrlString({ page: examplesPage() })}
                   className={`nav-link ${
-                    currentTag !== "HomePage" ? "active" : ""
+                    currentTag !== 'HomePage' ? 'active' : ''
                   }`}
                   onClick={(e) => navigateTo({ page: examplesPage() }, e)}
                 >
@@ -72,69 +71,69 @@ export const App: React.FC<Props> = ({ model, dispatch }) => {
           </nav>
         </header>
 
-        <main className="main-content">{renderPage(model, dispatch)}</main>
+        <main className='main-content'>{renderPage(model, dispatch)}</main>
 
-        <footer className="footer">
+        <footer className='footer'>
           <p>
-            💞 Devotedly built for Master using{" "}
+            💞 Devotedly built for Master using{' '}
             <a
-              href="https://github.com/rinn7e/tea-cup-package"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "var(--accent)", textDecoration: "none" }}
+              href='https://github.com/rinn7e/tea-cup-package'
+              target='_blank'
+              rel='noopener noreferrer'
+              style={{ color: 'var(--accent)', textDecoration: 'none' }}
             >
               Tea-Cup
-            </a>{" "}
+            </a>{' '}
             • Inspired by elm-rte-toolkit 🌸
           </p>
         </footer>
       </div>
     </SetGlobalMsgContext>
-  );
-};
+  )
+}
 
 const renderPage = (model: Model, dispatch: Dispatcher<Msg>) => {
   switch (model.pageModel._tag) {
-    case "HomePageModel":
+    case 'HomePageModel':
       return (
         <HomePageMemo
           model={model.pageModel.model}
-          dispatch={(msg) => dispatch({ _tag: "HomePageMsg", subMsg: msg })}
+          dispatch={(msg) => dispatch({ _tag: 'HomePageMsg', subMsg: msg })}
         />
-      );
-    case "ExamplesPageModel":
-      return <ExamplesPageMemo />;
-    case "BasicPageModel":
+      )
+    case 'ExamplesPageModel':
+      return <ExamplesPageMemo />
+    case 'BasicPageModel':
       return (
         <BasicPageMemo
           model={model.pageModel.model}
-          dispatch={(msg) => dispatch({ _tag: "BasicPageMsg", subMsg: msg })}
+          dispatch={(msg) => dispatch({ _tag: 'BasicPageMsg', subMsg: msg })}
         />
-      );
-    case "MarkdownPageModel":
+      )
+    case 'MarkdownPageModel':
       return (
         <MarkdownPageMemo
           model={model.pageModel.model}
-          dispatch={(msg) => dispatch({ _tag: "MarkdownPageMsg", subMsg: msg })}
+          dispatch={(msg) => dispatch({ _tag: 'MarkdownPageMsg', subMsg: msg })}
         />
-      );
-    case "SpecExtensionPageModel":
+      )
+    case 'SpecExtensionPageModel':
       return (
         <SpecExtensionPageMemo
           model={model.pageModel.model}
           dispatch={(msg) =>
-            dispatch({ _tag: "SpecExtensionPageMsg", subMsg: msg })
+            dispatch({ _tag: 'SpecExtensionPageMsg', subMsg: msg })
           }
         />
-      );
-    case "SpecFromScratchPageModel":
+      )
+    case 'SpecFromScratchPageModel':
       return (
         <SpecFromScratchPageMemo
           model={model.pageModel.model}
           dispatch={(msg) =>
-            dispatch({ _tag: "SpecFromScratchPageMsg", subMsg: msg })
+            dispatch({ _tag: 'SpecFromScratchPageMsg', subMsg: msg })
           }
         />
-      );
+      )
   }
-};
+}

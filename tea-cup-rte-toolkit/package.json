@@ -11,9 +11,8 @@
     "clean": "rimraf lib",
     "compile": "tsup",
     "build": "pnpm run clean && pnpm run compile",
-    "typecheck": "tsc --noEmit",
-    "check-style": "prettier --check .",
-    "fix-style": "prettier --write .",
+    "check": "tsc --noEmit",
+    "format": "prettier --write .",
     "lint": "eslint src"
   },
   "dependencies": {
