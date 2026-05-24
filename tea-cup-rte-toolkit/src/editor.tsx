@@ -579,6 +579,13 @@ function viewHtmlNode<Msg>(
             dispatch(msg);
           }
         };
+      } else if (key.startsWith('on') && typeof val === 'function') {
+        reactProps[key] = (e: any) => {
+          const msg = (val as any)(e);
+          if (msg) {
+            dispatch(msg);
+          }
+        };
       } else {
         reactProps[key] = val;
       }
