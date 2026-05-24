@@ -1,9 +1,13 @@
 packages:
+  # library
   - 'tea-cup-prelude'
   - 'tea-cup-form'
   - 'tea-cup-pagination'
   - 'tea-cup-intersection-observer'
+  # example apps
   - 'tea-cup-intersection-observer/exe/example-app'
+  - 'tea-cup-form/exe/example-app'
+  - 'tea-cup-form/exe/example-app-e2e'
 allowBuilds:
   esbuild: true
   "@rinn7e/tea-cup-prelude": true
