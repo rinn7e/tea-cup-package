@@ -11,7 +11,7 @@
     height: 100%;
     margin: 0;
     padding: 0;
-    @apply bg-slate-950 text-slate-100 font-sans antialiased overflow-hidden;
+    @apply overflow-hidden bg-slate-950 font-sans text-slate-100 antialiased;
   }
 
   body {

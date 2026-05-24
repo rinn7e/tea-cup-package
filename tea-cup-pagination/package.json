@@ -12,11 +12,10 @@
     "clean": "rimraf lib",
     "compile": "tsup",
     "build": "pnpm run clean && pnpm run compile",
-    "typecheck": "tsc --noEmit",
-    "check-style": "prettier --check .",
-    "fix-style": "prettier --write .",
+    "check": "tsc --noEmit",
+    "format": "prettier --write .",
     "lint": "eslint src",
-    "staged": "pnpm run fix-style && pnpm run typecheck && pnpm run lint"
+    "staged": "pnpm run format && pnpm run check && pnpm run lint"
   },
   "peerDependencies": {
     "@devexperts/remote-data-ts": "^2.1.1",

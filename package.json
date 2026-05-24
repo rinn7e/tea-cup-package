@@ -5,9 +5,8 @@
   "description": "Monorepo for tea-cup libraries",
   "scripts": {
     "build": "pnpm --filter \"*\" build",
-    "typecheck": "pnpm --filter \"*\" typecheck",
+    "check": "pnpm --filter \"*\" check",
     "lint": "pnpm --filter \"*\" lint",
-    "fix-style": "pnpm --filter \"*\" fix-style",
-    "check-style": "pnpm --filter \"*\" check-style"
+    "format": "pnpm --filter \"*\" format"
   }
 }

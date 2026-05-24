@@ -49,24 +49,43 @@ All scripts are executed from the monorepo root using pnpm workspace filters:
 | Command | Description |
 | --- | --- |
 | `pnpm build` | Compile all packages in the workspace |
-| `pnpm typecheck` | Run TypeScript type checking on all packages |
+| `pnpm check` | Run TypeScript type checking on all packages |
 | `pnpm lint` | Run ESLint check across the entire workspace |
-| `pnpm fix-style` | Automatically format all codebase files with Prettier |
-| `pnpm check-style` | Verify code formatting rules with Prettier |
+| `pnpm format` | Automatically format all codebase files with Prettier |
 
 ---
 
-## Installation from GitHub
+## Local Installation (Recommended)
 
-To install any of these packages directly from GitHub into a host application, use the `#commit-hash&path:directory` syntax in your dependencies:
+To use these packages in a host application during development, clone this repository as a sibling to your project and reference them using `pnpm` links in your `package.json`:
+
+```text
+parent-directory/
+├── your-host-application/
+└── tea-cup-package/           <-- This repository
+```
+
+### 1. Build the Shared Libraries
+
+Before using them in your host application, build the packages:
+
+```bash
+cd tea-cup-package
+pnpm install
+pnpm build
+```
+
+### 2. Link in Host Application
+
+In your host application's `package.json`, add the dependencies using relative paths:
 
 ```json
 "dependencies": {
-  "@rinn7e/tea-cup-prelude": "github:rinn7e/tea-cup-package#[commit-hash]&path:tea-cup-prelude",
-  "@rinn7e/tea-cup-form": "github:rinn7e/tea-cup-package#[commit-hash]&path:tea-cup-form",
-  "@rinn7e/tea-cup-pagination": "github:rinn7e/tea-cup-package#[commit-hash]&path:tea-cup-pagination",
-  "@rinn7e/tea-cup-intersection-observer": "github:rinn7e/tea-cup-package#[commit-hash]&path:tea-cup-intersection-observer"
+  "@rinn7e/tea-cup-prelude": "link:../tea-cup-package/tea-cup-prelude",
+  "@rinn7e/tea-cup-form": "link:../tea-cup-package/tea-cup-form",
+  "@rinn7e/tea-cup-pagination": "link:../tea-cup-package/tea-cup-pagination",
+  "@rinn7e/tea-cup-intersection-observer": "link:../tea-cup-package/tea-cup-intersection-observer"
 }
 ```
 
-Since the compiled assets (`lib/` folders) are tracked in the repository and the installation scripts are bypassed, installation is extremely fast, secure, and offline-compatible.
+Since the compiled assets (`lib/` folders) are tracked in this repository, your host application will pick up the changes immediately after you run `pnpm build` in the `tea-cup-package` workspace.
