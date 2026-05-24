@@ -5,6 +5,9 @@ import {
   type Path,
   type State,
   type Transform,
+  type ElementDefinition,
+  type ElementDecoration,
+  type Attribute,
   markdown,
   withElementDefinitions,
   withMarkDefinitions,
@@ -43,6 +46,7 @@ import {
   applyCommandNoForceSelection,
   transform,
 } from "@rinn7e/tea-cup-rte-toolkit";
+import * as React from "react";
 import * as O from "fp-ts/lib/Option";
 import * as E from "fp-ts/lib/Either";
 import { pipe } from "fp-ts/lib/function";
@@ -107,13 +111,16 @@ export const captionedImage = elementDefinition({
     };
   },
   fromHtmlNode: (
-    def: any,
+    def: ElementDefinition,
     node: HtmlNode,
   ): Option<[RteElement, Array<HtmlNode>]> => {
     if (node._tag === "ElementNode" && node.name === "figure") {
       const img = node.children[0];
       if (img && img._tag === "ElementNode" && img.name === "img") {
-        const attributes: any[] = [];
+        const attributes: Array<
+          | { _tag: "StringAttribute"; key: string; value: string }
+          | { _tag: "BoolAttribute"; key: string; value: boolean }
+        > = [];
         let hasSrc = false;
         for (const [k, v] of img.attributes) {
           if (k === "src") {
@@ -159,7 +166,7 @@ const captionedImageDecoration = (
   editorNodePath: Path,
   elementVal: RteElement,
   elementPath: Path,
-): Array<[string, any]> => {
+): Array<Attribute<Msg>> => {
   const elementPathStr = elementPath.join(":");
   if (elementPathStr === "") {
     return selectableDecoration(
@@ -199,7 +206,7 @@ const captionedImageDecoration = (
 
 export const customDecorations = addElementDecoration(
   captionedImage,
-  captionedImageDecoration as any,
+  captionedImageDecoration satisfies ElementDecoration<Msg>,
   emptyDecorations(),
 );
 
