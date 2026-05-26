@@ -1,10 +1,18 @@
 {
   "name": "@rinn7e/tea-cup-form",
-  "version": "1.0.0",
+  "version": "0.1.0-alpha.1",
   "type": "module",
   "description": "",
   "author": "Moremi Vannak",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rinn7e/tea-cup-package.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
@@ -18,7 +26,7 @@
     "staged": "pnpm run format && pnpm run check && pnpm run lint"
   },
   "peerDependencies": {
-    "@rinn7e/tea-cup-prelude": "^1.0.0",
+    "@rinn7e/tea-cup-prelude": "^0.1.0-alpha.1",
     "fp-ts": "^2.16.11",
     "react": "^19.2.0",
     "react-datepicker": "^8.9.0",
