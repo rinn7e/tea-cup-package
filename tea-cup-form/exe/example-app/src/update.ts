@@ -14,6 +14,7 @@ import {
 } from '@rinn7e/tea-cup-form'
 import * as E from 'fp-ts/lib/Either'
 import * as O from 'fp-ts/lib/Option'
+import { mapFst } from 'fp-ts/lib/Tuple'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
@@ -33,10 +34,16 @@ const preprocessFormMsgHandler =
 
 export const formMsgHandler =
   (subMsg: Form.Msg) =>
-  (model: Model): Model => {
-    return pipe(model.form, Form.update(subMsg), (newForm: Form.Model) =>
-      preprocessFormMsgHandler(newForm)(model),
+  (model: Model): [Model, Cmd<Msg>] => {
+    const [newModel, cmd] = pipe(
+      model.form,
+      Form.update(subMsg),
+      mapFst((newForm) => preprocessFormMsgHandler(newForm)(model)),
     )
+    return [
+      newModel,
+      cmd.map((subMsg) => ({ _tag: 'FormMsg' as const, subMsg })),
+    ]
   }
 
 export const init = (): [Model, Cmd<Msg>] => {
@@ -132,19 +139,23 @@ export const init = (): [Model, Cmd<Msg>] => {
     ],
   ])
 
+  const [initialForm, initialFormCmd] = Form.init(forms)
   const initialModel: Model = {
-    form: Form.init(forms),
+    form: initialForm,
     isFormValid: false,
     submittedValues: null,
   }
 
-  return [preprocessFormMsgHandler(initialModel.form)(initialModel), Cmd.none()]
+  return [
+    preprocessFormMsgHandler(initialModel.form)(initialModel),
+    initialFormCmd.map((subMsg) => ({ _tag: 'FormMsg' as const, subMsg })),
+  ]
 }
 
 export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'FormMsg': {
-      return [{ ...formMsgHandler(msg.subMsg)(model) }, Cmd.none()]
+      return formMsgHandler(msg.subMsg)(model)
     }
     case 'ShowAllValidation': {
       return [

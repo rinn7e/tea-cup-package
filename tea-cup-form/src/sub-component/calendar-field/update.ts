@@ -20,26 +20,37 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 
+import { Cmd } from 'tea-cup-fp'
+
 import type { Model, Msg } from './type'
 
-export const update = (msg: Msg, field: Model): Model => {
+export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'UpdateCalendar':
-      return {
-        ...field,
-        currentValue: msg.value,
-        showValidation: true,
-      }
+      return [
+        {
+          ...field,
+          currentValue: msg.value,
+          showValidation: true,
+        },
+        Cmd.none(),
+      ]
     case 'HandleFocus':
-      return {
-        ...field,
-        isFocus: msg.isFocus,
-        showValidation: !msg.isFocus ? true : field.showValidation,
-      }
+      return [
+        {
+          ...field,
+          isFocus: msg.isFocus,
+          showValidation: !msg.isFocus ? true : field.showValidation,
+        },
+        Cmd.none(),
+      ]
     case 'HideValidation':
-      return {
-        ...field,
-        showValidation: false,
-      }
+      return [
+        {
+          ...field,
+          showValidation: false,
+        },
+        Cmd.none(),
+      ]
   }
 }

@@ -28,7 +28,7 @@ import * as S from 'fp-ts/lib/string'
 import { type JSX } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
-import { NullableEq } from '../../util/common'
+import { NullableEq } from '@rinn7e/tea-cup-prelude'
 
 /** Reducer messages for CalendarField sub-component */
 export type Msg =

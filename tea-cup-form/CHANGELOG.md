@@ -11,15 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sub-Component Architecture**: Modularized form field implementations into sub-components (`Text`, `TextPill`, `Checkbox`, `Radio`, `Dropdown`, `Calendar`, `File`).
 - Sub-component directory structure:
   - `type.ts`: `Msg`, `Model`, `ModelEq`, `Props`, `PropsEq`, `defaultModel()`, and `XxxTypeUiArg` with JSDoc comments.
-  - `update.ts`: Pure `update(msg, field)` reducer.
+  - `update.ts`: Reducer returning `[Model, Cmd<Msg>]`.
   - `view.tsx`: `defaultXxxView(...)` view renderer.
   - `component.tsx`: React component `XxxField` and `XxxFieldMemo`.
   - `index.ts`: Exports `./type`, `./update`, and `./view`.
+- **`Email` Variant**: Added `{ _tag: 'Email' }` variant to `TextInputVariant`.
+- **`data-test` Attributes**: Added `data-test` attributes to input elements across sub-component view renderers for E2E testing.
 - **Sub-Component Namespaces**: Re-exported sub-components as namespaces in `@rinn7e/tea-cup-form` (`Text`, `TextPill`, `Checkbox`, `Radio`, `Dropdown`, `Calendar`, `File`).
 - **Secondary Entrypoint**: React components accessible via `@rinn7e/tea-cup-form/component` (`FormItemMemo`).
 - **Playwright E2E Tests**: Comprehensive 12-test E2E suite covering all sub-components in `exe/example-app-e2e`.
 
 ### Changed
+- **TEA Command Tuple Return Types**: Updated `init` to return `[Model, Cmd<Msg>]` and `update` signature to `(msg: Msg) => (model: Model): [Model, Cmd<Msg>]`.
+- **Sub-Component Reducer Return Types**: Updated sub-component `update` functions to return `[Model, Cmd<Msg>]`.
 - Moved constructors to `type.ts` and renamed to `defaultModel()`, returning the sub-component's internal `Model` state directly instead of the outer `FormType` union wrapper.
 - Deleted standalone `util.ts` files across all sub-components.
 - Consolidated form helper functions (`lookupForm`, `valueTextType`, `valueCalendarType`, etc.) into `src/common/type.ts`.
@@ -32,7 +36,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Migration Guide (v0.1.0-alpha.1 -> v0.1.0-alpha.2)
 
-#### 1. Constructor Function Renaming (`defaultModel`) & Model Spreading
+#### 1. TEA Command Tuple Return Types (`init` and `update`)
+`init` and `update` now return `[Model, Cmd<Msg>]` tuples to support future effect handling:
+
+```ts
+// Old (0.1.0-alpha.1)
+const model: Form.Model = Form.init(forms)
+const newModel: Form.Model = Form.update(msg)(model)
+
+// New (0.1.0-alpha.2)
+const [model, cmd]: [Form.Model, Cmd<Form.Msg>] = Form.init(forms)
+const [newModel, cmd]: [Form.Model, Cmd<Form.Msg>] = Form.update(msg)(model)
+```
+
+#### 2. Constructor Function Renaming (`defaultModel`) & Model Spreading
 Form constructors have been moved to `type.ts` and renamed to `defaultModel()`. They return the sub-component's internal `Model` directly, allowing clean property overrides.
 
 ```ts
@@ -54,7 +71,7 @@ const textItem: Form.FormType = {
 }
 ```
 
-#### 2. React Components Entrypoint
+#### 3. React Components Entrypoint
 React `.tsx` components are imported separately from `@rinn7e/tea-cup-form/component`.
 
 ```tsx
@@ -71,7 +88,7 @@ import { FormItemMemo } from '@rinn7e/tea-cup-form/component'
 />
 ```
 
-#### 3. Consolidated Helper Exports & Validation Utilities
+#### 4. Consolidated Helper Exports & Validation Utilities
 Helper functions (`lookupForm`, `valueTextType`, `valueCalendarType`, `showAllValidation`, `runValidationForAll`, etc.) are exported directly from `@rinn7e/tea-cup-form`.
 
 ```ts

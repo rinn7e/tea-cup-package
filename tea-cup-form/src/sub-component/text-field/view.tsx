@@ -22,7 +22,7 @@ SOFTWARE. */
 import * as O from 'fp-ts/lib/Option'
 import type { JSX } from 'react'
 
-import { exec } from '../../util/common'
+import { exec } from '@rinn7e/tea-cup-prelude'
 import { errorTooltipContainer } from '../error-tooltip/helper'
 import {
   IconEye,

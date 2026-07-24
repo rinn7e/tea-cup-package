@@ -20,10 +20,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as O from 'fp-ts/lib/Option'
+import { Cmd } from 'tea-cup-fp'
 
 import type { Model, Msg } from './type'
 
-export const update = (msg: Msg, field: Model): Model => {
+export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'UpdateRadio': {
       if (
@@ -31,9 +32,9 @@ export const update = (msg: Msg, field: Model): Model => {
         field.currentValue._tag === 'Some' &&
         field.currentValue.value === msg.radioKey
       ) {
-        return { ...field, currentValue: O.none }
+        return [{ ...field, currentValue: O.none }, Cmd.none()]
       }
-      return { ...field, currentValue: O.some(msg.radioKey) }
+      return [{ ...field, currentValue: O.some(msg.radioKey) }, Cmd.none()]
     }
   }
 }
