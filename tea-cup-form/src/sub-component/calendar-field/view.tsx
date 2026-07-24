@@ -65,7 +65,7 @@ export const defaultCalendarView = ({
               selected={currentValue}
               placeholderText={placeholder}
               dateFormat='dd.MM.yyyy'
-              customInput={<CalendarInput />}
+              customInput={<CalendarInput data-test={fieldKey} />}
               onCalendarOpen={() =>
                 dispatch(
                   { _tag: 'HandleFocus', isFocus: true },

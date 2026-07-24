@@ -58,6 +58,7 @@ export const defaultDropdownView = ({
       <div className={getContainerClasses(isError, isFocus)}>
         <div className='flex flex-row items-center'>
           <input
+            data-test={fieldKey}
             id={mkIdFromString(label)}
             className='w-full cursor-pointer bg-transparent px-4 py-3 font-medium text-slate-800 outline-none placeholder:text-slate-300'
             placeholder={placeholder}
@@ -92,6 +93,7 @@ export const defaultDropdownView = ({
                 A.map((choice) => (
                   <div
                     id={mkIdFromString(choice)}
+                    data-test={choice}
                     key={choice}
                     className={[
                       'mx-1.5 cursor-pointer rounded-lg px-3 py-2.5 text-[15px] font-medium transition-colors',

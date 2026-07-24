@@ -31,6 +31,7 @@ export const defaultCheckboxView = (arg: CheckboxTypeUiArg) => {
   return (
     <div
       id={mkIdFromString(key)}
+      data-test={`checkbox-${arg.fieldKey}-${key}`}
       key={key}
       className='group flex cursor-pointer flex-row items-center gap-3 py-1.5'
       onClick={(_) =>
