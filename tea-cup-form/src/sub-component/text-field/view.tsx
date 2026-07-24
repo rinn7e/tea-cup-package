@@ -22,8 +22,8 @@ SOFTWARE. */
 import * as O from 'fp-ts/lib/Option'
 import type { JSX } from 'react'
 
-import { errorTooltipContainer } from '../../error-tooltip/helper'
 import { exec } from '../../util/common'
+import { errorTooltipContainer } from '../error-tooltip/helper'
 import {
   IconEye,
   IconEyeOff,

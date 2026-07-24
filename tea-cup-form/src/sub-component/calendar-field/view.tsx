@@ -23,7 +23,7 @@ import * as O from 'fp-ts/lib/Option'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 
-import { errorTooltipContainer } from '../../error-tooltip/helper'
+import { errorTooltipContainer } from '../error-tooltip/helper'
 import {
   CalendarInput,
   IconCalendar,
