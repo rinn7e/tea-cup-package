@@ -25,7 +25,7 @@ import { type JSX } from 'react'
 import type { FormType } from '../../common/type'
 import type { CalendarTypeUiArg } from './type'
 
-export const defaultCalendarType = (
+export const defaultFormType = (
   inputUi?: (arg: CalendarTypeUiArg) => JSX.Element,
 ): FormType => ({
   _tag: 'CalendarType',

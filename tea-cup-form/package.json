@@ -15,6 +15,23 @@
   },
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js",
+      "require": "./lib/index.cjs"
+    },
+    "./component": {
+      "types": "./lib/component.d.ts",
+      "import": "./lib/component.js",
+      "require": "./lib/component.cjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "component": ["./lib/component.d.ts"]
+    }
+  },
   "scripts": {
     "check:watch": "tsc --noEmit --watch",
     "clean": "rimraf lib",

@@ -1,4 +1,4 @@
-import { formView } from '@rinn7e/tea-cup-form'
+import { FormItemMemo } from '@rinn7e/tea-cup-form/component'
 import { cn } from '@rinn7e/tea-cup-prelude'
 import * as React from 'react'
 import { Dispatcher, map } from 'tea-cup-fp'
@@ -11,15 +11,14 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
     if (!field) return null
     return (
       <div className='mb-6'>
-        {formView(
-          key,
-          field,
-          map(
+        <FormItemMemo
+          field={key}
+          model={model.form}
+          dispatch={map(
             dispatch,
             (subMsg) => ({ _tag: 'FormMsg', subMsg }) satisfies Msg,
-          ),
-          model.form,
-        )}
+          )}
+        />
       </div>
     )
   }

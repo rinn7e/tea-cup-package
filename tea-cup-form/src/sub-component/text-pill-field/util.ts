@@ -25,13 +25,13 @@ import { type JSX } from 'react'
 import type { FormType } from '../../common/type'
 import type { TextPillTypeUiArg } from './type'
 
-export const defaultTextPillType = (
+export const defaultFormType = (
   inputUi?: (props: TextPillTypeUiArg) => JSX.Element,
 ): FormType => ({
   _tag: 'TextPillType',
   model: {
-    placeholder: 'Tags',
-    label: 'Tags',
+    placeholder: 'Email',
+    label: 'Email',
     allValues: [],
     currentValue: '',
     validation: (val) => E.right(val),

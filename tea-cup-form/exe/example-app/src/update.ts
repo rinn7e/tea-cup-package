@@ -38,11 +38,11 @@ export const formMsgHandler =
   }
 
 export const init = (): [Model, Cmd<Msg>] => {
-  const defaultText = Form.defaultTextType()
-  const defaultPill = Form.defaultTextPillType()
-  const defaultDropdown = Form.defaultDropdownType()
-  const defaultCalendar = Form.defaultCalendarType()
-  const defaultFile = Form.defaultFileType()
+  const defaultText = Form.Text.defaultFormType()
+  const defaultPill = Form.TextPill.defaultFormType()
+  const defaultDropdown = Form.Dropdown.defaultFormType()
+  const defaultCalendar = Form.Calendar.defaultFormType()
+  const defaultFile = Form.File.defaultFormType()
 
   const textItem: Form.FormType = {
     _tag: 'TextType',
@@ -103,14 +103,14 @@ export const init = (): [Model, Cmd<Msg>] => {
     ['pill', pillItem],
     [
       'checkbox',
-      Form.defaultCheckboxType([
+      Form.Checkbox.defaultFormType([
         ['Option 1', false],
         ['Option 2', true],
       ]),
     ],
     [
       'radio',
-      Form.defaultRadioType(
+      Form.Radio.defaultFormType(
         [
           { key: 'r1', label: 'Radio 1', desc: 'First description' },
           { key: 'r2', label: 'Radio 2', desc: 'Second description' },

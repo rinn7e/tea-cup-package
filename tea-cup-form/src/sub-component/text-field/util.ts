@@ -25,7 +25,7 @@ import { type JSX } from 'react'
 import type { FormType } from '../../common/type'
 import type { TextTypeUiArg } from './type'
 
-export const defaultTextType = (
+export const defaultFormType = (
   inputUi?: (props: TextTypeUiArg) => JSX.Element,
 ): FormType => ({
   _tag: 'TextType',
