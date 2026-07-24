@@ -4,17 +4,17 @@ A modular, type-safe, functional form management library built for React and the
 
 ---
 
-## ✨ Features
+## Features
 
-- **⚡ Sub-Component Architecture**: Form fields are organized as isolated sub-components under distinct namespaces (`Text`, `TextPill`, `Checkbox`, `Radio`, `Dropdown`, `Calendar`, `File`).
-- **🛡️ Type-Safe Functional Model**: State transformations and validations are pure, immutable functions backed by `fp-ts` data structures (`Either`, `Option`, `Map`).
-- **📦 Isolated React Entrypoint**: Logic, types, and reducers are exported from `@rinn7e/tea-cup-form` without forcing React component imports. React view components are cleanly isolated under `@rinn7e/tea-cup-form/component`.
-- **🎨 Highly Customizable UI**: Override default view renderers for any form field using `inputUi` props.
-- **✅ Built-In Validations**: Includes standard validators for text length, numbers, emails, dates, checkboxes, and file uploads.
+- **Sub-Component Architecture**: Form fields are organized as isolated sub-components under distinct namespaces (`Text`, `TextPill`, `Checkbox`, `Radio`, `Dropdown`, `Calendar`, `File`).
+- **Type-Safe Functional Model**: State transformations and validations are pure, immutable functions backed by `fp-ts` data structures (`Either`, `Option`, `Map`).
+- **Isolated React Entrypoint**: Logic, types, and reducers are exported from `@rinn7e/tea-cup-form` without forcing React component imports. React view components are cleanly isolated under `@rinn7e/tea-cup-form/component`.
+- **Highly Customizable UI**: Override default view renderers for any form field using `inputUi` props.
+- **Built-In Validations**: Includes standard validators for text length, numbers, emails, dates, checkboxes, and file uploads.
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ```bash
 pnpm add @rinn7e/tea-cup-form
@@ -22,7 +22,7 @@ pnpm add @rinn7e/tea-cup-form
 
 ---
 
-## 📖 Quick Start
+## Quick Start
 
 ### 1. Initialize Form Model
 
@@ -31,7 +31,6 @@ Initialize form item models inlining sub-component `defaultModel()` constructors
 ```ts
 import * as Form from '@rinn7e/tea-cup-form'
 import * as E from 'fp-ts/lib/Either'
-import * as O from 'fp-ts/lib/Option'
 
 const forms: Form.Forms = new Map<string, Form.FormType>([
   [
@@ -102,7 +101,7 @@ export const MyFormView = ({ model, dispatch }: Props) => (
 
 ---
 
-## 🧩 Available Sub-Components
+## Available Sub-Components
 
 | Namespace | FormType Discriminator | Model Constructor | Description |
 | :--- | :--- | :--- | :--- |
@@ -116,7 +115,7 @@ export const MyFormView = ({ model, dispatch }: Props) => (
 
 ---
 
-## 🛠️ Development & Testing
+## Development & Testing
 
 ```bash
 # Typecheck package
@@ -131,6 +130,6 @@ pnpm --filter tea-cup-form-example-e2e test:e2e
 
 ---
 
-## 📄 License
+## License
 
 [MIT License](LICENSE) © 2025 Moremi Vannak

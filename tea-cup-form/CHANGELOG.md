@@ -36,12 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Form constructors have been moved to `type.ts` and renamed to `defaultModel()`. They return the sub-component's internal `Model` directly, allowing clean property overrides.
 
 ```ts
-// ❌ Old (0.1.0-alpha.1)
+// Old (0.1.0-alpha.1)
 import { defaultTextType } from '@rinn7e/tea-cup-form'
 
 const textItem = defaultTextType()
 
-// ✅ New (0.1.0-alpha.2)
+// New (0.1.0-alpha.2)
 import { Text } from '@rinn7e/tea-cup-form'
 
 const textItem: Form.FormType = {
@@ -58,10 +58,10 @@ const textItem: Form.FormType = {
 React `.tsx` components are imported separately from `@rinn7e/tea-cup-form/component`.
 
 ```tsx
-// ❌ Old (0.1.0-alpha.1)
+// Old (0.1.0-alpha.1)
 import { formView } from '@rinn7e/tea-cup-form'
 
-// ✅ New (0.1.0-alpha.2)
+// New (0.1.0-alpha.2)
 import { FormItemMemo } from '@rinn7e/tea-cup-form/component'
 
 <FormItemMemo
