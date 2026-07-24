@@ -164,6 +164,12 @@ pnpm --filter tea-cup-form-example-e2e test:e2e
 
 ---
 
+## Future Roadmap
+
+For planned future form fields (`Switch`, `Otp`, `Slider`, `DualSlider`, `Color`, `Phone`, `RichText`, `Rating`) and architectural enhancements, see the [Future Roadmap & Planned Fields](docs/ROADMAP.md).
+
+---
+
 ## License
 
 [MIT License](LICENSE) © 2025 Moremi Vannak
