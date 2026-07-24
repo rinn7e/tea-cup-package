@@ -179,4 +179,24 @@ test.describe('TeaCup Form Example App', () => {
     await expect(page.locator('pre')).toContainText('"dropdown": "USA"')
     await expect(page.locator('pre')).toContainText('"manual.pdf"')
   })
+
+  test('13. should search and select user in combobox field', async ({
+    page,
+  }) => {
+    const comboboxInput = page.locator('[data-test="combobox"]')
+    await comboboxInput.focus()
+    await comboboxInput.fill('Alice')
+
+    // Wait for search result option to appear
+    const option = page.locator('[data-test="combobox-option-u1"]')
+    await expect(option).toBeVisible({ timeout: 10000 })
+    await option.click()
+
+    // Verify tag chip is added
+    await expect(page.getByText('Alice Smith')).toBeVisible()
+
+    // Remove item
+    await page.locator('[data-test="combobox-remove-u1"]').click()
+    await expect(page.getByText('Alice Smith')).not.toBeVisible()
+  })
 })

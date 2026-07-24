@@ -120,11 +120,16 @@ export {
   type ComboboxTypeUiArg,
 } from '../sub-component/combobox-field/type'
 
-export type ComboboxType<A = any> = { _tag: 'ComboboxType'; model: ComboboxField.Model<A> }
-export const ComboboxTypeEq = <A>(itemEq: EqClass.Eq<A>): EqClass.Eq<ComboboxType<A>> =>
-  EqClass.struct<ComboboxType<A>>({
+export type ComboboxType<E = any, A = any> = {
+  _tag: 'ComboboxType'
+  model: ComboboxField.Model<E, A>
+}
+export const ComboboxTypeEq = <E, A>(
+  itemEq: EqClass.Eq<A>,
+): EqClass.Eq<ComboboxType<E, A>> =>
+  EqClass.struct<ComboboxType<E, A>>({
     _tag: S.Eq,
-    model: ComboboxField.ModelEq(itemEq),
+    model: ComboboxField.ModelEq<E, A>(itemEq),
   })
 
 export type FormType =

@@ -29,47 +29,42 @@ import { Cmd, Task, Time } from 'tea-cup-fp'
 
 import type { Config, Model, Msg } from './type'
 
-const performSearch = <A>(
-  config: Config<A>,
+const performSearch = <E, A>(
+  config: Config<E, A>,
   query: string,
   timerId: number,
 ): Cmd<Msg<A>> => {
   if (query.trim() === '') {
     return Cmd.none()
   } else {
-    return Task.attempt(Task.fromPromise(config.handler(query)), (result) => {
-      switch (result.tag) {
-        case 'Err': {
-          return {
-            _tag: 'SetItems',
-            value: RD.failure(errorToString(result.err)),
-            timerId,
-          }
-        }
-        case 'Ok': {
-          const res = result.value
-          if (res && typeof res === 'object' && '_tag' in res) {
+    return Task.attempt(
+      Task.fromPromise(config.handler(query)),
+      (result) => {
+        switch (result.tag) {
+          case 'Err': {
             return {
               _tag: 'SetItems',
-              value: pipe(
-                res as E.Either<any, any>,
-                E.fold(
-                  (err: any) => RD.failure(errorToString(err)),
-                  (data: any) =>
-                    RD.success(Array.isArray(data) ? data : data.data || []),
-                ),
-              ),
+              value: RD.failure(errorToString(result.err)),
               timerId,
             }
           }
-          return {
-            _tag: 'SetItems',
-            value: RD.success(Array.isArray(res) ? res : []),
-            timerId,
+          case 'Ok': {
+            const rd: RD.RemoteData<string, A[]> = pipe(
+              result.value,
+              E.fold(
+                (err) => RD.failure(errorToString(err)),
+                (data: A[]) => RD.success(data),
+              ),
+            )
+            return {
+              _tag: 'SetItems',
+              value: rd,
+              timerId,
+            }
           }
         }
-      }
-    })
+      },
+    )
   }
 }
 
@@ -81,10 +76,10 @@ const debounceSearch = <A>(query: string, timerId: number): Cmd<Msg<A>> => {
   }))
 }
 
-export const update = <A>(
+export const update = <E, A>(
   msg: Msg<A>,
-  field: Model<A>,
-): [Model<A>, Cmd<Msg<A>>] => {
+  field: Model<E, A>,
+): [Model<E, A>, Cmd<Msg<A>>] => {
   switch (msg._tag) {
     case 'SetQuery': {
       const query = msg.value
