@@ -21,14 +21,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { memo } from 'react'
 
-import { defaultRadiosView } from '../../view/default-view'
 import { Props, PropsEq } from './type'
+import { defaultRadiosView } from './view'
 
 export const RadioField = ({ fieldKey, model, dispatch }: Props) => {
   const view = model.ui ? model.ui : defaultRadiosView
   return view({
-    dispatch,
     fieldKey,
+    dispatch,
     label: model.label,
     choices: model.choices,
     currentValue: model.currentValue,

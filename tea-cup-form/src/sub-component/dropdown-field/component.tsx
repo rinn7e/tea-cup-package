@@ -21,8 +21,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { memo } from 'react'
 
-import { defaultDropdownView } from '../../view/default-view'
 import { Props, PropsEq } from './type'
+import { defaultDropdownView } from './view'
 
 export const DropdownField = ({ fieldKey, model, dispatch }: Props) => {
   const validationResult = model.validation(model.currentValue)
@@ -31,10 +31,10 @@ export const DropdownField = ({ fieldKey, model, dispatch }: Props) => {
     fieldKey,
     dispatch,
     label: model.label,
-    choices: model.choices,
     validationResult,
     isFocus: model.isFocus,
     placeholder: model.placeholder,
+    choices: model.choices,
     validation: model.validation,
     currentValue: model.currentValue,
     showValidation: model.showValidation,

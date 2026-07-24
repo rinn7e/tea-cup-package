@@ -23,8 +23,8 @@ import { memo } from 'react'
 
 import type { Forms } from '../../common/type'
 import { runValidationAndLink } from '../../validation'
-import { defaultTextView } from '../../view/default-view'
 import { Props, PropsEq } from './type'
+import { defaultTextView } from './view'
 
 export const TextField = ({ fieldKey, model, dispatch, forms }: Props) => {
   const validationResult = runValidationAndLink(

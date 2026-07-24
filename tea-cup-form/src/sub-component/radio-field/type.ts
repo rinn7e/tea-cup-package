@@ -27,6 +27,7 @@ import * as S from 'fp-ts/lib/string'
 import { type JSX } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
+/** Reducer messages for RadioField sub-component */
 export type Msg =
   | {
       _tag: 'UpdateRadio'
@@ -34,6 +35,7 @@ export type Msg =
       allowUnselected: boolean
     }
 
+/** Choice item representing key, label, and description for a radio option */
 export type RadioChoice = { key: string; label: string; desc: string }
 export const RadioChoiceEq = EqClass.struct<RadioChoice>({
   key: S.Eq,
@@ -41,6 +43,15 @@ export const RadioChoiceEq = EqClass.struct<RadioChoice>({
   desc: S.Eq,
 })
 
+/** Properties passed to custom UI renderer for an individual radio option */
+export type RadioTypeUiArg = {
+  dispatch: Dispatcher<Msg>
+  fieldKey: string
+  radioChoice: RadioChoice
+  isActive: boolean
+}
+
+/** Properties passed to custom UI renderer for the entire RadioField group */
 export type RadiosTypeUiArg = {
   dispatch: Dispatcher<Msg>
   fieldKey: string
@@ -50,6 +61,7 @@ export type RadiosTypeUiArg = {
   isMarkdown: boolean
 }
 
+/** Internal model state for RadioField */
 export type Model = {
   label: string
   choices: RadioChoice[]
@@ -66,6 +78,7 @@ export const ModelEq = EqClass.struct<Model>({
   ui: { equals: () => true },
 })
 
+/** Component props for RadioField */
 export type Props = {
   fieldKey: string
   model: Model

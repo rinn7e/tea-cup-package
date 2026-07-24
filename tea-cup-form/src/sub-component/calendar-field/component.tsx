@@ -21,21 +21,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { memo } from 'react'
 
-import { defaultCalendarView } from '../../view/default-view'
 import { Props, PropsEq } from './type'
+import { defaultCalendarView } from './view'
 
 export const CalendarField = ({ fieldKey, model, dispatch }: Props) => {
   const validationResult = model.validation(model.currentValue)
   const view = model.ui ? model.ui : defaultCalendarView
   return view({
-    dispatch,
     fieldKey,
+    dispatch,
     label: model.label,
-    placeholder: model.placeholder,
-    currentValue: model.currentValue,
-    isFocus: model.isFocus,
     validationResult,
+    isFocus: model.isFocus,
+    placeholder: model.placeholder,
     validation: model.validation,
+    currentValue: model.currentValue,
     showValidation: model.showValidation,
   })
 }

@@ -37,6 +37,7 @@ import type { Forms } from '../../common/type'
 // Helper types & definitions
 // ------------------------------------------
 
+/** Input variant for text field (e.g. plain Text or Password with reveal state) */
 export type TextInputVariant =
   | { _tag: 'Text' }
   | { _tag: 'Password'; reveal: boolean }
@@ -67,6 +68,7 @@ export const autocompleteToString = (val: boolean): string => {
   else return 'on'
 }
 
+/** Properties passed to custom UI renderers for TextField */
 export type TextTypeUiArg<MsgType = Msg> = {
   dispatch: Dispatcher<MsgType>
   variant: TextInputVariant
@@ -89,6 +91,7 @@ export type TextTypeUiArg<MsgType = Msg> = {
 // Msg
 // ------------------------------------------
 
+/** Reducer messages for TextField sub-component */
 export type Msg =
   | { _tag: 'UpdateValue'; value: string }
   | { _tag: 'UpdateEvent'; event: FormEvent<HTMLInputElement | HTMLTextAreaElement> }
@@ -100,6 +103,7 @@ export type Msg =
 // Model
 // ------------------------------------------
 
+/** Internal model state for TextField */
 export type Model = {
   placeholder: string
   label: string
@@ -142,6 +146,7 @@ export const ModelEq = EqClass.struct<Model>({
 // Props
 // ------------------------------------------
 
+/** Component props for TextField */
 export type Props = {
   fieldKey: string
   model: Model

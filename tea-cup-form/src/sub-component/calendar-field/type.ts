@@ -29,6 +29,7 @@ import { Dispatcher } from 'tea-cup-fp'
 
 import { NullableEq } from '../../util/common'
 
+/** Reducer messages for CalendarField sub-component */
 export type Msg =
   | {
       _tag: 'UpdateCalendar'
@@ -42,6 +43,7 @@ export type Msg =
       _tag: 'HideValidation'
     }
 
+/** Properties passed to custom UI renderer for CalendarField */
 export type CalendarTypeUiArg = {
   dispatch: Dispatcher<Msg>
   fieldKey: string
@@ -54,6 +56,7 @@ export type CalendarTypeUiArg = {
   showValidation: boolean
 }
 
+/** Internal model state for CalendarField */
 export type Model = {
   label: string
   placeholder: string
@@ -74,6 +77,7 @@ export const ModelEq = EqClass.struct<Model>({
   ui: { equals: () => true },
 })
 
+/** Component props for CalendarField */
 export type Props = {
   fieldKey: string
   model: Model

@@ -21,8 +21,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { memo } from 'react'
 
-import { defaultTextPillView } from '../../view/default-view'
 import { Props, PropsEq } from './type'
+import { defaultTextPillView } from './view'
 
 export const TextPillField = ({ fieldKey, model, dispatch }: Props) => {
   const validationResult = model.validation(model.allValues)
@@ -35,8 +35,8 @@ export const TextPillField = ({ fieldKey, model, dispatch }: Props) => {
     isFocus: model.isFocus,
     placeholder: model.placeholder,
     validation: model.validation,
-    allValues: model.allValues,
     currentValue: model.currentValue,
+    allValues: model.allValues,
     showValidation: model.showValidation,
     autocomplete: model.autocomplete,
     isTextarea: model.isTextarea,

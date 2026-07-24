@@ -27,6 +27,7 @@ import * as S from 'fp-ts/lib/string'
 import { type FormEvent, type JSX } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
+/** Reducer messages for FileField sub-component */
 export type Msg =
   | {
       _tag: 'AddFile'
@@ -40,6 +41,7 @@ export type Msg =
       _tag: 'HideValidation'
     }
 
+/** Properties passed to custom UI renderer for FileField */
 export type FileTypeUiArg = {
   dispatch: Dispatcher<Msg>
   fieldKey: string
@@ -50,6 +52,7 @@ export type FileTypeUiArg = {
   showValidation: boolean
 }
 
+/** Internal model state for FileField */
 export type Model = {
   label: string
   currentValues: File[]
@@ -70,6 +73,7 @@ export const ModelEq = EqClass.struct<Model>({
   ui: { equals: () => true },
 })
 
+/** Component props for FileField */
 export type Props = {
   fieldKey: string
   model: Model
