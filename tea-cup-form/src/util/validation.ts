@@ -27,9 +27,14 @@ import type { Option } from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import * as S from 'fp-ts/lib/string'
 
-import type { FormType, Forms, TextType } from './common/type'
-import { and, or } from './util/common'
-import { lookupForm, valueTextType } from './util/util'
+import {
+  lookupForm,
+  valueTextType,
+  type FormType,
+  type Forms,
+  type TextType,
+} from '../common/type'
+import { and, or } from './common'
 
 // Validator
 

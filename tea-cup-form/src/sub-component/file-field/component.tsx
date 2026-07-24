@@ -36,6 +36,7 @@ export const FileField = ({
     fieldKey,
     dispatch,
     label: model.label,
+    currentValues: model.currentValues,
     validationResult,
     isMultiple: model.isMultiple,
     isDrag,

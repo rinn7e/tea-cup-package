@@ -21,6 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as A from 'fp-ts/lib/Array'
 import { type Either } from 'fp-ts/lib/Either'
+import * as E from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
@@ -46,6 +47,7 @@ export type FileTypeUiArg = {
   dispatch: Dispatcher<Msg>
   fieldKey: string
   label: string
+  currentValues: File[]
   validationResult: Either<string, File[]>
   isMultiple: boolean
   isDrag: boolean
@@ -61,6 +63,17 @@ export type Model = {
   validation: (input: File[]) => Either<string, File[]>
   ui?: (arg: FileTypeUiArg) => JSX.Element
 }
+
+export const defaultModel = (
+  inputUi?: (arg: FileTypeUiArg) => JSX.Element,
+): Model => ({
+  label: 'File Upload',
+  currentValues: [],
+  isMultiple: true,
+  showValidation: false,
+  validation: (val) => E.right(val),
+  ui: inputUi ? inputUi : undefined,
+})
 
 export const FileEq: EqClass.Eq<File> = { equals: (a, b) => a.name === b.name }
 

@@ -22,7 +22,7 @@ SOFTWARE. */
 import { memo } from 'react'
 
 import type { Forms } from '../../common/type'
-import { runValidationAndLink } from '../../validation'
+import { runValidationAndLink } from '../../util/validation'
 import { Props, PropsEq } from './type'
 import { defaultTextView } from './view'
 

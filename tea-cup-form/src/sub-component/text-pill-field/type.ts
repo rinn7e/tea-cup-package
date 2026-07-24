@@ -21,6 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as A from 'fp-ts/lib/Array'
 import { type Either } from 'fp-ts/lib/Either'
+import * as E from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
@@ -78,6 +79,21 @@ export type TextPillTypeUiArg = {
   autocomplete: boolean
   isTextarea: boolean
 }
+
+export const defaultModel = (
+  inputUi?: (props: TextPillTypeUiArg) => JSX.Element,
+): Model => ({
+  placeholder: 'Add tag...',
+  label: 'Tags',
+  allValues: [],
+  currentValue: '',
+  validation: (val) => E.right(val),
+  showValidation: false,
+  isTextarea: false,
+  autocomplete: false,
+  isFocus: false,
+  ui: inputUi ? inputUi : undefined,
+})
 
 export const ModelEq = EqClass.struct<Model>({
   placeholder: S.Eq,

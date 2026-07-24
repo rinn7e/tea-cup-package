@@ -5,9 +5,11 @@ import {
   runValidationForAll,
   showAllValidation,
   valueCalendarType,
+  valueCheckboxType,
   valueDropdownType,
   valueFileType,
   valuePillTextType,
+  valueRadioType,
   valueTextType,
 } from '@rinn7e/tea-cup-form'
 import * as E from 'fp-ts/lib/Either'
@@ -38,89 +40,96 @@ export const formMsgHandler =
   }
 
 export const init = (): [Model, Cmd<Msg>] => {
-  const defaultText = Form.Text.defaultFormType()
-  const defaultPill = Form.TextPill.defaultFormType()
-  const defaultDropdown = Form.Dropdown.defaultFormType()
-  const defaultCalendar = Form.Calendar.defaultFormType()
-  const defaultFile = Form.File.defaultFormType()
-
-  const textItem: Form.FormType = {
-    _tag: 'TextType',
-    model: {
-      ...(defaultText._tag === 'TextType' ? defaultText.model : {} as any),
-      label: 'Username',
-      placeholder: 'Enter your username',
-      validation: (val: string) =>
-        val.length < 3 ? E.left('Username too short') : E.right(val),
-    },
-  }
-
-  const pillItem: Form.FormType = {
-    _tag: 'TextPillType',
-    model: {
-      ...(defaultPill._tag === 'TextPillType' ? defaultPill.model : {} as any),
-      label: 'Tags',
-      placeholder: 'Add tags (Enter to add)',
-      validation: (val: string[]) =>
-        val.length === 0 ? E.left('At least one tag required') : E.right(val),
-    },
-  }
-
-  const dropdownItem: Form.FormType = {
-    _tag: 'DropdownType',
-    model: {
-      ...(defaultDropdown._tag === 'DropdownType' ? defaultDropdown.model : {} as any),
-      label: 'Country',
-      choices: ['Cambodia', 'Russia', 'USA'],
-      validation: (val: string | null) =>
-        val === null ? E.left('Please select a country') : E.right(val),
-    },
-  }
-
-  const calendarItem: Form.FormType = {
-    _tag: 'CalendarType',
-    model: {
-      ...(defaultCalendar._tag === 'CalendarType' ? defaultCalendar.model : {} as any),
-      label: 'Birthday',
-      validation: (val: Date | null) =>
-        val === null ? E.left('Birthday is required') : E.right(val),
-    },
-  }
-
-  const fileItem: Form.FormType = {
-    _tag: 'FileType',
-    model: {
-      ...(defaultFile._tag === 'FileType' ? defaultFile.model : {} as any),
-      validation: (val: File[]) =>
-        val.length === 0
-          ? E.left('At least one file required')
-          : E.right(val),
-    },
-  }
-
   const forms: Form.Forms = new Map<string, Form.FormType>([
-    ['text', textItem],
-    ['pill', pillItem],
+    [
+      'text',
+      {
+        _tag: 'TextType',
+        model: {
+          ...Form.Text.defaultModel(),
+          label: 'Username',
+          placeholder: 'Enter your username',
+          validation: (val: string) =>
+            val.length < 3 ? E.left('Username too short') : E.right(val),
+        },
+      },
+    ],
+    [
+      'pill',
+      {
+        _tag: 'TextPillType',
+        model: {
+          ...Form.TextPill.defaultModel(),
+          label: 'Tags',
+          placeholder: 'Add tags (Enter to add)',
+          validation: (val: string[]) =>
+            val.length === 0
+              ? E.left('At least one tag required')
+              : E.right(val),
+        },
+      },
+    ],
     [
       'checkbox',
-      Form.Checkbox.defaultFormType([
-        ['Option 1', false],
-        ['Option 2', true],
-      ]),
+      {
+        _tag: 'CheckboxType',
+        model: Form.Checkbox.defaultModel([
+          ['Option 1', false],
+          ['Option 2', true],
+        ]),
+      },
     ],
     [
       'radio',
-      Form.Radio.defaultFormType(
-        [
-          { key: 'r1', label: 'Radio 1', desc: 'First description' },
-          { key: 'r2', label: 'Radio 2', desc: 'Second description' },
-        ],
-        O.none,
-      ),
+      {
+        _tag: 'RadioType',
+        model: Form.Radio.defaultModel(
+          [
+            { key: 'r1', label: 'Radio 1', desc: 'First description' },
+            { key: 'r2', label: 'Radio 2', desc: 'Second description' },
+          ],
+          O.none,
+        ),
+      },
     ],
-    ['dropdown', dropdownItem],
-    ['calendar', calendarItem],
-    ['file', fileItem],
+    [
+      'dropdown',
+      {
+        _tag: 'DropdownType',
+        model: {
+          ...Form.Dropdown.defaultModel(),
+          label: 'Country',
+          choices: ['Cambodia', 'Russia', 'USA'],
+          validation: (val: string | null) =>
+            val === null ? E.left('Please select a country') : E.right(val),
+        },
+      },
+    ],
+    [
+      'calendar',
+      {
+        _tag: 'CalendarType',
+        model: {
+          ...Form.Calendar.defaultModel(),
+          label: 'Birthday',
+          validation: (val: Date | null) =>
+            val === null ? E.left('Birthday is required') : E.right(val),
+        },
+      },
+    ],
+    [
+      'file',
+      {
+        _tag: 'FileType',
+        model: {
+          ...Form.File.defaultModel(),
+          validation: (val: File[]) =>
+            val.length === 0
+              ? E.left('At least one file required')
+              : E.right(val),
+        },
+      },
+    ],
   ])
 
   const initialModel: Model = {
@@ -167,6 +176,8 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
       const values = {
         text: valueTextType(lookupForm('text', f)),
         pill: valuePillTextType(lookupForm('pill', f)),
+        checkbox: valueCheckboxType(lookupForm('checkbox', f)),
+        radio: pipe(valueRadioType(lookupForm('radio', f)), O.toUndefined),
         dropdown: valueDropdownType(lookupForm('dropdown', f)),
         calendar: valueCalendarType(lookupForm('calendar', f))?.toISOString(),
         files: valueFileType(lookupForm('file', f)).map((f) => f.name),

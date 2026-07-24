@@ -70,6 +70,18 @@ export type Model = {
   ui?: (arg: RadiosTypeUiArg) => JSX.Element
 }
 
+export const defaultModel = (
+  choices: RadioChoice[],
+  currentValue: Option<string>,
+  inputUi?: (arg: RadiosTypeUiArg) => JSX.Element,
+): Model => ({
+  label: '',
+  choices,
+  currentValue,
+  isMarkdown: false,
+  ui: inputUi ? inputUi : undefined,
+})
+
 export const ModelEq = EqClass.struct<Model>({
   label: S.Eq,
   choices: A.getEq(RadioChoiceEq),
