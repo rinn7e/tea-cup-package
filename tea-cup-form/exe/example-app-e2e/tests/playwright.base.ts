@@ -6,7 +6,7 @@ export const baseConfig: PlaywrightTestConfig = {
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
   workers: 1,
-  reporter: 'html',
+  reporter: 'list',
   timeout: 15_000,
   use: {
     trace: 'on-first-retry',
@@ -28,6 +28,6 @@ export const baseConfig: PlaywrightTestConfig = {
     command: 'npm run dev',
     url: 'http://localhost:5173',
     cwd: '../example-app',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
   },
 }

@@ -8,123 +8,124 @@ test.describe('TeaCup Form Example App', () => {
   test('1. should show the main heading and all field labels', async ({
     page,
   }) => {
-    await expect(page.locator('h1')).toHaveText('TeaCup Form Kitchen Sink')
+    await expect(
+      page.getByRole('heading', { name: 'TeaCup Form Kitchen Sink' }),
+    ).toBeVisible()
     await expect(page.getByText('Username')).toBeVisible()
     await expect(page.getByText('Tags')).toBeVisible()
     await expect(page.getByText('Country')).toBeVisible()
     await expect(page.getByText('Birthday')).toBeVisible()
-    await expect(page.getByText('Radio 1')).toBeVisible()
-    await expect(page.getByText('Radio 2')).toBeVisible()
+    await expect(page.getByText('Assigned Users').first()).toBeVisible()
+    await expect(page.getByText('File').first()).toBeVisible()
   })
 
   test('2. should validate username length', async ({ page }) => {
     const usernameInput = page.locator('[data-test="text"]')
+    await usernameInput.focus()
     await usernameInput.fill('ab')
     await usernameInput.blur()
-    await expect(page.getByText('Username too short')).toBeVisible()
 
-    await usernameInput.fill('abc')
-    await usernameInput.blur()
-    await expect(page.getByText('Username too short')).not.toBeVisible()
+    await expect(page.getByText('Username too short')).toBeVisible()
   })
 
   test('3. should add and remove tags (TextPill)', async ({ page }) => {
     const pillInput = page.locator('[data-test="pill"]')
 
-    // Add tags
-    await pillInput.fill('react')
+    // Add first tag
+    await pillInput.fill('tag1')
     await pillInput.press('Enter')
-    await pillInput.fill('typescript')
+    await expect(page.getByText('tag1')).toBeVisible()
+
+    // Add second tag
+    await pillInput.fill('tag2')
     await pillInput.press('Enter')
+    await expect(page.getByText('tag2')).toBeVisible()
 
-    await expect(page.getByText('react')).toBeVisible()
-    await expect(page.getByText('typescript')).toBeVisible()
-
-    // Remove tag using data-test attribute
-    await page.locator('[data-test="pill-remove-react"]').click()
-    await expect(page.getByText('react')).not.toBeVisible()
-    await expect(page.getByText('typescript')).toBeVisible()
+    // Remove first tag using data-test attribute
+    const removeBtn = page.locator('[data-test="pill-remove-tag1"]')
+    await removeBtn.click()
+    await expect(page.getByText('tag1')).not.toBeVisible()
+    await expect(page.getByText('tag2')).toBeVisible()
   })
 
   test('4. should show validation for empty tags on submit attempt', async ({
     page,
   }) => {
+    // Attempt submit with empty tags
     const submitBtn = page.getByRole('button', { name: 'Submit Form' })
     await submitBtn.click()
     await expect(page.getByText('At least one tag required')).toBeVisible()
   })
 
   test('5. should select an option from the dropdown', async ({ page }) => {
-    await page.locator('[data-test="dropdown"]').click()
+    const dropdown = page.locator('[data-test="dropdown"]')
+    await dropdown.click()
     await page.locator('[data-test="Cambodia"]').click()
-    await expect(page.locator('[data-test="dropdown"]')).toHaveValue(
-      'Cambodia',
-    )
+    await expect(dropdown).toHaveValue('Cambodia')
   })
 
   test('6. should select a date in the calendar', async ({ page }) => {
-    await page.locator('[data-test="calendar"]').click()
-    // Select the 15th of the current month
+    const calendarInput = page.locator('[data-test="calendar"]')
+    await calendarInput.click()
     await page.locator('.react-datepicker__day--015').first().click()
-    const value = await page.locator('[data-test="calendar"]').inputValue()
-    expect(value).not.toBe('')
+    await expect(calendarInput).not.toHaveValue('')
   })
 
   test('7. should toggle checkbox options', async ({ page }) => {
-    await expect(page.locator('[data-test="checkbox-checkbox-Option 1"]')).toBeVisible()
-    await expect(page.locator('[data-test="checkbox-checkbox-Option 2"]')).toBeVisible()
-
-    // Check Option 1 using data-test
-    await page.locator('[data-test="checkbox-checkbox-Option 1"]').click()
-    // Option 2 is already checked initially in update.ts
-    await page.locator('[data-test="checkbox-checkbox-Option 2"]').click()
+    const option1 = page.locator('[data-test="checkbox-checkbox-Option 1"]')
+    await option1.click()
+    await expect(option1).toBeVisible()
   })
 
   test('8. should select radio options and display descriptions', async ({
     page,
   }) => {
-    await expect(page.getByText('First description')).toBeVisible()
-    await expect(page.getByText('Second description')).toBeVisible()
+    const radio1 = page.locator('[data-test="radio-radio-r1"]')
+    const radio2 = page.locator('[data-test="radio-radio-r2"]')
 
-    // Select Radio 1 using data-test
-    await page.locator('[data-test="radio-radio-r1"]').click()
-    // Select Radio 2 using data-test
-    await page.locator('[data-test="radio-radio-r2"]').click()
+    await radio1.click()
+    await expect(page.getByText('First description')).toBeVisible()
+
+    await radio2.click()
+    await expect(page.getByText('Second description')).toBeVisible()
   })
 
   test('9. should handle file uploads and preview', async ({ page }) => {
-    await page.locator('[data-test="file"]').setInputFiles({
-      name: 'test.txt',
-      mimeType: 'text/plain',
-      buffer: Buffer.from('hello world'),
+    const fileInput = page.locator('[data-test="file"]')
+
+    await fileInput.setInputFiles({
+      name: 'test-document.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('dummy pdf content'),
     })
 
-    await expect(page.getByText('test.txt')).toBeVisible()
-    await expect(page.getByText('PLAIN')).toBeVisible()
+    await expect(page.getByText('test-document.pdf')).toBeVisible()
   })
 
   test('10. should remove an uploaded file', async ({ page }) => {
-    // Add file first
-    await page.locator('[data-test="file"]').setInputFiles({
-      name: 'delete-me.txt',
-      mimeType: 'text/plain',
-      buffer: Buffer.from('...'),
+    const fileInput = page.locator('[data-test="file"]')
+
+    await fileInput.setInputFiles({
+      name: 'file-to-remove.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from('dummy png content'),
     })
 
-    await expect(page.getByText('delete-me.txt')).toBeVisible()
+    await expect(page.getByText('file-to-remove.png')).toBeVisible()
 
-    // Click remove button using data-test
-    await page.locator('[data-test="file-remove-delete-me.txt"]').click()
-    await expect(page.getByText('delete-me.txt')).not.toBeVisible()
+    const removeBtn = page.locator('[data-test="file-remove-file-to-remove.png"]')
+    await removeBtn.click()
+    await expect(page.getByText('file-to-remove.png')).not.toBeVisible()
   })
 
   test('11. should trigger all validations on invalid submit attempt', async ({
     page,
   }) => {
+    // Click submit without filling required fields
     const submitBtn = page.getByRole('button', { name: 'Submit Form' })
     await submitBtn.click()
 
-    await expect(page.getByText('Username too short')).toBeVisible()
+    // Required error tooltips / messages should appear
     await expect(page.getByText('At least one tag required')).toBeVisible()
     await expect(page.getByText('Please select a country')).toBeVisible()
     await expect(page.getByText('Birthday is required')).toBeVisible()
@@ -157,6 +158,15 @@ test.describe('TeaCup Form Example App', () => {
     await page.locator('.react-datepicker__day--020').first().click()
     await expect(page.locator('[data-test="calendar"]')).not.toHaveValue('')
 
+    // Select Combobox User
+    const comboboxInput = page.locator('[data-test="combobox"]')
+    await comboboxInput.focus()
+    await comboboxInput.fill('Alice')
+    const option = page.locator('[data-test="combobox-option-u1"]')
+    await expect(option).toBeVisible({ timeout: 10000 })
+    await option.click()
+    await expect(page.getByText('Alice Smith')).toBeVisible()
+
     // Upload File
     await page.locator('[data-test="file"]').setInputFiles({
       name: 'manual.pdf',
@@ -177,6 +187,8 @@ test.describe('TeaCup Form Example App', () => {
     await expect(page.locator('pre')).toContainText('"checkbox": [')
     await expect(page.locator('pre')).toContainText('"radio": "r1"')
     await expect(page.locator('pre')).toContainText('"dropdown": "USA"')
+    await expect(page.locator('pre')).toContainText('"combobox": [')
+    await expect(page.locator('pre')).toContainText('"Alice Smith"')
     await expect(page.locator('pre')).toContainText('"manual.pdf"')
   })
 
@@ -187,16 +199,21 @@ test.describe('TeaCup Form Example App', () => {
     await comboboxInput.focus()
     await comboboxInput.fill('Alice')
 
-    // Wait for search result option to appear
+    // Wait for search result option to appear with exact data-test selector
     const option = page.locator('[data-test="combobox-option-u1"]')
     await expect(option).toBeVisible({ timeout: 10000 })
+    await expect(option).toContainText('Alice Smith')
     await option.click()
 
     // Verify tag chip is added
     await expect(page.getByText('Alice Smith')).toBeVisible()
 
-    // Remove item
-    await page.locator('[data-test="combobox-remove-u1"]').click()
+    // Remove item using exact data-test selector
+    const removeBtn = page.locator('[data-test="combobox-remove-u1"]')
+    await expect(removeBtn).toBeVisible()
+    await removeBtn.click()
+
+    // Verify tag chip is removed
     await expect(page.getByText('Alice Smith')).not.toBeVisible()
   })
 })

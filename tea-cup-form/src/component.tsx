@@ -174,7 +174,7 @@ const formView = (
           model={val.model}
           dispatch={map(
             dispatch,
-            (subMsg: ComboboxField.Msg<any>) =>
+            (subMsg: ComboboxField.Msg) =>
               ({
                 _tag: 'ComboboxFieldMsg',
                 key,

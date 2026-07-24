@@ -19,13 +19,13 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
+import { MapExtra } from '@rinn7e/tea-cup-prelude'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as M from 'fp-ts/lib/Map'
 import * as O from 'fp-ts/lib/Option'
-
 import { pipe } from 'fp-ts/lib/function'
 import * as S from 'fp-ts/lib/string'
-
+import { DataJson } from './data'
 import * as CalendarField from '../sub-component/calendar-field/type'
 import * as CheckboxField from '../sub-component/checkbox-field/type'
 import * as ComboboxField from '../sub-component/combobox-field/type'
@@ -34,7 +34,6 @@ import * as FileField from '../sub-component/file-field/type'
 import * as RadioField from '../sub-component/radio-field/type'
 import * as TextField from '../sub-component/text-field/type'
 import * as TextPillField from '../sub-component/text-pill-field/type'
-import { MapExtra } from '@rinn7e/tea-cup-prelude'
 
 export {
   autocompleteToString,
@@ -50,9 +49,7 @@ export const TextTypeEq = EqClass.struct<TextType>({
   model: TextField.ModelEq,
 })
 
-export {
-  type TextPillTypeUiArg,
-} from '../sub-component/text-pill-field/type'
+export { type TextPillTypeUiArg } from '../sub-component/text-pill-field/type'
 
 export type TextPillType = { _tag: 'TextPillType'; model: TextPillField.Model }
 export const TextPillTypeEq = EqClass.struct<TextPillType>({
@@ -85,9 +82,7 @@ export const RadioTypeEq = EqClass.struct<RadioType>({
   model: RadioField.ModelEq,
 })
 
-export {
-  type DropdownTypeUiArg,
-} from '../sub-component/dropdown-field/type'
+export { type DropdownTypeUiArg } from '../sub-component/dropdown-field/type'
 
 export type DropdownType = { _tag: 'DropdownType'; model: DropdownField.Model }
 export const DropdownTypeEq = EqClass.struct<DropdownType>({
@@ -95,9 +90,7 @@ export const DropdownTypeEq = EqClass.struct<DropdownType>({
   model: DropdownField.ModelEq,
 })
 
-export {
-  type CalendarTypeUiArg,
-} from '../sub-component/calendar-field/type'
+export { type CalendarTypeUiArg } from '../sub-component/calendar-field/type'
 
 export type CalendarType = { _tag: 'CalendarType'; model: CalendarField.Model }
 export const CalendarTypeEq = EqClass.struct<CalendarType>({
@@ -105,10 +98,7 @@ export const CalendarTypeEq = EqClass.struct<CalendarType>({
   model: CalendarField.ModelEq,
 })
 
-export {
-  FileEq,
-  type FileTypeUiArg,
-} from '../sub-component/file-field/type'
+export { FileEq, type FileTypeUiArg } from '../sub-component/file-field/type'
 
 export type FileType = { _tag: 'FileType'; model: FileField.Model }
 export const FileTypeEq = EqClass.struct<FileType>({
@@ -116,20 +106,16 @@ export const FileTypeEq = EqClass.struct<FileType>({
   model: FileField.ModelEq,
 })
 
-export {
-  type ComboboxTypeUiArg,
-} from '../sub-component/combobox-field/type'
+export { type ComboboxTypeUiArg } from '../sub-component/combobox-field/type'
 
-export type ComboboxType<E = any, A = any> = {
+export type ComboboxType = {
   _tag: 'ComboboxType'
-  model: ComboboxField.Model<E, A>
+  model: ComboboxField.Model
 }
-export const ComboboxTypeEq = <E, A>(
-  itemEq: EqClass.Eq<A>,
-): EqClass.Eq<ComboboxType<E, A>> =>
-  EqClass.struct<ComboboxType<E, A>>({
+export const ComboboxTypeEq: EqClass.Eq<ComboboxType> =
+  EqClass.struct<ComboboxType>({
     _tag: S.Eq,
-    model: ComboboxField.ModelEq<E, A>(itemEq),
+    model: ComboboxField.ModelEq,
   })
 
 export type FormType =
@@ -159,7 +145,7 @@ export const FormTypeEq: EqClass.Eq<FormType> = {
     else if (x._tag === 'FileType' && y._tag === 'FileType')
       return FileTypeEq.equals(x, y)
     else if (x._tag === 'ComboboxType' && y._tag === 'ComboboxType')
-      return ComboboxTypeEq(x.model.config.itemEq).equals(x, y)
+      return ComboboxTypeEq.equals(x, y)
     else return false
   },
 }
@@ -199,7 +185,10 @@ export const updateValueTextType = (
 ): FormType => {
   switch (formType._tag) {
     case 'TextType':
-      return { _tag: 'TextType', model: { ...formType.model, currentValue: value } }
+      return {
+        _tag: 'TextType',
+        model: { ...formType.model, currentValue: value },
+      }
 
     default:
       throw new Error(`updateValueTextType: not a TextType`)
@@ -215,7 +204,10 @@ export const updateTextPillValue = (
 ): FormType => {
   switch (formType._tag) {
     case 'TextPillType':
-      return { _tag: 'TextPillType', model: { ...formType.model, currentValue: value } }
+      return {
+        _tag: 'TextPillType',
+        model: { ...formType.model, currentValue: value },
+      }
 
     default:
       throw new Error(`updateTextPillValue: not a TextPillType`)
@@ -323,7 +315,7 @@ export const valueRadioType = (formType: FormType): O.Option<string> => {
 /**
  * Extract the current selected items from a `ComboboxType`, throw error if it is not.
  */
-export const valueComboboxType = <A = any>(formType: FormType): A[] => {
+export const valueComboboxType = (formType: FormType): DataJson[] => {
   switch (formType._tag) {
     case 'ComboboxType':
       return formType.model.selectedItems
@@ -345,11 +337,20 @@ export const unsafeModifyFormValue =
         switch (val._tag) {
           case 'TextType':
           case 'TextPillType':
-            return { _tag: val._tag, model: { ...val.model, currentValue: newVal } } as FormType
+            return {
+              _tag: val._tag,
+              model: { ...val.model, currentValue: newVal },
+            } as FormType
           case 'DropdownType':
-            return { _tag: val._tag, model: { ...val.model, currentValue: newVal } } as FormType
+            return {
+              _tag: val._tag,
+              model: { ...val.model, currentValue: newVal },
+            } as FormType
           case 'CalendarType':
-            return { _tag: val._tag, model: { ...val.model, currentValue: new Date(newVal) } } as FormType
+            return {
+              _tag: val._tag,
+              model: { ...val.model, currentValue: new Date(newVal) },
+            } as FormType
           default:
             throw new Error(`unsafeModifyFormValue: formType not supported`)
         }
@@ -370,7 +371,10 @@ export const showAllValidation = (forms: Forms): Forms => {
         case 'CalendarType':
         case 'DropdownType':
         case 'FileType':
-          return { _tag: val._tag, model: { ...val.model, showValidation: true } } as FormType
+          return {
+            _tag: val._tag,
+            model: { ...val.model, showValidation: true },
+          } as FormType
         default:
           return val
       }

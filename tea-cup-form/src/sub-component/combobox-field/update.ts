@@ -27,13 +27,14 @@ import * as E from 'fp-ts/lib/Either'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd, Task, Time } from 'tea-cup-fp'
 
+import type { DataJson, ErrorJson } from '../../common/data'
 import type { Config, Model, Msg } from './type'
 
-const performSearch = <E, A>(
-  config: Config<E, A>,
+const performSearch = (
+  config: Config,
   query: string,
   timerId: number,
-): Cmd<Msg<A>> => {
+): Cmd<Msg> => {
   if (query.trim() === '') {
     return Cmd.none()
   } else {
@@ -44,16 +45,16 @@ const performSearch = <E, A>(
           case 'Err': {
             return {
               _tag: 'SetItems',
-              value: RD.failure(errorToString(result.err)),
+              value: RD.failure(errorToString(result.err) as ErrorJson),
               timerId,
             }
           }
           case 'Ok': {
-            const rd: RD.RemoteData<string, A[]> = pipe(
+            const rd: RD.RemoteData<ErrorJson, DataJson[]> = pipe(
               result.value,
               E.fold(
-                (err) => RD.failure(errorToString(err)),
-                (data: A[]) => RD.success(data),
+                (err) => RD.failure(err),
+                (data: DataJson[]) => RD.success(data),
               ),
             )
             return {
@@ -68,7 +69,7 @@ const performSearch = <E, A>(
   }
 }
 
-const debounceSearch = <A>(query: string, timerId: number): Cmd<Msg<A>> => {
+const debounceSearch = (query: string, timerId: number): Cmd<Msg> => {
   return Task.perform(Time.in(400), () => ({
     _tag: 'DebouncedSearch',
     query,
@@ -76,10 +77,10 @@ const debounceSearch = <A>(query: string, timerId: number): Cmd<Msg<A>> => {
   }))
 }
 
-export const update = <E, A>(
-  msg: Msg<A>,
-  field: Model<E, A>,
-): [Model<E, A>, Cmd<Msg<A>>] => {
+export const update = (
+  msg: Msg,
+  field: Model,
+): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'SetQuery': {
       const query = msg.value

@@ -98,7 +98,7 @@ export type Msg =
   | {
       _tag: 'ComboboxFieldMsg'
       key: string
-      subMsg: ComboboxField.Msg<any>
+      subMsg: ComboboxField.Msg
     }
   | {
       _tag: 'SetIsDrag'

@@ -25,11 +25,11 @@ import { memo, type JSX } from 'react'
 import { Props, PropsEq } from './type'
 import { defaultComboboxView } from './view'
 
-export const ComboboxField = <E, A>({
+export const ComboboxField = ({
   fieldKey,
   model,
   dispatch,
-}: Props<E, A>): JSX.Element => {
+}: Props): JSX.Element => {
   const validationResult = model.validation(model.selectedItems)
   const view = model.ui ? model.ui : defaultComboboxView
 
@@ -49,5 +49,5 @@ export const ComboboxField = <E, A>({
 }
 
 export const ComboboxFieldMemo = memo(ComboboxField, (prev, next) => {
-  return PropsEq(prev.model.config.itemEq).equals(prev, next)
-}) as <E, A>(props: Props<E, A>) => JSX.Element
+  return PropsEq.equals(prev, next)
+})
