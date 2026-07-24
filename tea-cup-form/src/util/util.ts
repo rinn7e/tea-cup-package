@@ -27,11 +27,6 @@ import * as S from 'fp-ts/lib/string'
 import { type FormType, type Forms } from '../type'
 import { modifyAtIfExist } from './common'
 
-// export const defaultForms = new Map<string, FormType>([
-//   ['username', defaultTextType()],
-//   ['password', defaultTextType()],
-// ])
-
 /**
  * Lookup `FormType` from a forms, throw error if it doesn't exist.
  */
@@ -62,7 +57,7 @@ export const updateValueTextType = (
 ): FormType => {
   switch (formType._tag) {
     case 'TextType':
-      return { ...formType, currentValue: value }
+      return { _tag: 'TextType', model: { ...formType.model, currentValue: value } }
 
     default:
       throw new Error(`updateValueTextType: not a TextType`)
@@ -78,7 +73,7 @@ export const updateTextPillValue = (
 ): FormType => {
   switch (formType._tag) {
     case 'TextPillType':
-      return { ...formType, currentValue: value }
+      return { _tag: 'TextPillType', model: { ...formType.model, currentValue: value } }
 
     default:
       throw new Error(`updateTextPillValue: not a TextPillType`)
@@ -91,7 +86,7 @@ export const updateTextPillValue = (
 export const valueTextType = (formType: FormType): string => {
   switch (formType._tag) {
     case 'TextType':
-      return formType.currentValue
+      return formType.model.currentValue
     default:
       throw new Error(
         `valueTextType: Expect TextType but got ${formType._tag} instead.`,
@@ -105,7 +100,7 @@ export const valueTextType = (formType: FormType): string => {
 export const valuePillTextType = (formType: FormType): string[] => {
   switch (formType._tag) {
     case 'TextPillType':
-      return formType.allValues
+      return formType.model.allValues
     default:
       throw new Error(
         `valuePillTextType: Expect TextPillType but got ${formType._tag} instead.`,
@@ -119,7 +114,7 @@ export const valuePillTextType = (formType: FormType): string[] => {
 export const valueCalendarType = (formType: FormType): Date | null => {
   switch (formType._tag) {
     case 'CalendarType':
-      return formType.currentValue
+      return formType.model.currentValue
     default:
       throw new Error(
         `valueCalendarType: Expect CalendarType but got ${formType._tag} instead.`,
@@ -133,7 +128,7 @@ export const valueCalendarType = (formType: FormType): Date | null => {
 export const valueDropdownType = (formType: FormType): string | null => {
   switch (formType._tag) {
     case 'DropdownType':
-      return formType.currentValue
+      return formType.model.currentValue
     default:
       throw new Error(
         `valueDropdownType: Expect DropdownType but got ${formType._tag} instead.`,
@@ -147,7 +142,7 @@ export const valueDropdownType = (formType: FormType): string | null => {
 export const valueFileType = (formType: FormType): File[] => {
   switch (formType._tag) {
     case 'FileType':
-      return formType.currentValues
+      return formType.model.currentValues
     default:
       throw new Error(
         `valueFileType: Expect FileType but got ${formType._tag} instead.`,
@@ -161,20 +156,21 @@ export const valueFileType = (formType: FormType): File[] => {
 export const valueCheckboxType = (formType: FormType): [string, boolean][] => {
   switch (formType._tag) {
     case 'CheckboxType':
-      return formType.currentValues
+      return formType.model.currentValues
     default:
       throw new Error(
         `valueCheckboxType: Expect CheckboxType but got ${formType._tag} instead.`,
       )
   }
 }
+
 /**
  * Extract the current value from a `RadioType`, throw error if it is not.
  */
 export const valueRadioType = (formType: FormType): O.Option<string> => {
   switch (formType._tag) {
     case 'RadioType':
-      return formType.currentValue
+      return formType.model.currentValue
     default:
       throw new Error(
         `valueRadioType: Expect RadioType but got ${formType._tag} instead.`,
@@ -193,11 +189,11 @@ export const unsafeModifyFormValue =
         switch (val._tag) {
           case 'TextType':
           case 'TextPillType':
-            return { ...val, currentValue: newVal }
+            return { _tag: val._tag, model: { ...val.model, currentValue: newVal } } as FormType
           case 'DropdownType':
-            return { ...val, currentValue: newVal }
+            return { _tag: val._tag, model: { ...val.model, currentValue: newVal } } as FormType
           case 'CalendarType':
-            return { ...val, currentValue: new Date(newVal) }
+            return { _tag: val._tag, model: { ...val.model, currentValue: new Date(newVal) } } as FormType
           default:
             throw new Error(`unsafeModifyFormValue: formType not supported`)
         }
@@ -211,14 +207,14 @@ export const unsafeModifyFormValue =
 export const showAllValidation = (forms: Forms): Forms => {
   return pipe(
     forms,
-    M.map((val) => {
+    M.map((val): FormType => {
       switch (val._tag) {
         case 'TextType':
         case 'TextPillType':
         case 'CalendarType':
         case 'DropdownType':
         case 'FileType':
-          return { ...val, showValidation: true }
+          return { _tag: val._tag, model: { ...val.model, showValidation: true } } as FormType
         default:
           return val
       }

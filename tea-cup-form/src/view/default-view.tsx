@@ -32,17 +32,14 @@ import 'react-datepicker/dist/react-datepicker.css'
 import { Dispatcher } from 'tea-cup-fp'
 
 import { errorTooltipContainer } from '../error-tooltip/helper'
+import type * as CalendarField from '../sub-component/calendar-field/type'
+import type * as CheckboxField from '../sub-component/checkbox-field/type'
+import type * as DropdownField from '../sub-component/dropdown-field/type'
+import type * as FileField from '../sub-component/file-field/type'
+import type * as RadioField from '../sub-component/radio-field/type'
+import type * as TextField from '../sub-component/text-field/type'
+import type * as TextPillField from '../sub-component/text-pill-field/type'
 import {
-  type CalendarTypeUiArg,
-  type CheckboxChoice,
-  type CheckboxesTypeUiArg,
-  type DropdownTypeUiArg,
-  type FileTypeUiArg,
-  type Msg,
-  type RadioChoice,
-  type RadiosTypeUiArg,
-  type TextPillTypeUiArg,
-  TextTypeUiArg,
   autocompleteToString,
   textInputVariantToString,
 } from '../type'
@@ -184,14 +181,14 @@ export const defaultTextView = ({
   placeholder,
   autocomplete,
   onKeyDown,
-}: TextTypeUiArg): JSX.Element => {
+}: TextField.TextTypeUiArg): JSX.Element => {
   const isError = validationResult._tag === 'Left' && showValidation
   const errorMsg = isError ? O.some(validationResult.left) : O.none
 
   return (
     <div key={key} className='group flex w-full flex-col gap-1'>
       {errorTooltipContainer(errorMsg, 'top', () =>
-        dispatch({ _tag: 'HideValidation', key }),
+        dispatch({ _tag: 'HideValidation' }),
       )}
 
       {label !== '' && (
@@ -204,12 +201,12 @@ export const defaultTextView = ({
             className='w-full bg-transparent px-4 py-3 font-medium text-slate-800 outline-none placeholder:text-slate-300'
             placeholder={placeholder}
             value={currentValue}
-            onInput={(event) => dispatch({ _tag: 'UpdateForm', key, event })}
+            onInput={(event) => dispatch({ _tag: 'UpdateEvent', event })}
             onFocus={(_) =>
-              dispatch({ _tag: 'HandleFocus', key, isFocus: true })
+              dispatch({ _tag: 'HandleFocus', isFocus: true })
             }
             onBlur={(_) =>
-              dispatch({ _tag: 'HandleFocus', key, isFocus: false })
+              dispatch({ _tag: 'HandleFocus', isFocus: false })
             }
             onKeyDown={onKeyDown}
             name={label}
@@ -224,7 +221,6 @@ export const defaultTextView = ({
                   onClick={(event) =>
                     dispatch({
                       _tag: 'SetRevealPassword',
-                      key,
                       reveal: !variant.reveal,
                       event,
                     })
@@ -266,9 +262,9 @@ export const radioView = (
 }
 
 type CheckboxTypeUiArg = {
-  dispatch: Dispatcher<Msg>
+  dispatch: Dispatcher<CheckboxField.Msg>
   fieldKey: string
-  checkboxChoice: CheckboxChoice
+  checkboxChoice: CheckboxField.CheckboxChoice
   isMarkdown: boolean
 }
 
@@ -282,8 +278,7 @@ export const defaultCheckboxView = (arg: CheckboxTypeUiArg) => {
       onClick={(_) =>
         arg.dispatch({
           _tag: 'ToggleCheckbox',
-          key: arg.fieldKey,
-          checkbox_key: key,
+          checkboxKey: key,
           value: !val,
         })
       }
@@ -318,7 +313,7 @@ export const defaultCheckboxesView = ({
   label,
   currentValues,
   isMarkdown,
-}: CheckboxesTypeUiArg) => (
+}: CheckboxField.CheckboxesTypeUiArg) => (
   <div id='CheckboxType' className='flex flex-col gap-1'>
     {label !== '' && (
       <label className='mb-1 px-1 text-sm font-bold tracking-tight text-slate-600'>
@@ -342,9 +337,9 @@ export const defaultCheckboxesView = ({
 )
 
 type RadioTypeUiArg = {
-  dispatch: Dispatcher<Msg>
+  dispatch: Dispatcher<RadioField.Msg>
   fieldKey: string
-  radioChoice: RadioChoice
+  radioChoice: RadioField.RadioChoice
   isActive: boolean
 }
 
@@ -357,8 +352,7 @@ export const defaultRadioView = (arg: RadioTypeUiArg) => {
       onClick={(_) =>
         arg.dispatch({
           _tag: 'UpdateRadio',
-          key: arg.fieldKey,
-          radio_key: arg.radioChoice.key,
+          radioKey: arg.radioChoice.key,
           allowUnselected: false,
         })
       }
@@ -383,7 +377,7 @@ export const defaultRadiosView = ({
   choices,
   currentValue,
   isMarkdown,
-}: RadiosTypeUiArg) => (
+}: RadioField.RadiosTypeUiArg) => (
   <div id='RadioType' className='flex flex-col gap-1'>
     {label !== '' && (
       <label className='mb-1 px-1 text-sm font-bold tracking-tight text-slate-600'>
@@ -414,15 +408,14 @@ export const defaultDropdownView = ({
   placeholder,
   validationResult,
   showValidation,
-}: DropdownTypeUiArg) => {
+}: DropdownField.DropdownTypeUiArg) => {
   const isError = validationResult._tag === 'Left' && showValidation
-  const isFloating = isFocus || (currentValue !== null && currentValue !== '')
   const errorMsg = isError ? O.some(validationResult.left) : O.none
 
   return (
     <div key={fieldKey} className='group flex w-full flex-col gap-1'>
       {errorTooltipContainer(errorMsg, 'top', () =>
-        dispatch({ _tag: 'HideValidation', key: fieldKey }),
+        dispatch({ _tag: 'HideValidation' }),
       )}
 
       {label !== '' && (
@@ -438,13 +431,13 @@ export const defaultDropdownView = ({
             readOnly
             onKeyDown={(event) => event.preventDefault()}
             onClick={(_) =>
-              dispatch({ _tag: 'HandleFocus', key: fieldKey, isFocus: true })
+              dispatch({ _tag: 'HandleFocus', isFocus: true })
             }
             onFocus={(_) =>
-              dispatch({ _tag: 'HandleFocus', key: fieldKey, isFocus: true })
+              dispatch({ _tag: 'HandleFocus', isFocus: true })
             }
             onBlur={(_) =>
-              dispatch({ _tag: 'HandleFocus', key: fieldKey, isFocus: false })
+              dispatch({ _tag: 'HandleFocus', isFocus: false })
             }
           />
           <div className='pointer-events-none pr-3 text-slate-400 transition-colors group-hover:text-slate-600'>
@@ -475,7 +468,6 @@ export const defaultDropdownView = ({
                     onMouseDown={(event) =>
                       dispatch({
                         _tag: 'UpdateDropdownType',
-                        key: fieldKey,
                         value: choice,
                         event,
                       })
@@ -544,14 +536,14 @@ export const defaultCalendarView = ({
   isFocus,
   validationResult,
   showValidation,
-}: CalendarTypeUiArg) => {
+}: CalendarField.CalendarTypeUiArg) => {
   const isError = validationResult._tag === 'Left' && showValidation
   const errorMsg = isError ? O.some(validationResult.left) : O.none
 
   return (
     <div key={fieldKey} className='group flex w-full flex-col gap-1'>
       {errorTooltipContainer(errorMsg, 'top', () =>
-        dispatch({ _tag: 'HideValidation', key: fieldKey }),
+        dispatch({ _tag: 'HideValidation' }),
       )}
 
       {label !== '' && (
@@ -571,24 +563,23 @@ export const defaultCalendarView = ({
               customInput={<CalendarInput />}
               onCalendarOpen={() =>
                 dispatch(
-                  { _tag: 'HandleFocus', key: fieldKey, isFocus: true },
+                  { _tag: 'HandleFocus', isFocus: true },
                   false,
                 )
               }
               onCalendarClose={() =>
                 dispatch(
-                  { _tag: 'HandleFocus', key: fieldKey, isFocus: false },
+                  { _tag: 'HandleFocus', isFocus: false },
                   false,
                 )
               }
               onChange={(date) =>
                 dispatch(
-                  { _tag: 'UpdateCalendar', key: fieldKey, value: date },
+                  { _tag: 'UpdateCalendar', value: date },
                   false,
                 )
               }
             />
-            {/* <DatePicker /> */}
           </div>
           <div className='pointer-events-none pr-3 text-slate-400 transition-colors group-hover:text-slate-600'>
             <IconCalendar />
@@ -607,9 +598,8 @@ export const defaultFileView = ({
   isMultiple,
   isDrag,
   showValidation,
-}: FileTypeUiArg) => {
+}: FileField.FileTypeUiArg) => {
   const isError = validationResult._tag === 'Left' && showValidation
-  const isFocus = isDrag
 
   return (
     <div className='flex w-full flex-col gap-1'>
@@ -631,7 +621,7 @@ export const defaultFileView = ({
           multiple={isMultiple}
           className='absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0'
           onInput={(event) =>
-            dispatch({ _tag: 'AddFile', key: fieldKey, event })
+            dispatch({ _tag: 'AddFile', event })
           }
         />
         <div className='flex flex-col items-center gap-4 px-6 text-center'>
@@ -671,15 +661,14 @@ export const defaultTextPillView = ({
   placeholder,
   autocomplete,
   allValues,
-}: TextPillTypeUiArg): JSX.Element => {
+}: TextPillField.TextPillTypeUiArg): JSX.Element => {
   const isError = validationResult._tag === 'Left' && showValidation
-  const isFloating = isFocus || allValues.length > 0 || currentValue !== ''
   const errorMsg = isError ? O.some(validationResult.left) : O.none
 
   return (
     <div key={key} className='group flex w-full flex-col gap-1'>
       {errorTooltipContainer(errorMsg, 'top', () =>
-        dispatch({ _tag: 'HideValidation', key }),
+        dispatch({ _tag: 'HideValidation' }),
       )}
       {label !== '' && (
         <label className={getLabelClasses(isError, isFocus)}>{label}</label>
@@ -699,9 +688,8 @@ export const defaultTextPillView = ({
                   className='flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white hover:text-red-500'
                   onClick={() =>
                     dispatch({
-                      _tag: 'TextPillMsg',
-                      key,
-                      subMsg: { _tag: 'RemovePill', index },
+                      _tag: 'RemovePill',
+                      index,
                     })
                   }
                 >
@@ -724,26 +712,24 @@ export const defaultTextPillView = ({
             value={currentValue}
             onInput={(event) =>
               dispatch({
-                _tag: 'TextPillMsg',
-                key,
-                subMsg: { _tag: 'UpdateTextPill', event },
+                _tag: 'UpdateTextPill',
+                event,
               })
             }
             onKeyDown={(event) => {
               if (event.key === 'Enter' && currentValue.trim() !== '') {
                 event.preventDefault()
                 dispatch({
-                  _tag: 'TextPillMsg',
-                  key,
-                  subMsg: { _tag: 'AddPill', value: currentValue },
+                  _tag: 'AddPill',
+                  value: currentValue,
                 })
               }
             }}
             onFocus={(_) =>
-              dispatch({ _tag: 'HandleFocus', key, isFocus: true })
+              dispatch({ _tag: 'HandleFocus', isFocus: true })
             }
             onBlur={(_) =>
-              dispatch({ _tag: 'HandleFocus', key, isFocus: false })
+              dispatch({ _tag: 'HandleFocus', isFocus: false })
             }
             placeholder={placeholder}
             autoComplete={autocompleteToString(autocomplete)}

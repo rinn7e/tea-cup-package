@@ -38,27 +38,69 @@ export const formMsgHandler =
   }
 
 export const init = (): [Model, Cmd<Msg>] => {
+  const defaultText = Form.defaultTextType()
+  const defaultPill = Form.defaultTextPillType()
+  const defaultDropdown = Form.defaultDropdownType()
+  const defaultCalendar = Form.defaultCalendarType()
+  const defaultFile = Form.defaultFileType()
+
+  const textItem: Form.FormType = {
+    _tag: 'TextType',
+    model: {
+      ...(defaultText._tag === 'TextType' ? defaultText.model : {} as any),
+      label: 'Username',
+      placeholder: 'Enter your username',
+      validation: (val: string) =>
+        val.length < 3 ? E.left('Username too short') : E.right(val),
+    },
+  }
+
+  const pillItem: Form.FormType = {
+    _tag: 'TextPillType',
+    model: {
+      ...(defaultPill._tag === 'TextPillType' ? defaultPill.model : {} as any),
+      label: 'Tags',
+      placeholder: 'Add tags (Enter to add)',
+      validation: (val: string[]) =>
+        val.length === 0 ? E.left('At least one tag required') : E.right(val),
+    },
+  }
+
+  const dropdownItem: Form.FormType = {
+    _tag: 'DropdownType',
+    model: {
+      ...(defaultDropdown._tag === 'DropdownType' ? defaultDropdown.model : {} as any),
+      label: 'Country',
+      choices: ['Cambodia', 'Russia', 'USA'],
+      validation: (val: string | null) =>
+        val === null ? E.left('Please select a country') : E.right(val),
+    },
+  }
+
+  const calendarItem: Form.FormType = {
+    _tag: 'CalendarType',
+    model: {
+      ...(defaultCalendar._tag === 'CalendarType' ? defaultCalendar.model : {} as any),
+      label: 'Birthday',
+      validation: (val: Date | null) =>
+        val === null ? E.left('Birthday is required') : E.right(val),
+    },
+  }
+
+  const fileItem: Form.FormType = {
+    _tag: 'FileType',
+    model: {
+      ...(defaultFile._tag === 'FileType' ? defaultFile.model : {} as any),
+      validation: (val: File[]) =>
+        val.length === 0
+          ? E.left('At least one file required')
+          : E.right(val),
+    },
+  }
+
   const forms: Form.Forms = new Map<string, Form.FormType>([
-    [
-      'text',
-      {
-        ...Form.defaultTextType(),
-        label: 'Username',
-        placeholder: 'Enter your username',
-        validation: (val: string) =>
-          val.length < 3 ? E.left('Username too short') : E.right(val),
-      },
-    ],
-    [
-      'pill',
-      {
-        ...Form.defaultTextPillType(),
-        label: 'Tags',
-        placeholder: 'Add tags (Enter to add)',
-        validation: (val: string[]) =>
-          val.length === 0 ? E.left('At least one tag required') : E.right(val),
-      },
-    ],
+    ['text', textItem],
+    ['pill', pillItem],
     [
       'checkbox',
       Form.defaultCheckboxType([
@@ -76,35 +118,9 @@ export const init = (): [Model, Cmd<Msg>] => {
         O.none,
       ),
     ],
-    [
-      'dropdown',
-      {
-        ...Form.defaultDropdownType(),
-        label: 'Country',
-        choices: ['Cambodia', 'Russia', 'USA'],
-        validation: (val: string | null) =>
-          val === null ? E.left('Please select a country') : E.right(val),
-      },
-    ],
-    [
-      'calendar',
-      {
-        ...Form.defaultCalendarType(),
-        label: 'Birthday',
-        validation: (val: Date | null) =>
-          val === null ? E.left('Birthday is required') : E.right(val),
-      },
-    ],
-    [
-      'file',
-      {
-        ...Form.defaultFileType(),
-        validation: (val: File[]) =>
-          val.length === 0
-            ? E.left('At least one file required')
-            : E.right(val),
-      },
-    ],
+    ['dropdown', dropdownItem],
+    ['calendar', calendarItem],
+    ['file', fileItem],
   ])
 
   const initialModel: Model = {

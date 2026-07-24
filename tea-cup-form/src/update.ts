@@ -19,300 +19,137 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-import * as A from 'fp-ts/lib/Array'
 import * as M from 'fp-ts/lib/Map'
-import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import * as S from 'fp-ts/lib/string'
 
-import {
-  type CalendarType,
-  type CheckboxType,
-  type DropdownType,
-  type FileType,
-  type Forms,
-  type Model,
-  type Msg,
-  type RadioType,
-  TextInputVariant,
-  type TextPillMsg,
-  type TextPillType,
-} from './type'
+import * as CalendarField from './sub-component/calendar-field'
+import * as CheckboxField from './sub-component/checkbox-field'
+import * as DropdownField from './sub-component/dropdown-field'
+import * as FileField from './sub-component/file-field'
+import * as RadioField from './sub-component/radio-field'
+import * as TextField from './sub-component/text-field'
+import * as TextPillField from './sub-component/text-pill-field'
+import { type FormType, type Forms, type Model, type Msg } from './type'
 import { modifyAtIfExist } from './util/common'
-import { updateTextPillValue, updateValueTextType } from './util/util'
-import { addFiles } from './view'
 
 export const init = (initialForms: Forms): Model => ({
   forms: initialForms,
   isDrag: false,
 })
 
-export const textPillMsgHandler = (
-  msg: TextPillMsg,
-  form: TextPillType,
-): TextPillType => {
-  switch (msg._tag) {
-    case 'UpdateTextPill':
-      return updateTextPillValue(
-        (msg.event.target as HTMLInputElement).value,
-        form,
-      ) as TextPillType
-    case 'AddPill':
-      return {
-        ...form,
-        allValues: form.allValues.concat(msg.value),
-        currentValue: '',
-      }
-    case 'RemovePill':
-      return {
-        ...form,
-        allValues: pipe(form.allValues, A.deleteAt(msg.index), (res) =>
-          res._tag === 'Some' ? res.value : form.allValues,
-        ),
-      }
-  }
-}
-
 export const update =
   (msg: Msg) =>
   (model: Model): Model => {
     switch (msg._tag) {
-      case 'UpdateForm': {
-        if (msg.event && msg.event.target) {
-          const newForm = pipe(
-            model.forms,
-            modifyAtIfExist(S.Eq)(msg.key, (form) => {
-              if (form._tag === 'TextType') {
-                return updateValueTextType(
-                  (msg.event.target as HTMLInputElement).value,
-                  form,
-                )
-              } else return form
-            }),
-          )
-          return { ...model, forms: newForm }
-        } else return model
-      }
-      case 'UpdateFormManual': {
-        const newForm = pipe(
+      case 'TextFieldMsg': {
+        const newForms = pipe(
           model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (form) => {
+          modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
             if (form._tag === 'TextType') {
-              return updateValueTextType(msg.value, form)
-            } else return form
+              return {
+                _tag: 'TextType',
+                model: TextField.update(msg.subMsg, form.model),
+              }
+            }
+            return form
           }),
         )
-        return { ...model, forms: newForm }
+        return { ...model, forms: newForms }
       }
-      case 'TextPillMsg': {
-        const newForm = pipe(
+      case 'TextPillFieldMsg': {
+        const newForms = pipe(
           model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (form) => {
+          modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
             if (form._tag === 'TextPillType') {
-              return textPillMsgHandler(msg.subMsg, form)
-            } else return form
-          }),
-        )
-        return { ...model, forms: newForm }
-      }
-      case 'UpdateCalendar': {
-        if (msg.value) {
-          const newForms = pipe(
-            model.forms,
-            modifyAtIfExist(S.Eq)(msg.key, (form) => {
-              if (form._tag === 'CalendarType')
-                return { ...form, currentValue: msg.value } as CalendarType
-              else {
-                console.log(
-                  'UpdateCalendar: Try to update a field that is not calendar',
-                )
-                return form
-              }
-            }),
-          )
-          return { ...model, forms: newForms }
-        } else return model
-      }
-      case 'UpdateDropdownType': {
-        msg.event?.preventDefault()
-        if (msg.value) {
-          const newForms = pipe(
-            model.forms,
-            modifyAtIfExist(S.Eq)(msg.key, (form) => {
-              if (form._tag === 'DropdownType')
-                return {
-                  ...form,
-                  currentValue: msg.value,
-                  isFocus: false,
-                } as DropdownType
-              else {
-                console.log(
-                  'UpdateDropdownType: Try to update a field that is not Dropdown',
-                )
-                return form
-              }
-            }),
-          )
-          return { ...model, forms: newForms }
-        } else return model
-      }
-      case 'ToggleCheckbox': {
-        const newForms = pipe(
-          model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (form) => {
-            if (form._tag === 'CheckboxType')
               return {
-                ...form,
-                currentValues: pipe(
-                  form.currentValues,
-                  A.map(([key, value]) => [
-                    key,
-                    key === msg.checkbox_key ? msg.value : value,
-                  ]),
-                ),
-              } as CheckboxType
-            else {
-              console.log(
-                'ToggleCheckbox: Try to update a field that is not CheckboxType',
-              )
-              return form
+                _tag: 'TextPillType',
+                model: TextPillField.update(msg.subMsg, form.model),
+              }
             }
+            return form
           }),
         )
         return { ...model, forms: newForms }
       }
-      case 'UpdateRadio': {
+      case 'CheckboxFieldMsg': {
         const newForms = pipe(
           model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (form) => {
+          modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
+            if (form._tag === 'CheckboxType') {
+              return {
+                _tag: 'CheckboxType',
+                model: CheckboxField.update(msg.subMsg, form.model),
+              }
+            }
+            return form
+          }),
+        )
+        return { ...model, forms: newForms }
+      }
+      case 'RadioFieldMsg': {
+        const newForms = pipe(
+          model.forms,
+          modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
             if (form._tag === 'RadioType') {
-              // Normally radio form, need to have 1 value
-              // But sometimes we don't want that, and that's where
-              // `allowUnselected` come into play.
-              if (msg.allowUnselected) {
-                if (
-                  form.currentValue._tag === 'Some' &&
-                  form.currentValue.value === msg.radio_key
-                )
-                  return {
-                    ...form,
-                    currentValue: O.none,
-                  }
-                else
-                  return {
-                    ...form,
-                    currentValue: O.some(msg.radio_key),
-                  } as RadioType
-              } else
-                return {
-                  ...form,
-                  currentValue: O.some(msg.radio_key),
-                } as RadioType
-            } else {
-              console.log(
-                'UpdateRadio: Try to update a field that is not RadioType',
-              )
-              return form
-            }
-          }),
-        )
-        return { ...model, forms: newForms }
-      }
-      case 'AddFile': {
-        msg.event.preventDefault()
-
-        const files = (msg.event.target as HTMLInputElement).files
-        return addFiles(msg, model, files)
-      }
-      case 'RemoveFile': {
-        const newForms = pipe(
-          model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (form) => {
-            if (form._tag === 'FileType') {
-              const result = pipe(form.currentValues, A.deleteAt(msg.index))
               return {
-                ...form,
-                currentValues:
-                  result._tag === 'Some' ? result.value : form.currentValues,
-                showValidation: true,
-              } as FileType
-            } else {
-              console.log(
-                'FileType: Try to update a field that is not FileType',
-              )
-              return form
-            }
-          }),
-        )
-        return { ...model, forms: newForms }
-      }
-      case 'HandleFocus': {
-        const newForms = pipe(
-          model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (formType) => {
-            if (
-              formType._tag === 'TextType' ||
-              formType._tag === 'TextPillType' ||
-              formType._tag === 'CalendarType' ||
-              formType._tag === 'DropdownType'
-            ) {
-              return {
-                ...formType,
-                isFocus: msg.isFocus,
-                showValidation: !msg.isFocus ? true : formType.showValidation,
+                _tag: 'RadioType',
+                model: RadioField.update(msg.subMsg, form.model),
               }
-            } else return formType
+            }
+            return form
           }),
         )
         return { ...model, forms: newForms }
       }
-      case 'SetRevealPassword': {
-        msg.event.preventDefault()
+      case 'DropdownFieldMsg': {
         const newForms = pipe(
           model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (formType) => {
-            switch (formType._tag) {
-              case 'TextType':
-                return {
-                  ...formType,
-                  variant:
-                    formType.variant._tag === 'Password'
-                      ? ({
-                          _tag: 'Password',
-                          reveal: msg.reveal,
-                        } satisfies TextInputVariant)
-                      : formType.variant,
-                }
-              default:
-                return formType
+          modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
+            if (form._tag === 'DropdownType') {
+              return {
+                _tag: 'DropdownType',
+                model: DropdownField.update(msg.subMsg, form.model),
+              }
             }
+            return form
           }),
         )
         return { ...model, forms: newForms }
       }
-
-      case 'HideValidation': {
+      case 'CalendarFieldMsg': {
         const newForms = pipe(
           model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (formType) => {
-            switch (formType._tag) {
-              case 'TextType':
-              case 'TextPillType':
-                return { ...formType, showValidation: false }
-              case 'FileType':
-                return { ...formType, showValidation: false }
-              default:
-                return formType
+          modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
+            if (form._tag === 'CalendarType') {
+              return {
+                _tag: 'CalendarType',
+                model: CalendarField.update(msg.subMsg, form.model),
+              }
             }
+            return form
           }),
         )
         return { ...model, forms: newForms }
       }
-
+      case 'FileFieldMsg': {
+        const newForms = pipe(
+          model.forms,
+          modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
+            if (form._tag === 'FileType') {
+              return {
+                _tag: 'FileType',
+                model: FileField.update(msg.subMsg, form.model),
+              }
+            }
+            return form
+          }),
+        )
+        return { ...model, forms: newForms }
+      }
       case 'SetIsDrag': {
         return { forms: model.forms, isDrag: msg.status }
       }
-
       case 'ResetForm': {
         return { forms: msg.value, isDrag: false }
       }

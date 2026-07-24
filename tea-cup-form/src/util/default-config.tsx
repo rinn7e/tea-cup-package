@@ -23,122 +23,126 @@ import * as E from 'fp-ts/lib/Either'
 import { type Option } from 'fp-ts/lib/Option'
 import { type JSX } from 'react'
 
-import {
-  type CalendarType,
-  type CalendarTypeUiArg,
-  type CheckboxChoice,
-  type CheckboxType,
-  type CheckboxesTypeUiArg,
-  type DropdownType,
-  type DropdownTypeUiArg,
-  type FileType,
-  type FileTypeUiArg,
-  type RadioChoice,
-  type RadioType,
-  type RadiosTypeUiArg,
-  type TextPillType,
-  type TextPillTypeUiArg,
-  type TextType,
+import type {
+  CalendarTypeUiArg,
+  CheckboxChoice,
+  CheckboxesTypeUiArg,
+  DropdownTypeUiArg,
+  FileTypeUiArg,
+  FormType,
+  RadioChoice,
+  RadiosTypeUiArg,
+  TextPillTypeUiArg,
   TextTypeUiArg,
 } from '../type'
 
 export const defaultTextType = (
   inputUi?: (props: TextTypeUiArg) => JSX.Element,
-): TextType => ({
+): FormType => ({
   _tag: 'TextType',
-  placeholder: 'Username',
-  label: 'Username',
-  currentValue: '',
-  validation: (val) => E.right(val),
-  linkValidations: [],
-  showValidation: false,
-  isTextarea: false,
-  isFocus: false,
-  variant: { _tag: 'Text' },
-  autocomplete: false,
-  ui: inputUi ? inputUi : undefined,
+  model: {
+    placeholder: 'Username',
+    label: 'Username',
+    currentValue: '',
+    validation: (val) => E.right(val),
+    linkValidations: [],
+    showValidation: false,
+    isTextarea: false,
+    isFocus: false,
+    variant: { _tag: 'Text' },
+    autocomplete: false,
+    ui: inputUi ? inputUi : undefined,
+  },
 })
 
 export const defaultCheckboxType = (
   currentValues: CheckboxChoice[],
   inputUi?: (arg: CheckboxesTypeUiArg) => JSX.Element,
-): CheckboxType => {
-  return {
-    _tag: 'CheckboxType',
+): FormType => ({
+  _tag: 'CheckboxType',
+  model: {
     label: 'Checkbox',
     currentValues,
     validation: (inputs) => E.right(inputs),
     isMarkdown: false,
     ui: inputUi ? inputUi : undefined,
-  }
-}
+  },
+})
 
 export const defaultRadioType = (
   choices: RadioChoice[],
   currentValue: Option<string>,
   inputUi?: (arg: RadiosTypeUiArg) => JSX.Element,
-): RadioType => {
-  return {
-    _tag: 'RadioType',
+): FormType => ({
+  _tag: 'RadioType',
+  model: {
     label: 'Radio',
     choices,
     currentValue,
     isMarkdown: true,
     ui: inputUi ? inputUi : undefined,
-  }
-}
+  },
+})
 
 export const defaultDropdownType = (
   inputUi?: (arg: DropdownTypeUiArg) => JSX.Element,
-): DropdownType => ({
+): FormType => ({
   _tag: 'DropdownType',
-  label: 'Country',
-  choices: ['Cambodia', 'Russia'],
-  currentValue: null,
-  validation: (val) => E.right(val),
-  showValidation: false,
-  isFocus: false,
-  placeholder: 'Select a value',
-  ui: inputUi,
+  model: {
+    label: 'Country',
+    choices: ['Cambodia', 'Russia'],
+    currentValue: null,
+    validation: (val) => E.right(val),
+    showValidation: false,
+    isFocus: false,
+    placeholder: 'Select a value',
+    ui: inputUi,
+  },
 })
 
 export const defaultCalendarType = (
   inputUi?: (arg: CalendarTypeUiArg) => JSX.Element,
-): CalendarType => ({
+): FormType => ({
   _tag: 'CalendarType',
-  label: 'Birthday',
-  placeholder: 'Select date',
-  currentValue: null,
-  validation: (val) => E.right(val),
-  showValidation: false,
-  isFocus: false,
-  ui: inputUi ? inputUi : undefined,
+  model: {
+    label: 'Birthday',
+    placeholder: 'Select date',
+    currentValue: null,
+    validation: (val) => E.right(val),
+    showValidation: false,
+    isFocus: false,
+    ui: inputUi ? inputUi : undefined,
+  },
 })
 
 export const defaultFileType = (
   inputUi?: (arg: FileTypeUiArg) => JSX.Element,
-): FileType => ({
+): FormType => ({
   _tag: 'FileType',
-  label: 'Files',
-  currentValues: [],
-  isMultiple: false,
-  showValidation: false,
-  validation: (val) => E.right(val),
-  ui: inputUi ? inputUi : undefined,
+  model: {
+    label: 'Files',
+    currentValues: [],
+    isMultiple: false,
+    showValidation: false,
+    validation: (val) => E.right(val),
+    ui: inputUi ? inputUi : undefined,
+  },
 })
 
 export const defaultTextPillType = (
   inputUi?: (props: TextPillTypeUiArg) => JSX.Element,
-): TextPillType => ({
+): FormType => ({
   _tag: 'TextPillType',
-  placeholder: 'Tags',
-  label: 'Tags',
-  allValues: [],
-  currentValue: '',
-  validation: (val) => E.right(val),
-  showValidation: false,
-  isTextarea: false,
-  isFocus: false,
-  autocomplete: false,
-  ui: inputUi ? inputUi : undefined,
+  model: {
+    placeholder: 'Tags',
+    label: 'Tags',
+    allValues: [],
+    currentValue: '',
+    validation: (val) => E.right(val),
+    showValidation: false,
+    isTextarea: false,
+    isFocus: false,
+    autocomplete: false,
+    ui: inputUi ? inputUi : undefined,
+  },
 })
