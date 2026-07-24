@@ -23,7 +23,7 @@ import * as A from 'fp-ts/lib/Array'
 import * as S from 'fp-ts/lib/string'
 import { pipe } from 'fp-ts/lib/function'
 
-import type { FormType, Forms } from '../../type'
+import type { FormType, Forms } from '../../common/type'
 import { exec, modifyAtIfExist } from '../../util/common'
 import type { Model, Msg } from './type'
 

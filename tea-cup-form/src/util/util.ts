@@ -24,7 +24,7 @@ import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import * as S from 'fp-ts/lib/string'
 
-import { type FormType, type Forms } from '../type'
+import { type FormType, type Forms } from '../common/type'
 import { modifyAtIfExist } from './common'
 
 /**

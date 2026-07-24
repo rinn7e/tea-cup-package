@@ -19,7 +19,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-import { type Either } from 'fp-ts/lib/Either'
+import type { Either } from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
@@ -31,7 +31,59 @@ import {
 } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
-import type { Forms } from '../../type'
+import type { Forms } from '../../common/type'
+
+// ------------------------------------------
+// Helper types & definitions
+// ------------------------------------------
+
+export type TextInputVariant =
+  | { _tag: 'Text' }
+  | { _tag: 'Password'; reveal: boolean }
+
+export const textInputVariantToString = (
+  variant: TextInputVariant,
+): string => {
+  switch (variant._tag) {
+    case 'Text':
+      return 'text'
+
+    case 'Password':
+      return variant.reveal ? 'text' : 'password'
+  }
+}
+
+export const TextInputVariantEq: EqClass.Eq<TextInputVariant> = {
+  equals: (a, b) => {
+    if (a._tag === 'Text' && b._tag === 'Text') return true
+    if (a._tag === 'Password' && b._tag === 'Password')
+      return a.reveal === b.reveal
+    return false
+  },
+}
+
+export const autocompleteToString = (val: boolean): string => {
+  if (!val) return 'new-password'
+  else return 'on'
+}
+
+export type TextTypeUiArg<MsgType = Msg> = {
+  dispatch: Dispatcher<MsgType>
+  variant: TextInputVariant
+  key: string
+  currentValue: string
+  label: string
+  showValidation: boolean
+  isFocus: boolean
+  validationResult: Either<string, string>
+  validation: (input: string) => Either<string, string>
+  placeholder?: string
+  autocomplete: boolean
+  isTextarea: boolean
+  onKeyDown?: (
+    event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void
+}
 
 // ------------------------------------------
 // Msg
@@ -43,41 +95,6 @@ export type Msg =
   | { _tag: 'SetRevealPassword'; reveal: boolean; event: MouseEvent<HTMLElement> }
   | { _tag: 'HandleFocus'; isFocus: boolean }
   | { _tag: 'HideValidation' }
-
-// ------------------------------------------
-// Text input variant
-// ------------------------------------------
-
-export type TextInputVariant =
-  | { _tag: 'Text' }
-  | { _tag: 'Email' }
-  | { _tag: 'Password'; reveal: boolean }
-
-export const TextInputVariantEq: EqClass.Eq<TextInputVariant> = {
-  equals: (x, y) => {
-    if (x._tag === 'Text' && y._tag === 'Text') return true
-    else if (x._tag === 'Email' && y._tag === 'Email') return true
-    else if (x._tag === 'Password' && y._tag === 'Password')
-      return EqClass.struct({
-        _tag: S.Eq,
-        reveal: B.Eq,
-      }).equals(x, y)
-    else return false
-  },
-}
-
-export const textInputVariantToString = (variant: TextInputVariant) => {
-  switch (variant._tag) {
-    case 'Text':
-      return 'text'
-    case 'Email':
-      return 'email'
-    case 'Password': {
-      if (variant.reveal) return 'text'
-      else return 'password'
-    }
-  }
-}
 
 // ------------------------------------------
 // Model
@@ -103,25 +120,7 @@ export type Model = {
   onKeyDown?: (
     event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void
-  ui?: (props: TextTypeUiArg) => JSX.Element
-}
-
-export type TextTypeUiArg = {
-  key: string
-  label: string
-  isFocus: boolean
-  placeholder?: string
-  currentValue: string
-  showValidation: boolean
-  dispatch: Dispatcher<Msg>
-  validationResult: Either<string, string>
-  validation: (input: string) => Either<string, string>
-  variant: TextInputVariant
-  autocomplete: boolean
-  isTextarea: boolean
-  onKeyDown?: (
-    event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => void
+  ui?: (props: TextTypeUiArg<Msg>) => JSX.Element
 }
 
 export const ModelEq = EqClass.struct<Model>({
@@ -138,11 +137,6 @@ export const ModelEq = EqClass.struct<Model>({
   onKeyDown: { equals: () => true },
   ui: { equals: () => true },
 })
-
-export const autocompleteToString = (val: boolean) => {
-  if (!val) return 'new-password'
-  else return 'on'
-}
 
 // ------------------------------------------
 // Props

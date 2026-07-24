@@ -19,7 +19,26 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
+import * as E from 'fp-ts/lib/Either'
+import { type JSX } from 'react'
 
-export * from './type'
-export * from './update'
-export * from './util'
+import type { FormType } from '../../common/type'
+import type { TextPillTypeUiArg } from './type'
+
+export const defaultTextPillType = (
+  inputUi?: (props: TextPillTypeUiArg) => JSX.Element,
+): FormType => ({
+  _tag: 'TextPillType',
+  model: {
+    placeholder: 'Tags',
+    label: 'Tags',
+    allValues: [],
+    currentValue: '',
+    validation: (val) => E.right(val),
+    showValidation: false,
+    isTextarea: false,
+    isFocus: false,
+    autocomplete: false,
+    ui: inputUi ? inputUi : undefined,
+  },
+})

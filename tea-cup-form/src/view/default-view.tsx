@@ -31,6 +31,10 @@ import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { Dispatcher } from 'tea-cup-fp'
 
+import {
+  autocompleteToString,
+  textInputVariantToString,
+} from '../common/type'
 import { errorTooltipContainer } from '../error-tooltip/helper'
 import type * as CalendarField from '../sub-component/calendar-field/type'
 import type * as CheckboxField from '../sub-component/checkbox-field/type'
@@ -39,10 +43,6 @@ import type * as FileField from '../sub-component/file-field/type'
 import type * as RadioField from '../sub-component/radio-field/type'
 import type * as TextField from '../sub-component/text-field/type'
 import type * as TextPillField from '../sub-component/text-pill-field/type'
-import {
-  autocompleteToString,
-  textInputVariantToString,
-} from '../type'
 import { exec, mkIdFromString } from '../util/common'
 import './../form.css'
 import { emptyEl } from './common'

@@ -23,6 +23,7 @@ import * as M from 'fp-ts/lib/Map'
 import { pipe } from 'fp-ts/lib/function'
 import * as S from 'fp-ts/lib/string'
 
+import { type FormType, type Forms } from './common/type'
 import * as CalendarField from './sub-component/calendar-field'
 import * as CheckboxField from './sub-component/checkbox-field'
 import * as DropdownField from './sub-component/dropdown-field'
@@ -30,7 +31,7 @@ import * as FileField from './sub-component/file-field'
 import * as RadioField from './sub-component/radio-field'
 import * as TextField from './sub-component/text-field'
 import * as TextPillField from './sub-component/text-pill-field'
-import { type FormType, type Forms, type Model, type Msg } from './type'
+import { type Model, type Msg } from './type'
 import { modifyAtIfExist } from './util/common'
 
 export const init = (initialForms: Forms): Model => ({
