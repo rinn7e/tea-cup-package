@@ -65,6 +65,7 @@ export const defaultTextView = ({
       <div className={getContainerClasses(isError, isFocus)}>
         <div className='flex flex-row items-center'>
           <input
+            data-test={key}
             type={textInputVariantToString(variant)}
             className='w-full bg-transparent px-4 py-3 font-medium text-slate-800 outline-none placeholder:text-slate-300'
             placeholder={placeholder}

@@ -53,6 +53,7 @@ export const defaultRadioView = (arg: RadioTypeUiArg) => {
   return (
     <div
       id={mkIdFromString(arg.radioChoice.key)}
+      data-test={`radio-${arg.fieldKey}-${arg.radioChoice.key}`}
       key={arg.radioChoice.key}
       className='group flex cursor-pointer flex-row items-center gap-3 py-1.5'
       onClick={(_) =>

@@ -67,6 +67,7 @@ export const defaultTextPillView = ({
                 <span>{val}</span>
                 <button
                   type='button'
+                  data-test={`pill-remove-${val}`}
                   className='flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white hover:text-red-500'
                   onClick={() =>
                     dispatch({
@@ -90,6 +91,7 @@ export const defaultTextPillView = ({
             )),
           )}
           <input
+            data-test={key}
             className='min-w-[140px] grow bg-transparent px-1 py-1.5 font-medium text-slate-800 outline-none placeholder:text-slate-300'
             value={currentValue}
             onInput={(event) =>

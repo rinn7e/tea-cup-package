@@ -33,11 +33,13 @@ const limitDecimal2Digit = (num: number): number => Math.round(num * 100) / 100
 
 export const fileDropzoneView = ({
   dispatch,
+  fieldKey,
   isMultiple,
   isDrag,
   isError,
 }: {
   dispatch: Dispatcher<Msg>
+  fieldKey: string
   isMultiple: boolean
   isDrag: boolean
   isError: boolean
@@ -53,6 +55,7 @@ export const fileDropzoneView = ({
     ].join(' ')}
   >
     <input
+      data-test={fieldKey}
       type='file'
       multiple={isMultiple}
       className='absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0'
@@ -84,6 +87,7 @@ export const fileDropzoneView = ({
 
 export const defaultFileView = ({
   dispatch,
+  fieldKey,
   label,
   currentValues,
   validationResult,
@@ -126,6 +130,7 @@ export const defaultFileView = ({
             </div>
             <button
               type='button'
+              data-test={`file-remove-${file.name}`}
               className='flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-red-500'
               onClick={() => dispatch({ _tag: 'RemoveFile', index: i })}
             >
@@ -147,7 +152,7 @@ export const defaultFileView = ({
         {label !== '' && (
           <label className={getLabelClasses(isError, false)}>{label}</label>
         )}
-        {fileDropzoneView({ dispatch, isMultiple, isDrag, isError })}
+        {fileDropzoneView({ dispatch, fieldKey, isMultiple, isDrag, isError })}
       </div>
       {currentValues.length > 0 && (
         <div className='flex w-full flex-col gap-2'>{currentFilesView()}</div>

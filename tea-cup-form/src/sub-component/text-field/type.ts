@@ -38,9 +38,10 @@ import type { Forms } from '../../common/type'
 // Helper types & definitions
 // ------------------------------------------
 
-/** Input variant for text field (e.g. plain Text or Password with reveal state) */
+/** Input variant for text field (e.g. plain Text, Email, or Password with reveal state) */
 export type TextInputVariant =
   | { _tag: 'Text' }
+  | { _tag: 'Email' }
   | { _tag: 'Password'; reveal: boolean }
 
 export const textInputVariantToString = (
@@ -50,6 +51,9 @@ export const textInputVariantToString = (
     case 'Text':
       return 'text'
 
+    case 'Email':
+      return 'email'
+
     case 'Password':
       return variant.reveal ? 'text' : 'password'
   }
@@ -58,6 +62,7 @@ export const textInputVariantToString = (
 export const TextInputVariantEq: EqClass.Eq<TextInputVariant> = {
   equals: (a, b) => {
     if (a._tag === 'Text' && b._tag === 'Text') return true
+    if (a._tag === 'Email' && b._tag === 'Email') return true
     if (a._tag === 'Password' && b._tag === 'Password')
       return a.reveal === b.reveal
     return false
