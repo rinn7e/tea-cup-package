@@ -1,8 +1,7 @@
 export * from './type'
 export * from './common/type'
 export * from './update'
-export * from './util/util'
-export * from './validation'
+export * from './util/validation'
 
 export * as Calendar from './sub-component/calendar-field'
 export * as Checkbox from './sub-component/checkbox-field'

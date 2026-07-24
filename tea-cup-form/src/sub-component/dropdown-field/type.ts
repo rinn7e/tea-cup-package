@@ -21,6 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as A from 'fp-ts/lib/Array'
 import { type Either } from 'fp-ts/lib/Either'
+import * as E from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
@@ -70,13 +71,26 @@ export type Model = {
   ui?: (arg: DropdownTypeUiArg) => JSX.Element
 }
 
+export const defaultModel = (
+  inputUi?: (arg: DropdownTypeUiArg) => JSX.Element,
+): Model => ({
+  label: 'Country',
+  placeholder: 'Select a value',
+  choices: [],
+  currentValue: null,
+  validation: (val) => E.right(val),
+  showValidation: false,
+  isFocus: false,
+  ui: inputUi ? inputUi : undefined,
+})
+
 export const ModelEq = EqClass.struct<Model>({
-  label: { equals: () => true },
-  placeholder: { equals: () => true },
+  label: S.Eq,
+  placeholder: S.Eq,
   choices: A.getEq(S.Eq),
   currentValue: NullableEq(S.Eq),
   validation: { equals: () => true },
-  showValidation: { equals: () => true },
+  showValidation: B.Eq,
   isFocus: B.Eq,
   ui: { equals: () => true },
 })

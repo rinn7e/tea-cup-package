@@ -14,6 +14,8 @@ test.describe('TeaCup Form Example App', () => {
     await expect(page.getByText('Country')).toBeVisible()
     await expect(page.getByText('Birthday')).toBeVisible()
     await expect(page.getByText('Selections')).toBeVisible()
+    await expect(page.getByText('Radio 1')).toBeVisible()
+    await expect(page.getByText('Radio 2')).toBeVisible()
   })
 
   test('2. should validate username length', async ({ page }) => {
@@ -73,7 +75,29 @@ test.describe('TeaCup Form Example App', () => {
     expect(value).not.toBe('')
   })
 
-  test('7. should handle file uploads and preview', async ({ page }) => {
+  test('7. should toggle checkbox options', async ({ page }) => {
+    await expect(page.getByText('Option 1')).toBeVisible()
+    await expect(page.getByText('Option 2')).toBeVisible()
+
+    // Check Option 1
+    await page.getByText('Option 1').click()
+    // Option 2 is already checked initially in update.ts
+    await page.getByText('Option 2').click()
+  })
+
+  test('8. should select radio options and display descriptions', async ({
+    page,
+  }) => {
+    await expect(page.getByText('First description')).toBeVisible()
+    await expect(page.getByText('Second description')).toBeVisible()
+
+    // Select Radio 1
+    await page.getByText('Radio 1').click()
+    // Select Radio 2
+    await page.getByText('Radio 2').click()
+  })
+
+  test('9. should handle file uploads and preview', async ({ page }) => {
     await page.locator('input[type="file"]').setInputFiles({
       name: 'test.txt',
       mimeType: 'text/plain',
@@ -84,7 +108,7 @@ test.describe('TeaCup Form Example App', () => {
     await expect(page.getByText('PLAIN')).toBeVisible()
   })
 
-  test('8. should remove an uploaded file', async ({ page }) => {
+  test('10. should remove an uploaded file', async ({ page }) => {
     // Add file first
     await page.locator('input[type="file"]').setInputFiles({
       name: 'delete-me.txt',
@@ -103,7 +127,7 @@ test.describe('TeaCup Form Example App', () => {
     await expect(page.getByText('delete-me.txt')).not.toBeVisible()
   })
 
-  test('9. should trigger all validations on invalid submit attempt', async ({
+  test('11. should trigger all validations on invalid submit attempt', async ({
     page,
   }) => {
     const submitBtn = page.getByRole('button', { name: 'Submit Form' })
@@ -116,7 +140,7 @@ test.describe('TeaCup Form Example App', () => {
     await expect(page.getByText('At least one file required')).toBeVisible()
   })
 
-  test('10. should submit the form successfully when all fields are valid', async ({
+  test('12. should submit the form successfully when all fields are valid', async ({
     page,
   }) => {
     // Fill Username
@@ -125,6 +149,12 @@ test.describe('TeaCup Form Example App', () => {
     // Add Tag
     await page.getByPlaceholder('Add tags (Enter to add)').fill('playwright')
     await page.getByPlaceholder('Add tags (Enter to add)').press('Enter')
+
+    // Check Checkbox
+    await page.getByText('Option 1').click()
+
+    // Select Radio 1
+    await page.getByText('Radio 1').click()
 
     // Select Country
     await page.getByPlaceholder('Select a value').click()
@@ -143,9 +173,6 @@ test.describe('TeaCup Form Example App', () => {
       buffer: Buffer.from('pdf content'),
     })
 
-    // Check Checkbox
-    await page.getByText('Option 1').click()
-
     // Submit
     const submitBtn = page.getByRole('button', { name: 'Submit Form' })
     await expect(submitBtn).not.toHaveClass(/cursor-not-allowed/)
@@ -156,6 +183,8 @@ test.describe('TeaCup Form Example App', () => {
     await expect(page.locator('pre')).toContainText('"text": "rinne"')
     await expect(page.locator('pre')).toContainText('"pill": [')
     await expect(page.locator('pre')).toContainText('"playwright"')
+    await expect(page.locator('pre')).toContainText('"checkbox": [')
+    await expect(page.locator('pre')).toContainText('"radio": "r1"')
     await expect(page.locator('pre')).toContainText('"dropdown": "USA"')
     await expect(page.locator('pre')).toContainText('"manual.pdf"')
   })

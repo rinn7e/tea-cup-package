@@ -20,6 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import type { Either } from 'fp-ts/lib/Either'
+import * as E from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
@@ -126,6 +127,22 @@ export type Model = {
   ) => void
   ui?: (props: TextTypeUiArg<Msg>) => JSX.Element
 }
+
+export const defaultModel = (
+  inputUi?: (props: TextTypeUiArg<Msg>) => JSX.Element,
+): Model => ({
+  placeholder: 'Username',
+  label: 'Username',
+  currentValue: '',
+  validation: (val) => E.right(val),
+  linkValidations: [],
+  showValidation: false,
+  isTextarea: false,
+  isFocus: false,
+  variant: { _tag: 'Text' },
+  autocomplete: false,
+  ui: inputUi ? inputUi : undefined,
+})
 
 export const ModelEq = EqClass.struct<Model>({
   placeholder: S.Eq,

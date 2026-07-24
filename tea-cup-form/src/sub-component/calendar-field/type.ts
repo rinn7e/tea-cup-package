@@ -21,6 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as D from 'fp-ts/lib/Date'
 import { type Either } from 'fp-ts/lib/Either'
+import * as E from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
@@ -67,12 +68,24 @@ export type Model = {
   ui?: (arg: CalendarTypeUiArg) => JSX.Element
 }
 
+export const defaultModel = (
+  inputUi?: (arg: CalendarTypeUiArg) => JSX.Element,
+): Model => ({
+  label: 'Birthday',
+  placeholder: 'Select date',
+  currentValue: null,
+  validation: (val) => E.right(val),
+  showValidation: false,
+  isFocus: false,
+  ui: inputUi ? inputUi : undefined,
+})
+
 export const ModelEq = EqClass.struct<Model>({
   label: S.Eq,
   placeholder: S.Eq,
   currentValue: NullableEq(D.Eq),
   validation: { equals: () => true },
-  showValidation: { equals: () => true },
+  showValidation: B.Eq,
   isFocus: B.Eq,
   ui: { equals: () => true },
 })

@@ -21,6 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as A from 'fp-ts/lib/Array'
 import { type Either } from 'fp-ts/lib/Either'
+import * as E from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
@@ -64,6 +65,17 @@ export type Model = {
   isMarkdown: boolean
   ui?: (arg: CheckboxesTypeUiArg) => JSX.Element
 }
+
+export const defaultModel = (
+  currentValues: CheckboxChoice[],
+  inputUi?: (arg: CheckboxesTypeUiArg) => JSX.Element,
+): Model => ({
+  label: '',
+  currentValues,
+  validation: (val) => E.right(val),
+  isMarkdown: false,
+  ui: inputUi ? inputUi : undefined,
+})
 
 export const ModelEq = EqClass.struct<Model>({
   label: S.Eq,

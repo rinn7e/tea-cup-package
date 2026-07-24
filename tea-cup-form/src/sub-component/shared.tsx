@@ -84,6 +84,36 @@ export const IconUpload = () => (
   </svg>
 )
 
+export const IconFile = () => (
+  <svg
+    viewBox='0 0 24 24'
+    fill='none'
+    stroke='currentColor'
+    strokeWidth='2'
+    strokeLinecap='round'
+    strokeLinejoin='round'
+    className='h-8 w-8 text-slate-400'
+  >
+    <path d='M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z' />
+    <polyline points='13 2 13 9 20 9' />
+  </svg>
+)
+
+export const IconX = () => (
+  <svg
+    viewBox='0 0 24 24'
+    fill='none'
+    stroke='currentColor'
+    strokeWidth='2'
+    strokeLinecap='round'
+    strokeLinejoin='round'
+    className='h-4 w-4'
+  >
+    <line x1='18' y1='6' x2='6' y2='18' />
+    <line x1='6' y1='6' x2='18' y2='18' />
+  </svg>
+)
+
 export const IconEye = () => (
   <svg
     viewBox='0 0 24 24'
