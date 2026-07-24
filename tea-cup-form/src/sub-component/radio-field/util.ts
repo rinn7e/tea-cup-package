@@ -25,17 +25,17 @@ import { type JSX } from 'react'
 import type { FormType } from '../../common/type'
 import type { RadioChoice, RadiosTypeUiArg } from './type'
 
-export const defaultRadioType = (
+export const defaultFormType = (
   choices: RadioChoice[],
   currentValue: Option<string>,
-  inputUi?: (arg: RadiosTypeUiArg) => JSX.Element,
+  inputUi?: (props: RadiosTypeUiArg) => JSX.Element,
 ): FormType => ({
   _tag: 'RadioType',
   model: {
-    label: 'Radio',
+    label: '',
     choices,
     currentValue,
-    isMarkdown: true,
+    isMarkdown: false,
     ui: inputUi ? inputUi : undefined,
   },
 })

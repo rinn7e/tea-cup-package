@@ -25,7 +25,7 @@ import { type JSX } from 'react'
 import type { FormType } from '../../common/type'
 import type { DropdownTypeUiArg } from './type'
 
-export const defaultDropdownType = (
+export const defaultFormType = (
   inputUi?: (arg: DropdownTypeUiArg) => JSX.Element,
 ): FormType => ({
   _tag: 'DropdownType',

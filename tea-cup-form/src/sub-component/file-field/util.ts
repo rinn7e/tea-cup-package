@@ -25,7 +25,7 @@ import { type JSX } from 'react'
 import type { FormType } from '../../common/type'
 import type { FileTypeUiArg } from './type'
 
-export const defaultFileType = (
+export const defaultFormType = (
   inputUi?: (arg: FileTypeUiArg) => JSX.Element,
 ): FormType => ({
   _tag: 'FileType',

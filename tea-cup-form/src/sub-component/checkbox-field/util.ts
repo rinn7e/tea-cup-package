@@ -25,15 +25,15 @@ import { type JSX } from 'react'
 import type { FormType } from '../../common/type'
 import type { CheckboxChoice, CheckboxesTypeUiArg } from './type'
 
-export const defaultCheckboxType = (
+export const defaultFormType = (
   currentValues: CheckboxChoice[],
-  inputUi?: (arg: CheckboxesTypeUiArg) => JSX.Element,
+  inputUi?: (props: CheckboxesTypeUiArg) => JSX.Element,
 ): FormType => ({
   _tag: 'CheckboxType',
   model: {
-    label: 'Checkbox',
+    label: '',
     currentValues,
-    validation: (inputs) => E.right(inputs),
+    validation: (val) => E.right(val),
     isMarkdown: false,
     ui: inputUi ? inputUi : undefined,
   },
