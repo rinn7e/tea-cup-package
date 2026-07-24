@@ -52,15 +52,18 @@ export type Msg =
 
 /** Internal model state for TextPillField */
 export type Model = {
-  placeholder: string
-  label: string
-  allValues: string[]
+  // State
   currentValue: string
-  validation: (input: string[]) => Either<string, string[]>
+  allValues: string[]
   showValidation: boolean
+  isFocus: boolean
+
+  // Config
+  label: string
+  placeholder: string
+  validation: (input: string[]) => Either<string, string[]>
   isTextarea: boolean
   autocomplete: boolean
-  isFocus: boolean
   ui?: (props: TextPillTypeUiArg) => JSX.Element
 }
 
@@ -83,28 +86,34 @@ export type TextPillTypeUiArg = {
 export const defaultModel = (
   inputUi?: (props: TextPillTypeUiArg) => JSX.Element,
 ): Model => ({
-  placeholder: 'Add tag...',
-  label: 'Tags',
-  allValues: [],
+  // State
   currentValue: '',
-  validation: (val) => E.right(val),
+  allValues: [],
   showValidation: false,
+  isFocus: false,
+
+  // Config
+  label: 'Tags',
+  placeholder: 'Add tag...',
+  validation: (val) => E.right(val),
   isTextarea: false,
   autocomplete: false,
-  isFocus: false,
   ui: inputUi ? inputUi : undefined,
 })
 
 export const ModelEq = EqClass.struct<Model>({
-  placeholder: S.Eq,
-  label: S.Eq,
-  allValues: A.getEq(S.Eq),
+  // State
   currentValue: S.Eq,
-  validation: { equals: () => true },
+  allValues: A.getEq(S.Eq),
   showValidation: B.Eq,
+  isFocus: B.Eq,
+
+  // Config
+  label: S.Eq,
+  placeholder: S.Eq,
+  validation: { equals: () => true },
   isTextarea: B.Eq,
   autocomplete: B.Eq,
-  isFocus: B.Eq,
   ui: { equals: () => true },
 })
 

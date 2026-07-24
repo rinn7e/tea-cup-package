@@ -61,37 +61,46 @@ export type DropdownTypeUiArg = {
 
 /** Internal model state for DropdownField */
 export type Model = {
+  // State
+  currentValue: string | null
+  showValidation: boolean
+  isFocus: boolean
+
+  // Config
   label: string
   placeholder: string
   choices: string[]
-  currentValue: string | null
   validation: (input: string | null) => Either<string, string | null>
-  showValidation: boolean
-  isFocus: boolean
   ui?: (arg: DropdownTypeUiArg) => JSX.Element
 }
 
 export const defaultModel = (
   inputUi?: (arg: DropdownTypeUiArg) => JSX.Element,
 ): Model => ({
+  // State
+  currentValue: null,
+  showValidation: false,
+  isFocus: false,
+
+  // Config
   label: 'Country',
   placeholder: 'Select a value',
   choices: [],
-  currentValue: null,
   validation: (val) => E.right(val),
-  showValidation: false,
-  isFocus: false,
   ui: inputUi ? inputUi : undefined,
 })
 
 export const ModelEq = EqClass.struct<Model>({
+  // State
+  currentValue: NullableEq(S.Eq),
+  showValidation: B.Eq,
+  isFocus: B.Eq,
+
+  // Config
   label: S.Eq,
   placeholder: S.Eq,
   choices: A.getEq(S.Eq),
-  currentValue: NullableEq(S.Eq),
   validation: { equals: () => true },
-  showValidation: B.Eq,
-  isFocus: B.Eq,
   ui: { equals: () => true },
 })
 

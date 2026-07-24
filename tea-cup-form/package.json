@@ -43,6 +43,7 @@
     "staged": "pnpm run format && pnpm run check && pnpm run lint"
   },
   "peerDependencies": {
+    "@devexperts/remote-data-ts": "^2.1.1",
     "@rinn7e/tea-cup-prelude": "^0.1.0-alpha.1",
     "fp-ts": "^2.16.11",
     "react": "^19.2.0",
@@ -52,6 +53,7 @@
     "tea-cup-fp": "^1.1.1"
   },
   "devDependencies": {
+    "@devexperts/remote-data-ts": "^2.1.1",
     "@eslint/js": "^9.29.0",
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@types/react": "^19.2.7",

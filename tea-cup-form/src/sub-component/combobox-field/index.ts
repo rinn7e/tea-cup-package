@@ -19,16 +19,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-export * from './type'
-export * from './common/type'
-export * from './update'
-export * from './util/validation'
 
-export * as Calendar from './sub-component/calendar-field'
-export * as Checkbox from './sub-component/checkbox-field'
-export * as Combobox from './sub-component/combobox-field'
-export * as Dropdown from './sub-component/dropdown-field'
-export * as File from './sub-component/file-field'
-export * as Radio from './sub-component/radio-field'
-export * as Text from './sub-component/text-field'
-export * as TextPill from './sub-component/text-pill-field'
+export * from './type'
+export * from './update'
+export * from './view'

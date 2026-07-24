@@ -63,9 +63,12 @@ export type RadiosTypeUiArg = {
 
 /** Internal model state for RadioField */
 export type Model = {
+  // State
+  currentValue: Option<string>
+
+  // Config
   label: string
   choices: RadioChoice[]
-  currentValue: Option<string>
   isMarkdown: boolean
   ui?: (arg: RadiosTypeUiArg) => JSX.Element
 }
@@ -75,17 +78,23 @@ export const defaultModel = (
   currentValue: Option<string>,
   inputUi?: (arg: RadiosTypeUiArg) => JSX.Element,
 ): Model => ({
+  // State
+  currentValue,
+
+  // Config
   label: '',
   choices,
-  currentValue,
   isMarkdown: false,
   ui: inputUi ? inputUi : undefined,
 })
 
 export const ModelEq = EqClass.struct<Model>({
+  // State
+  currentValue: O.getEq(S.Eq),
+
+  // Config
   label: S.Eq,
   choices: A.getEq(RadioChoiceEq),
-  currentValue: O.getEq(S.Eq),
   isMarkdown: { equals: () => true },
   ui: { equals: () => true },
 })

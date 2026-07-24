@@ -27,6 +27,7 @@ import { Cmd } from 'tea-cup-fp'
 import { type FormType, type Forms } from './common/type'
 import * as CalendarField from './sub-component/calendar-field'
 import * as CheckboxField from './sub-component/checkbox-field'
+import * as ComboboxField from './sub-component/combobox-field'
 import * as DropdownField from './sub-component/dropdown-field'
 import * as FileField from './sub-component/file-field'
 import * as RadioField from './sub-component/radio-field'
@@ -219,6 +220,30 @@ export const update =
                 { _tag: 'FileType', model: updatedModel },
                 subCmd.map((subMsg) => ({
                   _tag: 'FileFieldMsg',
+                  key: msg.key,
+                  subMsg,
+                })),
+              ]
+            }
+            return null
+          },
+          model.forms,
+        )
+        return [{ ...model, forms: newForms }, cmd]
+      }
+      case 'ComboboxFieldMsg': {
+        const [newForms, cmd] = updateFormItem(
+          msg.key,
+          (form) => {
+            if (form._tag === 'ComboboxType') {
+              const [updatedModel, subCmd] = ComboboxField.update(
+                msg.subMsg,
+                form.model,
+              )
+              return [
+                { _tag: 'ComboboxType', model: updatedModel },
+                subCmd.map((subMsg) => ({
+                  _tag: 'ComboboxFieldMsg',
                   key: msg.key,
                   subMsg,
                 })),

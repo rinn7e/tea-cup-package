@@ -19,16 +19,35 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-export * from './type'
-export * from './common/type'
-export * from './update'
-export * from './util/validation'
 
-export * as Calendar from './sub-component/calendar-field'
-export * as Checkbox from './sub-component/checkbox-field'
-export * as Combobox from './sub-component/combobox-field'
-export * as Dropdown from './sub-component/dropdown-field'
-export * as File from './sub-component/file-field'
-export * as Radio from './sub-component/radio-field'
-export * as Text from './sub-component/text-field'
-export * as TextPill from './sub-component/text-pill-field'
+import { memo, type JSX } from 'react'
+
+import { Props, PropsEq } from './type'
+import { defaultComboboxView } from './view'
+
+export const ComboboxField = <A,>({
+  fieldKey,
+  model,
+  dispatch,
+}: Props<A>): JSX.Element => {
+  const validationResult = model.validation(model.selectedItems)
+  const view = model.ui ? model.ui : defaultComboboxView
+
+  return view({
+    key: fieldKey,
+    dispatch,
+    query: model.query,
+    items: model.items,
+    selectedItems: model.selectedItems,
+    label: model.label,
+    placeholder: model.placeholder,
+    showValidation: model.showValidation,
+    isFocus: model.isFocus,
+    validationResult,
+    config: model.config,
+  })
+}
+
+export const ComboboxFieldMemo = memo(ComboboxField, (prev, next) => {
+  return PropsEq(prev.model.config.itemEq).equals(prev, next)
+}) as <A>(props: Props<A>) => JSX.Element

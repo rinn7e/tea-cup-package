@@ -59,8 +59,11 @@ export type CheckboxesTypeUiArg = {
 
 /** Internal model state for CheckboxField */
 export type Model = {
-  label: string
+  // State
   currentValues: CheckboxChoice[]
+
+  // Config
+  label: string
   validation: (input: CheckboxChoice[]) => Either<string, CheckboxChoice[]>
   isMarkdown: boolean
   ui?: (arg: CheckboxesTypeUiArg) => JSX.Element
@@ -70,16 +73,22 @@ export const defaultModel = (
   currentValues: CheckboxChoice[],
   inputUi?: (arg: CheckboxesTypeUiArg) => JSX.Element,
 ): Model => ({
-  label: '',
+  // State
   currentValues,
+
+  // Config
+  label: '',
   validation: (val) => E.right(val),
   isMarkdown: false,
   ui: inputUi ? inputUi : undefined,
 })
 
 export const ModelEq = EqClass.struct<Model>({
-  label: S.Eq,
+  // State
   currentValues: A.getEq(CheckboxChoiceEq),
+
+  // Config
+  label: S.Eq,
   validation: { equals: () => true },
   isMarkdown: { equals: () => true },
   ui: { equals: () => true },
