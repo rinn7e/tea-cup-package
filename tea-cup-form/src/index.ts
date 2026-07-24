@@ -21,6 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 export * from './type'
 export * from './common/type'
+export * from './common/data'
 export * from './update'
 export * from './util/validation'
 

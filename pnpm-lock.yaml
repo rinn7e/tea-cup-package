@@ -71,6 +71,9 @@ importers:
       globals:
         specifier: ^16.2.0
         version: 16.5.0
+      io-ts:
+        specifier: ^2.2.22
+        version: 2.2.22(fp-ts@2.16.11)
       prettier:
         specifier: ^3.8.1
         version: 3.8.3

@@ -15,11 +15,16 @@ import {
 } from '@rinn7e/tea-cup-form'
 import * as E from 'fp-ts/lib/Either'
 import * as O from 'fp-ts/lib/Option'
+import * as S from 'fp-ts/lib/string'
 import { mapFst } from 'fp-ts/lib/Tuple'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
-import { MockUser, mockUserSearchHandler } from './mock/user'
+import {
+  convertMockUserSearchHandler,
+  decodeUser,
+  mockUserSearchHandler,
+} from './mock/user'
 import { Model, Msg } from './type'
 
 const preprocessFormMsgHandler =
@@ -50,11 +55,16 @@ export const formMsgHandler =
 
 export const init = (): [Model, Cmd<Msg>] => {
   const userComboboxConfig = {
-    handler: mockUserSearchHandler,
+    handler: convertMockUserSearchHandler(mockUserSearchHandler),
     labelText: 'Assigned Users',
     notFoundText: 'No matching users found',
-    itemEq: { equals: (a: MockUser, b: MockUser) => a.id === b.id },
-    getKey: (item: MockUser) => item.id,
+    itemEq: Form.DataJsonEq,
+    getKey: (item: Form.DataJson) => decodeUser(item).id,
+    chipView: (item: Form.DataJson) => decodeUser(item).name,
+    resultView: (item: Form.DataJson) => {
+      const user = decodeUser(item)
+      return `${user.name} (${user.email})`
+    },
   }
 
   const forms: Form.Forms = new Map<string, Form.FormType>([
@@ -208,8 +218,8 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
         radio: pipe(valueRadioType(lookupForm('radio', f)), O.toUndefined),
         dropdown: valueDropdownType(lookupForm('dropdown', f)),
         calendar: valueCalendarType(lookupForm('calendar', f))?.toISOString(),
-        combobox: valueComboboxType<MockUser>(lookupForm('combobox', f)).map(
-          (u) => u.name,
+        combobox: valueComboboxType(lookupForm('combobox', f)).map(
+          (user) => decodeUser(user).name,
         ),
         files: valueFileType(lookupForm('file', f)).map((f) => f.name),
       }

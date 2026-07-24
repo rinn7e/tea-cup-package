@@ -32,38 +32,45 @@ import type { TaskEither } from 'fp-ts/lib/TaskEither'
 import type { JSX, ReactNode } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
-export type Config<E, A> = {
-  handler: (query: string) => TaskEither<E, A[]>
-  chipView?: (item: A) => ReactNode
-  resultView?: (item: A) => ReactNode
+import {
+  DataJson,
+  DataJsonEq,
+  ErrorJson,
+  ErrorJsonEq,
+} from '../../common/data'
+
+export type Config = {
+  handler: (query: string) => TaskEither<ErrorJson, DataJson[]>
+  chipView?: (item: DataJson) => ReactNode
+  resultView?: (item: DataJson) => ReactNode
   labelText: string
   notFoundText: string
-  itemEq: EqClass.Eq<A>
-  getKey: (item: A) => string | number
+  itemEq: EqClass.Eq<DataJson>
+  getKey: (item: DataJson) => string | number
 }
 
-export type Model<E, A> = {
+export type Model = {
   // State
   query: string
-  items: RD.RemoteData<string, A[]>
-  selectedItems: A[]
+  items: RD.RemoteData<ErrorJson, DataJson[]>
+  selectedItems: DataJson[]
   timerId: number
   showValidation: boolean
   isFocus: boolean
 
   // Config
-  config: Config<E, A>
+  config: Config
   label: string
   placeholder: string
-  validation: (val: A[]) => Either<string, A[]>
-  ui?: (arg: ComboboxTypeUiArg<E, A>) => JSX.Element
+  validation: (val: DataJson[]) => Either<string, DataJson[]>
+  ui?: (arg: ComboboxTypeUiArg) => JSX.Element
 }
 
-export const defaultModel = <E, A>(
-  config: Config<E, A>,
-  selectedItems: A[] = [],
-  inputUi?: (arg: ComboboxTypeUiArg<E, A>) => JSX.Element,
-): Model<E, A> => ({
+export const defaultModel = (
+  config: Config,
+  selectedItems: DataJson[] = [],
+  inputUi?: (arg: ComboboxTypeUiArg) => JSX.Element,
+): Model => ({
   // State
   query: '',
   items: RD.initial,
@@ -80,61 +87,55 @@ export const defaultModel = <E, A>(
   ui: inputUi,
 })
 
-export const ModelEq = <E, A>(
-  itemEq: EqClass.Eq<A>,
-): EqClass.Eq<Model<E, A>> =>
-  EqClass.struct<Model<E, A>>({
-    // State
-    query: S.Eq,
-    items: RD.getEq(S.Eq, A.getEq(itemEq)),
-    selectedItems: A.getEq(itemEq),
-    timerId: N.Eq,
-    showValidation: EqAlways,
-    isFocus: EqAlways,
+export const ModelEq = EqClass.struct<Model>({
+  // State
+  query: S.Eq,
+  items: RD.getEq(ErrorJsonEq, A.getEq(DataJsonEq)),
+  selectedItems: A.getEq(DataJsonEq),
+  timerId: N.Eq,
+  showValidation: EqAlways,
+  isFocus: EqAlways,
 
-    // Config
-    config: EqAlways,
-    label: S.Eq,
-    placeholder: S.Eq,
-    validation: EqAlways,
-    ui: EqAlways,
-  })
+  // Config
+  config: EqAlways,
+  label: S.Eq,
+  placeholder: S.Eq,
+  validation: EqAlways,
+  ui: EqAlways,
+})
 
-export type Msg<A> =
+export type Msg =
   | { _tag: 'SetQuery'; value: string }
-  | { _tag: 'SetItems'; value: RD.RemoteData<string, A[]>; timerId: number }
-  | { _tag: 'SetSelectedItems'; items: A[] }
-  | { _tag: 'DeselectItem'; item: A }
-  | { _tag: 'SelectItem'; item: A }
+  | { _tag: 'SetItems'; value: RD.RemoteData<ErrorJson, DataJson[]>; timerId: number }
+  | { _tag: 'SetSelectedItems'; items: DataJson[] }
+  | { _tag: 'DeselectItem'; item: DataJson }
+  | { _tag: 'SelectItem'; item: DataJson }
   | { _tag: 'DebouncedSearch'; query: string; timerId: number }
   | { _tag: 'HandleFocus'; isFocus: boolean }
   | { _tag: 'HideValidation' }
 
-export type ComboboxTypeUiArg<E, A> = {
-  dispatch: Dispatcher<Msg<A>>
+export type ComboboxTypeUiArg = {
+  dispatch: Dispatcher<Msg>
   key: string
   query: string
-  items: RD.RemoteData<string, A[]>
-  selectedItems: A[]
+  items: RD.RemoteData<ErrorJson, DataJson[]>
+  selectedItems: DataJson[]
   label: string
   placeholder: string
   showValidation: boolean
   isFocus: boolean
-  validationResult: Either<string, A[]>
-  config: Config<E, A>
+  validationResult: Either<string, DataJson[]>
+  config: Config
 }
 
-export type Props<E, A> = {
+export type Props = {
   fieldKey: string
-  model: Model<E, A>
-  dispatch: Dispatcher<Msg<A>>
+  model: Model
+  dispatch: Dispatcher<Msg>
 }
 
-export const PropsEq = <E, A>(
-  itemEq: EqClass.Eq<A>,
-): EqClass.Eq<Props<E, A>> =>
-  EqClass.struct<Props<E, A>>({
-    fieldKey: S.Eq,
-    model: ModelEq<E, A>(itemEq),
-    dispatch: EqAlways,
-  })
+export const PropsEq = EqClass.struct<Props>({
+  fieldKey: S.Eq,
+  model: ModelEq,
+  dispatch: EqAlways,
+})
