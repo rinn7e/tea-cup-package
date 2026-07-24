@@ -207,17 +207,17 @@ export const notTheSameExtraValidation =
         M.mapWithIndex((_, val) => {
           switch (val._tag) {
             case 'TextType':
-              return val.currentValue
+              return val.model.currentValue
             case 'TextPillType':
-              return JSON.stringify(val.allValues)
+              return JSON.stringify(val.model.allValues)
             case 'CalendarType':
-              return JSON.stringify(val.currentValue)
+              return JSON.stringify(val.model.currentValue)
             case 'DropdownType':
-              return JSON.stringify(val.currentValue)
+              return JSON.stringify(val.model.currentValue)
             case 'CheckboxType':
-              return JSON.stringify(val.currentValues)
+              return JSON.stringify(val.model.currentValues)
             case 'RadioType':
-              return JSON.stringify(val.currentValue)
+              return JSON.stringify(val.model.currentValue)
             case 'FileType':
               throw new Error(
                 'FileType not support `notTheSameExtraValidation`.',
@@ -247,24 +247,22 @@ export const runValidationForAll = (
           return runValidationAndLink(val, forms)._tag === 'Right'
         }
         case 'TextPillType': {
-          return val.validation(val.allValues)._tag === 'Right'
+          return val.model.validation(val.model.allValues)._tag === 'Right'
         }
         case 'CalendarType': {
-          return val.validation(val.currentValue)._tag === 'Right'
+          return val.model.validation(val.model.currentValue)._tag === 'Right'
         }
         case 'DropdownType': {
-          return val.validation(val.currentValue)._tag === 'Right'
+          return val.model.validation(val.model.currentValue)._tag === 'Right'
         }
         case 'CheckboxType': {
-          return val.validation(val.currentValues)._tag === 'Right'
+          return val.model.validation(val.model.currentValues)._tag === 'Right'
         }
         case 'RadioType': {
-          // TODO: Add vadation to radio form type
-          // return val.validation(val.currentValue)._tag === 'Right'
           return true
         }
         case 'FileType': {
-          return val.validation(val.currentValues)._tag === 'Right'
+          return val.model.validation(val.model.currentValues)._tag === 'Right'
         }
         default:
           return true
@@ -280,11 +278,14 @@ export const runValidationForAll = (
     : E.left('Some fields are invalid.')
 }
 
-export const runValidationAndLink = (formType: TextType, forms: Forms) => {
-  const validationResult = formType.validation(formType.currentValue)
+export const runValidationAndLink = (
+  formType: TextType,
+  forms: Forms,
+) => {
+  const validationResult = formType.model.validation(formType.model.currentValue)
   if (validationResult._tag === 'Right') {
     const validationResultArray = pipe(
-      formType.linkValidations,
+      formType.model.linkValidations,
       A.map((linkValidation) => {
         const linkValue = pipe(
           lookupForm(linkValidation.linkKey, forms),
@@ -311,20 +312,18 @@ export const runValidationAndLink = (formType: TextType, forms: Forms) => {
 export const runValidation = (formType: FormType) => {
   switch (formType._tag) {
     case 'TextType':
-      return formType.validation(formType.currentValue)
+      return formType.model.validation(formType.model.currentValue)
     case 'TextPillType':
-      return formType.validation(formType.allValues)
+      return formType.model.validation(formType.model.allValues)
     case 'CalendarType':
-      return formType.validation(formType.currentValue)
+      return formType.model.validation(formType.model.currentValue)
     case 'DropdownType':
-      return formType.validation(formType.currentValue)
+      return formType.model.validation(formType.model.currentValue)
     case 'CheckboxType':
-      return formType.validation(formType.currentValues)
+      return formType.model.validation(formType.model.currentValues)
     case 'RadioType':
-      // TODO: Add vadation to radio form type
-      // return val.validation(val.currentValue)._tag === 'Right'
-      return E.right(formType.currentValue)
+      return E.right(formType.model.currentValue)
     case 'FileType':
-      return formType.validation(formType.currentValues)
+      return formType.model.validation(formType.model.currentValues)
   }
 }

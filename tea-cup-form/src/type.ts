@@ -19,340 +19,98 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-import * as A from 'fp-ts/lib/Array'
-import * as D from 'fp-ts/lib/Date'
-import { type Either } from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as Map from 'fp-ts/lib/Map'
-import * as O from 'fp-ts/lib/Option'
-import { type Option } from 'fp-ts/lib/Option'
 import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
-import {
-  type FormEvent,
-  type JSX,
-  type KeyboardEvent,
-  type MouseEvent,
-} from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
-import { NullableEq } from './util/common'
+import * as CalendarField from './sub-component/calendar-field'
+import * as CheckboxField from './sub-component/checkbox-field'
+import * as DropdownField from './sub-component/dropdown-field'
+import * as FileField from './sub-component/file-field'
+import * as RadioField from './sub-component/radio-field'
+import * as TextField from './sub-component/text-field'
+import * as TextPillField from './sub-component/text-pill-field'
 
-// Text input variant
-// ------------------------------------------
+export {
+  autocompleteToString,
+  textInputVariantToString,
+  TextInputVariantEq,
+  type TextInputVariant,
+  type TextTypeUiArg,
+} from './sub-component/text-field/type'
 
-export type TextInputVariant =
-  | { _tag: 'Text' }
-  | { _tag: 'Email' }
-  | { _tag: 'Password'; reveal: boolean }
-
-export const TextInputVariantEq: EqClass.Eq<TextInputVariant> = {
-  equals: (x, y) => {
-    if (x._tag === 'Text' && y._tag === 'Text') return true
-    else if (x._tag === 'Email' && y._tag === 'Email') return true
-    else if (x._tag === 'Password' && y._tag === 'Password')
-      return EqClass.struct({
-        _tag: S.Eq,
-        reveal: B.Eq,
-      }).equals(x, y)
-    else return false
-  },
-}
-
-export const textInputVariantToString = (variant: TextInputVariant) => {
-  switch (variant._tag) {
-    case 'Text':
-      return 'text'
-    case 'Email':
-      return 'email'
-    case 'Password': {
-      if (variant.reveal) return 'text'
-      else return 'password'
-    }
-  }
-}
-
-// TextType
-// ------------------------------------------
-
-export type TextType = {
-  _tag: 'TextType'
-  placeholder: string
-  label: string
-  currentValue: string
-  validation: (input: string) => Either<string, string>
-  linkValidations: {
-    linkKey: string
-    validation: (
-      currentInput: string,
-      linkInput: string,
-    ) => Either<string, string>
-  }[]
-  // ^ Validate the current input field with another input field (ie. repeat-password)
-  showValidation: boolean
-  isTextarea: boolean
-  variant: TextInputVariant
-  autocomplete: boolean
-  isFocus: boolean
-  onKeyDown?: (
-    event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => void
-  ui?: (props: TextTypeUiArg) => JSX.Element
-}
-
-export type TextTypeUiArg = {
-  key: string
-  label: string
-  isFocus: boolean
-  placeholder?: string
-  currentValue: string
-  showValidation: boolean
-  dispatch: Dispatcher<Msg>
-  validationResult: Either<string, string>
-  validation: (input: string) => Either<string, string>
-  variant: TextInputVariant
-  autocomplete: boolean
-  isTextarea: boolean
-  onKeyDown?: (
-    event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => void
-}
-
-// TextPillType
-// ------------------------------------------
-
-export type TextPillType = {
-  _tag: 'TextPillType'
-  placeholder: string
-  label: string
-  allValues: string[]
-  currentValue: string
-  validation: (input: string[]) => Either<string, string[]>
-  showValidation: boolean
-  isTextarea: boolean
-  autocomplete: boolean
-  isFocus: boolean
-  ui?: (props: TextPillTypeUiArg) => JSX.Element
-}
-
-export const TextPillTypeEq = EqClass.struct<TextPillType>({
-  _tag: S.Eq,
-  placeholder: S.Eq,
-  label: S.Eq,
-  allValues: A.getEq(S.Eq),
-  currentValue: S.Eq,
-  validation: { equals: () => true },
-  showValidation: B.Eq,
-  isTextarea: B.Eq,
-  autocomplete: B.Eq,
-  isFocus: B.Eq,
-  ui: { equals: () => true },
-})
-
-export type TextPillTypeUiArg = {
-  key: string
-  label: string
-  isFocus: boolean
-  placeholder?: string
-  allValues: string[]
-  currentValue: string
-  showValidation: boolean
-  dispatch: Dispatcher<Msg>
-  validationResult: Either<string, string[]>
-  validation: (input: string[]) => Either<string, string[]>
-  autocomplete: boolean
-  isTextarea: boolean
-}
-
+export type TextType = { _tag: 'TextType'; model: TextField.Model }
 export const TextTypeEq = EqClass.struct<TextType>({
   _tag: S.Eq,
-  placeholder: S.Eq,
-  label: S.Eq,
-  currentValue: S.Eq,
-  validation: { equals: () => true },
-  linkValidations: { equals: () => true },
-  showValidation: B.Eq,
-  isTextarea: B.Eq,
-  variant: TextInputVariantEq,
-  autocomplete: B.Eq,
-  isFocus: B.Eq,
-  onKeyDown: { equals: () => true },
-  ui: { equals: () => true },
+  model: TextField.ModelEq,
 })
 
-export const autocompleteToString = (val: boolean) => {
-  // `new-password` string can disable the browser auto complete
-  if (!val) return 'new-password'
-  else return 'on'
-}
+export {
+  type TextPillTypeUiArg,
+} from './sub-component/text-pill-field/type'
 
-// CheckboxType
-// ------------------------------------------
+export type TextPillType = { _tag: 'TextPillType'; model: TextPillField.Model }
+export const TextPillTypeEq = EqClass.struct<TextPillType>({
+  _tag: S.Eq,
+  model: TextPillField.ModelEq,
+})
+export type TextPillMsg = TextPillField.Msg
 
-export type CheckboxChoice = [string, boolean]
-export const CheckboxChoiceEq = EqClass.tuple(S.Eq, B.Eq)
+export {
+  CheckboxChoiceEq,
+  type CheckboxChoice,
+  type CheckboxesTypeUiArg,
+} from './sub-component/checkbox-field/type'
 
-export type CheckboxesTypeUiArg = {
-  dispatch: Dispatcher<Msg>
-  fieldKey: string
-  label: string
-  currentValues: CheckboxChoice[]
-  isMarkdown: boolean
-}
-
-export type CheckboxType = {
-  _tag: 'CheckboxType'
-  label: string
-  currentValues: CheckboxChoice[] // Use array of tuple instead of map to maintain the order.
-  validation: (input: CheckboxChoice[]) => Either<string, CheckboxChoice[]>
-  isMarkdown: boolean // Option to render the text with markdown
-  ui?: (arg: CheckboxesTypeUiArg) => JSX.Element
-}
-
+export type CheckboxType = { _tag: 'CheckboxType'; model: CheckboxField.Model }
 export const CheckboxTypeEq = EqClass.struct<CheckboxType>({
   _tag: S.Eq,
-  label: S.Eq,
-  currentValues: A.getEq(CheckboxChoiceEq),
-  validation: { equals: () => true },
-  isMarkdown: { equals: () => true },
-  ui: { equals: () => true },
+  model: CheckboxField.ModelEq,
 })
 
-export type RadioChoice = { key: string; label: string; desc: string }
-export const RadioChoiceEq = EqClass.struct<RadioChoice>({
-  key: S.Eq,
-  label: S.Eq,
-  desc: S.Eq,
-})
+export {
+  RadioChoiceEq,
+  type RadioChoice,
+  type RadiosTypeUiArg,
+} from './sub-component/radio-field/type'
 
-export type RadiosTypeUiArg = {
-  dispatch: Dispatcher<Msg>
-  fieldKey: string
-  label: string
-  choices: RadioChoice[]
-  currentValue: Option<string>
-  isMarkdown: boolean
-}
-
-export type RadioType = {
-  _tag: 'RadioType'
-  label: string
-  choices: RadioChoice[]
-  currentValue: Option<string>
-  isMarkdown: boolean // Option to render the text with markdown
-  ui?: (arg: RadiosTypeUiArg) => JSX.Element
-}
-
+export type RadioType = { _tag: 'RadioType'; model: RadioField.Model }
 export const RadioTypeEq = EqClass.struct<RadioType>({
   _tag: S.Eq,
-  label: S.Eq,
-  choices: A.getEq(RadioChoiceEq),
-  currentValue: O.getEq(S.Eq),
-  isMarkdown: { equals: () => true },
-  ui: { equals: () => true },
+  model: RadioField.ModelEq,
 })
 
-export type DropdownTypeUiArg = {
-  dispatch: Dispatcher<Msg>
-  label: string
-  currentValue: string | null
-  placeholder: string
-  fieldKey: string
-  isFocus: boolean
-  choices: string[]
-  validationResult: Either<string, string | null>
-  validation: (input: string | null) => Either<string, string | null>
-  showValidation: boolean
-}
+export {
+  type DropdownTypeUiArg,
+} from './sub-component/dropdown-field/type'
 
-export type DropdownType = {
-  _tag: 'DropdownType'
-  label: string
-  placeholder: string
-  choices: string[]
-  currentValue: string | null
-  validation: (input: string | null) => Either<string, string | null>
-  showValidation: boolean
-  isFocus: boolean
-  ui?: (arg: DropdownTypeUiArg) => JSX.Element
-}
-
+export type DropdownType = { _tag: 'DropdownType'; model: DropdownField.Model }
 export const DropdownTypeEq = EqClass.struct<DropdownType>({
   _tag: S.Eq,
-  label: { equals: () => true },
-  placeholder: { equals: () => true },
-  choices: A.getEq(S.Eq),
-  currentValue: NullableEq(S.Eq),
-  validation: { equals: () => true },
-  showValidation: { equals: () => true },
-  isFocus: B.Eq,
-  ui: { equals: () => true },
+  model: DropdownField.ModelEq,
 })
 
-export type CalendarTypeUiArg = {
-  dispatch: Dispatcher<Msg>
-  fieldKey: string
-  label: string
-  placeholder: string
-  currentValue: Date | null
-  isFocus: boolean
-  validationResult: Either<string, Date | null>
-  validation: (input: Date | null) => Either<string, Date | null>
-  showValidation: boolean
-}
+export {
+  type CalendarTypeUiArg,
+} from './sub-component/calendar-field/type'
 
-export type CalendarType = {
-  _tag: 'CalendarType'
-  label: string
-  placeholder: string
-  currentValue: Date | null
-  validation: (input: Date | null) => Either<string, Date | null>
-  showValidation: boolean
-  isFocus: boolean
-  ui?: (arg: CalendarTypeUiArg) => JSX.Element
-}
-
+export type CalendarType = { _tag: 'CalendarType'; model: CalendarField.Model }
 export const CalendarTypeEq = EqClass.struct<CalendarType>({
   _tag: S.Eq,
-  label: S.Eq,
-  placeholder: S.Eq,
-  currentValue: NullableEq(D.Eq),
-  validation: { equals: () => true },
-  showValidation: { equals: () => true },
-  isFocus: B.Eq,
-  ui: { equals: () => true },
+  model: CalendarField.ModelEq,
 })
 
-export type FileTypeUiArg = {
-  dispatch: Dispatcher<Msg>
-  fieldKey: string
-  label: string
-  validationResult: Either<string, File[]>
-  isMultiple: boolean
-  isDrag: boolean
-  showValidation: boolean
-}
+export {
+  FileEq,
+  type FileTypeUiArg,
+} from './sub-component/file-field/type'
 
-export type FileType = {
-  _tag: 'FileType'
-  label: string
-  currentValues: File[]
-  isMultiple: boolean
-  showValidation: boolean
-  validation: (input: File[]) => Either<string, File[]>
-  ui?: (arg: FileTypeUiArg) => JSX.Element
-}
-
-export const FileEq: EqClass.Eq<File> = { equals: (a, b) => a.name === b.name }
-
+export type FileType = { _tag: 'FileType'; model: FileField.Model }
 export const FileTypeEq = EqClass.struct<FileType>({
   _tag: S.Eq,
-  label: S.Eq,
-  currentValues: A.getEq(FileEq),
-  isMultiple: { equals: () => true },
-  showValidation: B.Eq,
-  validation: { equals: () => true },
-  ui: { equals: () => true },
+  model: FileField.ModelEq,
 })
 
 export type FormType =
@@ -409,72 +167,43 @@ export const PropEq = EqClass.struct<Props>({
   model: ModelEq,
 })
 
-// Reducer
-
-export type TextPillMsg =
-  | {
-      _tag: 'UpdateTextPill'
-      event: FormEvent<HTMLInputElement | HTMLTextAreaElement>
-    }
-  | {
-      _tag: 'AddPill'
-      value: string
-    }
-  | {
-      _tag: 'RemovePill'
-      index: number
-    }
+// Reducer Msg
 
 export type Msg =
   | {
-      _tag: 'UpdateForm'
+      _tag: 'TextFieldMsg'
       key: string
-      event: FormEvent<HTMLInputElement>
+      subMsg: TextField.Msg
     }
   | {
-      _tag: 'UpdateFormManual'
+      _tag: 'TextPillFieldMsg'
       key: string
-      value: string
-    }
-  | { _tag: 'UpdateCalendar'; key: string; value: Date | null }
-  | {
-      _tag: 'UpdateDropdownType'
-      key: string
-      value: string
-      event?: MouseEvent<HTMLDivElement>
+      subMsg: TextPillField.Msg
     }
   | {
-      _tag: 'ToggleCheckbox'
+      _tag: 'CheckboxFieldMsg'
       key: string
-      checkbox_key: string
-      value: boolean
+      subMsg: CheckboxField.Msg
     }
   | {
-      _tag: 'UpdateRadio'
+      _tag: 'RadioFieldMsg'
       key: string
-      radio_key: string
-      allowUnselected: boolean
+      subMsg: RadioField.Msg
     }
   | {
-      _tag: 'AddFile'
+      _tag: 'DropdownFieldMsg'
       key: string
-      event: FormEvent<HTMLInputElement>
+      subMsg: DropdownField.Msg
     }
   | {
-      _tag: 'RemoveFile'
+      _tag: 'CalendarFieldMsg'
       key: string
-      index: number
-    }
-  | { _tag: 'HandleFocus'; key: string; isFocus: boolean }
-  | {
-      _tag: 'SetRevealPassword'
-      key: string
-      reveal: boolean
-      event: MouseEvent<HTMLElement>
+      subMsg: CalendarField.Msg
     }
   | {
-      _tag: 'HideValidation'
+      _tag: 'FileFieldMsg'
       key: string
+      subMsg: FileField.Msg
     }
   | {
       _tag: 'SetIsDrag'
@@ -492,28 +221,3 @@ export type Msg =
       _tag: 'RemoveFormItem'
       value: string // key
     }
-  | {
-      _tag: 'TextPillMsg'
-      key: string
-      subMsg: TextPillMsg
-    }
-
-// helper types
-
-// export type TextTypeUiArg = {
-//   key: string
-//   label: string
-//   isFocus: boolean
-//   placeholder?: string
-//   currentValue: string
-//   showValidation: boolean
-//   dispatch: Dispatcher<Msg>
-//   validationResult: Either<string, string>
-//   validation: (input: string) => Either<string, string>
-//   variant: TextInputVariant
-//   autocomplete: boolean
-//   isTextarea: boolean
-//   onKeyDown?: (
-//     event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
-//   ) => void
-// }
