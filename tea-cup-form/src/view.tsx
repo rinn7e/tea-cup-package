@@ -21,6 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { Dispatcher, map } from 'tea-cup-fp'
 
+import { type FormType } from './common/type'
 import * as CalendarField from './sub-component/calendar-field'
 import { CalendarFieldMemo } from './sub-component/calendar-field/component'
 import * as CheckboxField from './sub-component/checkbox-field'
@@ -35,17 +36,7 @@ import * as TextField from './sub-component/text-field'
 import { TextFieldMemo } from './sub-component/text-field/component'
 import * as TextPillField from './sub-component/text-pill-field'
 import { TextPillFieldMemo } from './sub-component/text-pill-field/component'
-import { type FormType, type Model, type Msg } from './type'
-
-export {
-  defaultCalendarType,
-  defaultCheckboxType,
-  defaultDropdownType,
-  defaultFileType,
-  defaultRadioType,
-  defaultTextPillType,
-  defaultTextType,
-} from './util/default-config'
+import { type Model, type Msg } from './type'
 
 export { addFiles, toFileArray } from './sub-component/file-field'
 
