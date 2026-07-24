@@ -6,7 +6,7 @@ A modular, type-safe, functional form management library built for React and the
 
 ## Features
 
-- **Sub-Component Architecture**: Form fields are organized as isolated sub-components under distinct namespaces (`Text`, `TextPill`, `Checkbox`, `Radio`, `Dropdown`, `Calendar`, `File`).
+- **Sub-Component Architecture**: Form fields are organized as isolated sub-components under distinct namespaces (`Text`, `TextPill`, `Checkbox`, `Radio`, `Dropdown`, `Calendar`, `File`, `Combobox`).
 - **Type-Safe Functional Model**: State transformations and validations are pure, immutable functions backed by `fp-ts` data structures (`Either`, `Option`, `Map`).
 - **Isolated React Entrypoint**: Logic, types, and reducers are exported from `@rinn7e/tea-cup-form` without forcing React component imports. React view components are cleanly isolated under `@rinn7e/tea-cup-form/component`.
 - **Highly Customizable UI**: Override default view renderers for any form field using `inputUi` props.
@@ -70,7 +70,7 @@ Prefer handling form messages using the `formMsgHandler` pattern with `mapFst` f
 
 ```ts
 import * as Form from '@rinn7e/tea-cup-form'
-import { mapFst } from 'fp-ts/lib/Tuple'
+import { mapFst, mapSnd } from 'fp-ts/lib/Tuple'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
@@ -89,15 +89,14 @@ const preprocessFormMsgHandler =
 export const formMsgHandler =
   (subMsg: Form.Msg) =>
   (model: AppModel): [AppModel, Cmd<AppMsg>] => {
-    const [newModel, cmd] = pipe(
+    return pipe(
       model.form,
       Form.update(subMsg),
       mapFst((newForm) => preprocessFormMsgHandler(newForm)(model)),
+      mapSnd((cmd) =>
+        cmd.map((subMsg) => ({ _tag: 'FormMsg' as const, subMsg })),
+      ),
     )
-    return [
-      newModel,
-      cmd.map((subMsg) => ({ _tag: 'FormMsg' as const, subMsg })),
-    ]
   }
 
 export const update = (msg: AppMsg, model: AppModel): [AppModel, Cmd<AppMsg>] => {
@@ -146,6 +145,7 @@ export const MyFormView = ({ model, dispatch }: Props) => (
 | `Form.Dropdown` | `DropdownType` | `Dropdown.defaultModel()` | Custom dropdown field |
 | `Form.Calendar` | `CalendarType` | `Calendar.defaultModel()` | Date picker calendar field |
 | `Form.File` | `FileType` | `File.defaultModel()` | Drag & drop file upload field |
+| `Form.Combobox` | `ComboboxType` | `Combobox.defaultModel(config)` | Searchable combobox selection field |
 
 ---
 
