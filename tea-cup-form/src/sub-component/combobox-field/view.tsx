@@ -28,7 +28,7 @@ import { errorTooltipContainer } from '../error-tooltip/helper'
 import { IconX, getContainerClasses, getLabelClasses } from '../shared'
 import type { ComboboxTypeUiArg } from './type'
 
-export const defaultComboboxView = <A,>({
+export const defaultComboboxView = <E, A>({
   dispatch,
   key,
   query,
@@ -40,7 +40,7 @@ export const defaultComboboxView = <A,>({
   isFocus,
   validationResult,
   config,
-}: ComboboxTypeUiArg<A>): JSX.Element => {
+}: ComboboxTypeUiArg<E, A>): JSX.Element => {
   const isError = validationResult._tag === 'Left' && showValidation
   const errorMsg = isError ? O.some(validationResult.left) : O.none
   const isLoading = RD.isPending(items)
@@ -101,7 +101,7 @@ export const defaultComboboxView = <A,>({
               selectedItems.length > 0 ? '' : placeholder || `Search...`
             }
             value={query}
-            onInput={(e) =>
+            onChange={(e) =>
               dispatch({
                 _tag: 'SetQuery',
                 value: (e.target as HTMLInputElement).value,

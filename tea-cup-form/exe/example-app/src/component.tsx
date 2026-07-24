@@ -93,6 +93,7 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
 
             {renderField('dropdown')}
             {renderField('calendar')}
+            {renderField('combobox')}
             {renderField('file')}
 
             <button

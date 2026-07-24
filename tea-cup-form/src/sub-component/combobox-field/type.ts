@@ -28,11 +28,12 @@ import * as E from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as N from 'fp-ts/lib/number'
 import * as S from 'fp-ts/lib/string'
+import type { TaskEither } from 'fp-ts/lib/TaskEither'
 import type { JSX, ReactNode } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
-export type Config<A = any> = {
-  handler: (query: string) => any
+export type Config<E, A> = {
+  handler: (query: string) => TaskEither<E, A[]>
   chipView?: (item: A) => ReactNode
   resultView?: (item: A) => ReactNode
   labelText: string
@@ -41,7 +42,7 @@ export type Config<A = any> = {
   getKey: (item: A) => string | number
 }
 
-export type Model<A = any> = {
+export type Model<E, A> = {
   // State
   query: string
   items: RD.RemoteData<string, A[]>
@@ -51,18 +52,18 @@ export type Model<A = any> = {
   isFocus: boolean
 
   // Config
-  config: Config<A>
+  config: Config<E, A>
   label: string
   placeholder: string
   validation: (val: A[]) => Either<string, A[]>
-  ui?: (arg: ComboboxTypeUiArg<A>) => JSX.Element
+  ui?: (arg: ComboboxTypeUiArg<E, A>) => JSX.Element
 }
 
-export const defaultModel = <A = any>(
-  config: Config<A>,
+export const defaultModel = <E, A>(
+  config: Config<E, A>,
   selectedItems: A[] = [],
-  inputUi?: (arg: ComboboxTypeUiArg<A>) => JSX.Element,
-): Model<A> => ({
+  inputUi?: (arg: ComboboxTypeUiArg<E, A>) => JSX.Element,
+): Model<E, A> => ({
   // State
   query: '',
   items: RD.initial,
@@ -79,8 +80,10 @@ export const defaultModel = <A = any>(
   ui: inputUi,
 })
 
-export const ModelEq = <A>(itemEq: EqClass.Eq<A>): EqClass.Eq<Model<A>> =>
-  EqClass.struct<Model<A>>({
+export const ModelEq = <E, A>(
+  itemEq: EqClass.Eq<A>,
+): EqClass.Eq<Model<E, A>> =>
+  EqClass.struct<Model<E, A>>({
     // State
     query: S.Eq,
     items: RD.getEq(S.Eq, A.getEq(itemEq)),
@@ -97,7 +100,7 @@ export const ModelEq = <A>(itemEq: EqClass.Eq<A>): EqClass.Eq<Model<A>> =>
     ui: EqAlways,
   })
 
-export type Msg<A = any> =
+export type Msg<A> =
   | { _tag: 'SetQuery'; value: string }
   | { _tag: 'SetItems'; value: RD.RemoteData<string, A[]>; timerId: number }
   | { _tag: 'SetSelectedItems'; items: A[] }
@@ -107,7 +110,7 @@ export type Msg<A = any> =
   | { _tag: 'HandleFocus'; isFocus: boolean }
   | { _tag: 'HideValidation' }
 
-export type ComboboxTypeUiArg<A = any> = {
+export type ComboboxTypeUiArg<E, A> = {
   dispatch: Dispatcher<Msg<A>>
   key: string
   query: string
@@ -118,18 +121,20 @@ export type ComboboxTypeUiArg<A = any> = {
   showValidation: boolean
   isFocus: boolean
   validationResult: Either<string, A[]>
-  config: Config<A>
+  config: Config<E, A>
 }
 
-export type Props<A = any> = {
+export type Props<E, A> = {
   fieldKey: string
-  model: Model<A>
+  model: Model<E, A>
   dispatch: Dispatcher<Msg<A>>
 }
 
-export const PropsEq = <A>(itemEq: EqClass.Eq<A>): EqClass.Eq<Props<A>> =>
-  EqClass.struct<Props<A>>({
+export const PropsEq = <E, A>(
+  itemEq: EqClass.Eq<A>,
+): EqClass.Eq<Props<E, A>> =>
+  EqClass.struct<Props<E, A>>({
     fieldKey: S.Eq,
-    model: ModelEq(itemEq),
+    model: ModelEq<E, A>(itemEq),
     dispatch: EqAlways,
   })

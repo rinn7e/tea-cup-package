@@ -6,6 +6,7 @@ import {
   showAllValidation,
   valueCalendarType,
   valueCheckboxType,
+  valueComboboxType,
   valueDropdownType,
   valueFileType,
   valuePillTextType,
@@ -18,6 +19,7 @@ import { mapFst } from 'fp-ts/lib/Tuple'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
+import { MockUser, mockUserSearchHandler } from './mock/user'
 import { Model, Msg } from './type'
 
 const preprocessFormMsgHandler =
@@ -47,6 +49,14 @@ export const formMsgHandler =
   }
 
 export const init = (): [Model, Cmd<Msg>] => {
+  const userComboboxConfig = {
+    handler: mockUserSearchHandler,
+    labelText: 'Assigned Users',
+    notFoundText: 'No matching users found',
+    itemEq: { equals: (a: MockUser, b: MockUser) => a.id === b.id },
+    getKey: (item: MockUser) => item.id,
+  }
+
   const forms: Form.Forms = new Map<string, Form.FormType>([
     [
       'text',
@@ -125,6 +135,13 @@ export const init = (): [Model, Cmd<Msg>] => {
       },
     ],
     [
+      'combobox',
+      {
+        _tag: 'ComboboxType',
+        model: Form.Combobox.defaultModel(userComboboxConfig),
+      },
+    ],
+    [
       'file',
       {
         _tag: 'FileType',
@@ -191,6 +208,9 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
         radio: pipe(valueRadioType(lookupForm('radio', f)), O.toUndefined),
         dropdown: valueDropdownType(lookupForm('dropdown', f)),
         calendar: valueCalendarType(lookupForm('calendar', f))?.toISOString(),
+        combobox: valueComboboxType<MockUser>(lookupForm('combobox', f)).map(
+          (u) => u.name,
+        ),
         files: valueFileType(lookupForm('file', f)).map((f) => f.name),
       }
       return [
