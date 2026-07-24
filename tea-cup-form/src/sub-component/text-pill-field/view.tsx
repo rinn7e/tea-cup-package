@@ -25,7 +25,7 @@ import { pipe } from 'fp-ts/lib/function'
 import type { JSX } from 'react'
 
 import { autocompleteToString } from '../../common/type'
-import { errorTooltipContainer } from '../../error-tooltip/helper'
+import { errorTooltipContainer } from '../error-tooltip/helper'
 import {
   getContainerClasses,
   getLabelClasses,
