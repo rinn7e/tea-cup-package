@@ -59,34 +59,43 @@ export type CalendarTypeUiArg = {
 
 /** Internal model state for CalendarField */
 export type Model = {
-  label: string
-  placeholder: string
+  // State
   currentValue: Date | null
-  validation: (input: Date | null) => Either<string, Date | null>
   showValidation: boolean
   isFocus: boolean
+
+  // Config
+  label: string
+  placeholder: string
+  validation: (input: Date | null) => Either<string, Date | null>
   ui?: (arg: CalendarTypeUiArg) => JSX.Element
 }
 
 export const defaultModel = (
   inputUi?: (arg: CalendarTypeUiArg) => JSX.Element,
 ): Model => ({
-  label: 'Birthday',
-  placeholder: 'Select date',
+  // State
   currentValue: null,
-  validation: (val) => E.right(val),
   showValidation: false,
   isFocus: false,
+
+  // Config
+  label: 'Birthday',
+  placeholder: 'Select date',
+  validation: (val) => E.right(val),
   ui: inputUi ? inputUi : undefined,
 })
 
 export const ModelEq = EqClass.struct<Model>({
-  label: S.Eq,
-  placeholder: S.Eq,
+  // State
   currentValue: NullableEq(D.Eq),
-  validation: { equals: () => true },
   showValidation: B.Eq,
   isFocus: B.Eq,
+
+  // Config
+  label: S.Eq,
+  placeholder: S.Eq,
+  validation: { equals: () => true },
   ui: { equals: () => true },
 })
 

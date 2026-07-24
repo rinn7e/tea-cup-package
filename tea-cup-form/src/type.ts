@@ -27,6 +27,7 @@ import { Dispatcher } from 'tea-cup-fp'
 import { FormType, Forms, FormsEq } from './common/type'
 import type * as CalendarField from './sub-component/calendar-field/type'
 import type * as CheckboxField from './sub-component/checkbox-field/type'
+import type * as ComboboxField from './sub-component/combobox-field/type'
 import type * as DropdownField from './sub-component/dropdown-field/type'
 import type * as FileField from './sub-component/file-field/type'
 import type * as RadioField from './sub-component/radio-field/type'
@@ -93,6 +94,11 @@ export type Msg =
       _tag: 'FileFieldMsg'
       key: string
       subMsg: FileField.Msg
+    }
+  | {
+      _tag: 'ComboboxFieldMsg'
+      key: string
+      subMsg: ComboboxField.Msg
     }
   | {
       _tag: 'SetIsDrag'

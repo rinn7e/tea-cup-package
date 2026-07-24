@@ -56,10 +56,13 @@ export type FileTypeUiArg = {
 
 /** Internal model state for FileField */
 export type Model = {
-  label: string
+  // State
   currentValues: File[]
-  isMultiple: boolean
   showValidation: boolean
+
+  // Config
+  label: string
+  isMultiple: boolean
   validation: (input: File[]) => Either<string, File[]>
   ui?: (arg: FileTypeUiArg) => JSX.Element
 }
@@ -67,10 +70,13 @@ export type Model = {
 export const defaultModel = (
   inputUi?: (arg: FileTypeUiArg) => JSX.Element,
 ): Model => ({
-  label: 'File Upload',
+  // State
   currentValues: [],
-  isMultiple: true,
   showValidation: false,
+
+  // Config
+  label: 'File Upload',
+  isMultiple: true,
   validation: (val) => E.right(val),
   ui: inputUi ? inputUi : undefined,
 })
@@ -78,10 +84,13 @@ export const defaultModel = (
 export const FileEq: EqClass.Eq<File> = { equals: (a, b) => a.name === b.name }
 
 export const ModelEq = EqClass.struct<Model>({
-  label: S.Eq,
+  // State
   currentValues: A.getEq(FileEq),
-  isMultiple: { equals: () => true },
   showValidation: B.Eq,
+
+  // Config
+  label: S.Eq,
+  isMultiple: { equals: () => true },
   validation: { equals: () => true },
   ui: { equals: () => true },
 })

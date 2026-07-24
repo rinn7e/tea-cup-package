@@ -227,6 +227,8 @@ export const notTheSameExtraValidation =
               throw new Error(
                 'FileType not support `notTheSameExtraValidation`.',
               )
+            case 'ComboboxType':
+              return JSON.stringify(val.model.selectedItems)
           }
         }),
       )
@@ -268,6 +270,9 @@ export const runValidationForAll = (
         }
         case 'FileType': {
           return val.model.validation(val.model.currentValues)._tag === 'Right'
+        }
+        case 'ComboboxType': {
+          return val.model.validation(val.model.selectedItems)._tag === 'Right'
         }
         default:
           return true
@@ -330,5 +335,7 @@ export const runValidation = (formType: FormType) => {
       return E.right(formType.model.currentValue)
     case 'FileType':
       return formType.model.validation(formType.model.currentValues)
+    case 'ComboboxType':
+      return formType.model.validation(formType.model.selectedItems)
   }
 }

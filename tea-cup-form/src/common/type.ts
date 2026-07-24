@@ -28,6 +28,7 @@ import * as S from 'fp-ts/lib/string'
 
 import * as CalendarField from '../sub-component/calendar-field/type'
 import * as CheckboxField from '../sub-component/checkbox-field/type'
+import * as ComboboxField from '../sub-component/combobox-field/type'
 import * as DropdownField from '../sub-component/dropdown-field/type'
 import * as FileField from '../sub-component/file-field/type'
 import * as RadioField from '../sub-component/radio-field/type'
@@ -115,6 +116,17 @@ export const FileTypeEq = EqClass.struct<FileType>({
   model: FileField.ModelEq,
 })
 
+export {
+  type ComboboxTypeUiArg,
+} from '../sub-component/combobox-field/type'
+
+export type ComboboxType<A = any> = { _tag: 'ComboboxType'; model: ComboboxField.Model<A> }
+export const ComboboxTypeEq = <A>(itemEq: EqClass.Eq<A>): EqClass.Eq<ComboboxType<A>> =>
+  EqClass.struct<ComboboxType<A>>({
+    _tag: S.Eq,
+    model: ComboboxField.ModelEq(itemEq),
+  })
+
 export type FormType =
   | TextType
   | TextPillType
@@ -123,6 +135,7 @@ export type FormType =
   | DropdownType
   | CalendarType
   | FileType
+  | ComboboxType
 
 export const FormTypeEq: EqClass.Eq<FormType> = {
   equals: (x, y) => {
@@ -140,6 +153,8 @@ export const FormTypeEq: EqClass.Eq<FormType> = {
       return CalendarTypeEq.equals(x, y)
     else if (x._tag === 'FileType' && y._tag === 'FileType')
       return FileTypeEq.equals(x, y)
+    else if (x._tag === 'ComboboxType' && y._tag === 'ComboboxType')
+      return ComboboxTypeEq(x.model.config.itemEq).equals(x, y)
     else return false
   },
 }
@@ -296,6 +311,20 @@ export const valueRadioType = (formType: FormType): O.Option<string> => {
     default:
       throw new Error(
         `valueRadioType: Expect RadioType but got ${formType._tag} instead.`,
+      )
+  }
+}
+
+/**
+ * Extract the current selected items from a `ComboboxType`, throw error if it is not.
+ */
+export const valueComboboxType = <A = any>(formType: FormType): A[] => {
+  switch (formType._tag) {
+    case 'ComboboxType':
+      return formType.model.selectedItems
+    default:
+      throw new Error(
+        `valueComboboxType: Expect ComboboxType but got ${formType._tag} instead.`,
       )
   }
 }

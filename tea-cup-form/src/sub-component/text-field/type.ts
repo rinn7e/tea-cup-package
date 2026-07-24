@@ -111,9 +111,15 @@ export type Msg =
 
 /** Internal model state for TextField */
 export type Model = {
-  placeholder: string
-  label: string
+  // State
   currentValue: string
+  showValidation: boolean
+  isFocus: boolean
+  variant: TextInputVariant
+
+  // Config
+  label: string
+  placeholder: string
   validation: (input: string) => Either<string, string>
   linkValidations: {
     linkKey: string
@@ -122,11 +128,8 @@ export type Model = {
       linkInput: string,
     ) => Either<string, string>
   }[]
-  showValidation: boolean
   isTextarea: boolean
-  variant: TextInputVariant
   autocomplete: boolean
-  isFocus: boolean
   onKeyDown?: (
     event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void
@@ -136,30 +139,36 @@ export type Model = {
 export const defaultModel = (
   inputUi?: (props: TextTypeUiArg<Msg>) => JSX.Element,
 ): Model => ({
-  placeholder: 'Username',
-  label: 'Username',
+  // State
   currentValue: '',
-  validation: (val) => E.right(val),
-  linkValidations: [],
   showValidation: false,
-  isTextarea: false,
   isFocus: false,
   variant: { _tag: 'Text' },
+
+  // Config
+  label: 'Username',
+  placeholder: 'Username',
+  validation: (val) => E.right(val),
+  linkValidations: [],
+  isTextarea: false,
   autocomplete: false,
   ui: inputUi ? inputUi : undefined,
 })
 
 export const ModelEq = EqClass.struct<Model>({
-  placeholder: S.Eq,
-  label: S.Eq,
+  // State
   currentValue: S.Eq,
+  showValidation: B.Eq,
+  isFocus: B.Eq,
+  variant: TextInputVariantEq,
+
+  // Config
+  label: S.Eq,
+  placeholder: S.Eq,
   validation: { equals: () => true },
   linkValidations: { equals: () => true },
-  showValidation: B.Eq,
   isTextarea: B.Eq,
-  variant: TextInputVariantEq,
   autocomplete: B.Eq,
-  isFocus: B.Eq,
   onKeyDown: { equals: () => true },
   ui: { equals: () => true },
 })

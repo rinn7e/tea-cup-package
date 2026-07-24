@@ -30,6 +30,8 @@ import * as CalendarField from './sub-component/calendar-field'
 import { CalendarFieldMemo } from './sub-component/calendar-field/component'
 import * as CheckboxField from './sub-component/checkbox-field'
 import { CheckboxFieldMemo } from './sub-component/checkbox-field/component'
+import * as ComboboxField from './sub-component/combobox-field'
+import { ComboboxFieldMemo } from './sub-component/combobox-field/component'
 import * as DropdownField from './sub-component/dropdown-field'
 import { DropdownFieldMemo } from './sub-component/dropdown-field/component'
 import * as FileField from './sub-component/file-field'
@@ -163,6 +165,22 @@ const formView = (
               }) satisfies Msg,
           )}
           isDrag={model.isDrag}
+        />
+      )
+    case 'ComboboxType':
+      return (
+        <ComboboxFieldMemo
+          fieldKey={key}
+          model={val.model}
+          dispatch={map(
+            dispatch,
+            (subMsg: ComboboxField.Msg) =>
+              ({
+                _tag: 'ComboboxFieldMsg',
+                key,
+                subMsg,
+              }) satisfies Msg,
+          )}
         />
       )
     default:
