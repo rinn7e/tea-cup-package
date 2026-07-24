@@ -21,21 +21,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as A from 'fp-ts/lib/Array'
 import { pipe } from 'fp-ts/lib/function'
+import { Cmd } from 'tea-cup-fp'
 
 import type { CheckboxChoice, Model, Msg } from './type'
 
-export const update = (msg: Msg, field: Model): Model => {
+export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'ToggleCheckbox':
-      return {
-        ...field,
-        currentValues: pipe(
-          field.currentValues,
-          A.map(([key, val]): CheckboxChoice => [
-            key,
-            key === msg.checkboxKey ? msg.value : val,
-          ]),
-        ),
-      }
+      return [
+        {
+          ...field,
+          currentValues: pipe(
+            field.currentValues,
+            A.map(([key, val]): CheckboxChoice => [
+              key,
+              key === msg.checkboxKey ? msg.value : val,
+            ]),
+          ),
+        },
+        Cmd.none(),
+      ]
   }
 }

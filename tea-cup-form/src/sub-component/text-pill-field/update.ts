@@ -21,42 +21,58 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as A from 'fp-ts/lib/Array'
 import { pipe } from 'fp-ts/lib/function'
+import { Cmd } from 'tea-cup-fp'
 
 import type { Model, Msg } from './type'
 
-export const update = (msg: Msg, field: Model): Model => {
+export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'UpdateTextPill':
-      return {
-        ...field,
-        currentValue: msg.event.currentTarget.value,
-        showValidation: true,
-      }
+      return [
+        {
+          ...field,
+          currentValue: msg.event.currentTarget.value,
+          showValidation: true,
+        },
+        Cmd.none(),
+      ]
     case 'AddPill':
-      return {
-        ...field,
-        allValues: field.allValues.concat(msg.value),
-        currentValue: '',
-        showValidation: true,
-      }
+      return [
+        {
+          ...field,
+          allValues: field.allValues.concat(msg.value),
+          currentValue: '',
+          showValidation: true,
+        },
+        Cmd.none(),
+      ]
     case 'RemovePill': {
       const result = pipe(field.allValues, A.deleteAt(msg.index))
-      return {
-        ...field,
-        allValues: result._tag === 'Some' ? result.value : field.allValues,
-        showValidation: true,
-      }
+      return [
+        {
+          ...field,
+          allValues: result._tag === 'Some' ? result.value : field.allValues,
+          showValidation: true,
+        },
+        Cmd.none(),
+      ]
     }
     case 'HandleFocus':
-      return {
-        ...field,
-        isFocus: msg.isFocus,
-        showValidation: !msg.isFocus ? true : field.showValidation,
-      }
+      return [
+        {
+          ...field,
+          isFocus: msg.isFocus,
+          showValidation: !msg.isFocus ? true : field.showValidation,
+        },
+        Cmd.none(),
+      ]
     case 'HideValidation':
-      return {
-        ...field,
-        showValidation: false,
-      }
+      return [
+        {
+          ...field,
+          showValidation: false,
+        },
+        Cmd.none(),
+      ]
   }
 }

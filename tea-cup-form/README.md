@@ -31,6 +31,7 @@ Initialize form item models inlining sub-component `defaultModel()` constructors
 ```ts
 import * as Form from '@rinn7e/tea-cup-form'
 import * as E from 'fp-ts/lib/Either'
+import { Cmd } from 'tea-cup-fp'
 
 const forms: Form.Forms = new Map<string, Form.FormType>([
   [
@@ -60,18 +61,51 @@ const forms: Form.Forms = new Map<string, Form.FormType>([
   ],
 ])
 
-const initialModel = Form.init(forms)
+const [formModel, formCmd] = Form.init(forms)
 ```
 
 ### 2. Handle Reducer Messages
 
-In your update function:
+Prefer handling form messages using the `formMsgHandler` pattern with `mapFst` from `fp-ts/lib/Tuple`:
 
 ```ts
 import * as Form from '@rinn7e/tea-cup-form'
+import { mapFst } from 'fp-ts/lib/Tuple'
+import { pipe } from 'fp-ts/lib/function'
+import { Cmd } from 'tea-cup-fp'
 
-export const update = (msg: Form.Msg, model: Form.Model): Form.Model => {
-  return Form.update(msg)(model)
+const preprocessFormMsgHandler =
+  (newForm: Form.Model) =>
+  (model: AppModel): AppModel => {
+    const isFormValid =
+      Form.runValidationForAll(newForm.forms, Form.noExtraValidation)._tag === 'Right'
+    return {
+      ...model,
+      form: newForm,
+      isFormValid,
+    }
+  }
+
+export const formMsgHandler =
+  (subMsg: Form.Msg) =>
+  (model: AppModel): [AppModel, Cmd<AppMsg>] => {
+    const [newModel, cmd] = pipe(
+      model.form,
+      Form.update(subMsg),
+      mapFst((newForm) => preprocessFormMsgHandler(newForm)(model)),
+    )
+    return [
+      newModel,
+      cmd.map((subMsg) => ({ _tag: 'FormMsg' as const, subMsg })),
+    ]
+  }
+
+export const update = (msg: AppMsg, model: AppModel): [AppModel, Cmd<AppMsg>] => {
+  switch (msg._tag) {
+    case 'FormMsg': {
+      return formMsgHandler(msg.subMsg)(model)
+    }
+  }
 }
 ```
 

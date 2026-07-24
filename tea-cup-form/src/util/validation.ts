@@ -34,7 +34,7 @@ import {
   type Forms,
   type TextType,
 } from '../common/type'
-import { and, or } from './common'
+import { and, or } from '@rinn7e/tea-cup-prelude'
 
 // Validator
 

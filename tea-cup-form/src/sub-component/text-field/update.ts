@@ -20,44 +20,61 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 
+import { Cmd } from 'tea-cup-fp'
+
 import type { Model, Msg } from './type'
 
-export const update = (msg: Msg, field: Model): Model => {
+export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'UpdateValue':
-      return {
-        ...field,
-        currentValue: msg.value,
-        showValidation: true,
-      }
+      return [
+        {
+          ...field,
+          currentValue: msg.value,
+          showValidation: true,
+        },
+        Cmd.none(),
+      ]
     case 'UpdateEvent':
       if (msg.event && msg.event.target) {
-        return {
-          ...field,
-          currentValue: (msg.event.target as HTMLInputElement).value,
-          showValidation: true,
-        }
+        return [
+          {
+            ...field,
+            currentValue: (msg.event.target as HTMLInputElement).value,
+            showValidation: true,
+          },
+          Cmd.none(),
+        ]
       }
-      return field
+      return [field, Cmd.none()]
     case 'SetRevealPassword':
       msg.event.preventDefault()
       if (field.variant._tag === 'Password') {
-        return {
-          ...field,
-          variant: { _tag: 'Password', reveal: msg.reveal },
-        }
+        return [
+          {
+            ...field,
+            variant: { _tag: 'Password', reveal: msg.reveal },
+          },
+          Cmd.none(),
+        ]
       }
-      return field
+      return [field, Cmd.none()]
     case 'HandleFocus':
-      return {
-        ...field,
-        isFocus: msg.isFocus,
-        showValidation: !msg.isFocus ? true : field.showValidation,
-      }
+      return [
+        {
+          ...field,
+          isFocus: msg.isFocus,
+          showValidation: !msg.isFocus ? true : field.showValidation,
+        },
+        Cmd.none(),
+      ]
     case 'HideValidation':
-      return {
-        ...field,
-        showValidation: false,
-      }
+      return [
+        {
+          ...field,
+          showValidation: false,
+        },
+        Cmd.none(),
+      ]
   }
 }

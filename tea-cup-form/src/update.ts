@@ -22,6 +22,7 @@ SOFTWARE. */
 import * as M from 'fp-ts/lib/Map'
 import { pipe } from 'fp-ts/lib/function'
 import * as S from 'fp-ts/lib/string'
+import { Cmd } from 'tea-cup-fp'
 
 import { type FormType, type Forms } from './common/type'
 import * as CalendarField from './sub-component/calendar-field'
@@ -32,136 +33,217 @@ import * as RadioField from './sub-component/radio-field'
 import * as TextField from './sub-component/text-field'
 import * as TextPillField from './sub-component/text-pill-field'
 import { type Model, type Msg } from './type'
-import { modifyAtIfExist } from './util/common'
 
-export const init = (initialForms: Forms): Model => ({
-  forms: initialForms,
-  isDrag: false,
-})
+const updateFormItem = (
+  key: string,
+  f: (form: FormType) => [FormType, Cmd<Msg>] | null,
+  forms: Forms,
+): [Forms, Cmd<Msg>] => {
+  const result = M.lookup(S.Ord)(key)(forms)
+  if (result._tag === 'Some') {
+    const res = f(result.value)
+    if (res !== null) {
+      const [newForm, cmd] = res
+      return [pipe(forms, M.upsertAt(S.Eq)(key, newForm)), cmd]
+    }
+  }
+  return [forms, Cmd.none()]
+}
+
+export const init = (initialForms: Forms): [Model, Cmd<Msg>] => [
+  {
+    forms: initialForms,
+    isDrag: false,
+  },
+  Cmd.none(),
+]
 
 export const update =
   (msg: Msg) =>
-  (model: Model): Model => {
+  (model: Model): [Model, Cmd<Msg>] => {
     switch (msg._tag) {
       case 'TextFieldMsg': {
-        const newForms = pipe(
-          model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
+        const [newForms, cmd] = updateFormItem(
+          msg.key,
+          (form) => {
             if (form._tag === 'TextType') {
-              return {
-                _tag: 'TextType',
-                model: TextField.update(msg.subMsg, form.model),
-              }
+              const [updatedModel, subCmd] = TextField.update(
+                msg.subMsg,
+                form.model,
+              )
+              return [
+                { _tag: 'TextType', model: updatedModel },
+                subCmd.map((subMsg) => ({
+                  _tag: 'TextFieldMsg',
+                  key: msg.key,
+                  subMsg,
+                })),
+              ]
             }
-            return form
-          }),
+            return null
+          },
+          model.forms,
         )
-        return { ...model, forms: newForms }
+        return [{ ...model, forms: newForms }, cmd]
       }
       case 'TextPillFieldMsg': {
-        const newForms = pipe(
-          model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
+        const [newForms, cmd] = updateFormItem(
+          msg.key,
+          (form) => {
             if (form._tag === 'TextPillType') {
-              return {
-                _tag: 'TextPillType',
-                model: TextPillField.update(msg.subMsg, form.model),
-              }
+              const [updatedModel, subCmd] = TextPillField.update(
+                msg.subMsg,
+                form.model,
+              )
+              return [
+                { _tag: 'TextPillType', model: updatedModel },
+                subCmd.map((subMsg) => ({
+                  _tag: 'TextPillFieldMsg',
+                  key: msg.key,
+                  subMsg,
+                })),
+              ]
             }
-            return form
-          }),
+            return null
+          },
+          model.forms,
         )
-        return { ...model, forms: newForms }
+        return [{ ...model, forms: newForms }, cmd]
       }
       case 'CheckboxFieldMsg': {
-        const newForms = pipe(
-          model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
+        const [newForms, cmd] = updateFormItem(
+          msg.key,
+          (form) => {
             if (form._tag === 'CheckboxType') {
-              return {
-                _tag: 'CheckboxType',
-                model: CheckboxField.update(msg.subMsg, form.model),
-              }
+              const [updatedModel, subCmd] = CheckboxField.update(
+                msg.subMsg,
+                form.model,
+              )
+              return [
+                { _tag: 'CheckboxType', model: updatedModel },
+                subCmd.map((subMsg) => ({
+                  _tag: 'CheckboxFieldMsg',
+                  key: msg.key,
+                  subMsg,
+                })),
+              ]
             }
-            return form
-          }),
+            return null
+          },
+          model.forms,
         )
-        return { ...model, forms: newForms }
+        return [{ ...model, forms: newForms }, cmd]
       }
       case 'RadioFieldMsg': {
-        const newForms = pipe(
-          model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
+        const [newForms, cmd] = updateFormItem(
+          msg.key,
+          (form) => {
             if (form._tag === 'RadioType') {
-              return {
-                _tag: 'RadioType',
-                model: RadioField.update(msg.subMsg, form.model),
-              }
+              const [updatedModel, subCmd] = RadioField.update(
+                msg.subMsg,
+                form.model,
+              )
+              return [
+                { _tag: 'RadioType', model: updatedModel },
+                subCmd.map((subMsg) => ({
+                  _tag: 'RadioFieldMsg',
+                  key: msg.key,
+                  subMsg,
+                })),
+              ]
             }
-            return form
-          }),
+            return null
+          },
+          model.forms,
         )
-        return { ...model, forms: newForms }
+        return [{ ...model, forms: newForms }, cmd]
       }
       case 'DropdownFieldMsg': {
-        const newForms = pipe(
-          model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
+        const [newForms, cmd] = updateFormItem(
+          msg.key,
+          (form) => {
             if (form._tag === 'DropdownType') {
-              return {
-                _tag: 'DropdownType',
-                model: DropdownField.update(msg.subMsg, form.model),
-              }
+              const [updatedModel, subCmd] = DropdownField.update(
+                msg.subMsg,
+                form.model,
+              )
+              return [
+                { _tag: 'DropdownType', model: updatedModel },
+                subCmd.map((subMsg) => ({
+                  _tag: 'DropdownFieldMsg',
+                  key: msg.key,
+                  subMsg,
+                })),
+              ]
             }
-            return form
-          }),
+            return null
+          },
+          model.forms,
         )
-        return { ...model, forms: newForms }
+        return [{ ...model, forms: newForms }, cmd]
       }
       case 'CalendarFieldMsg': {
-        const newForms = pipe(
-          model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
+        const [newForms, cmd] = updateFormItem(
+          msg.key,
+          (form) => {
             if (form._tag === 'CalendarType') {
-              return {
-                _tag: 'CalendarType',
-                model: CalendarField.update(msg.subMsg, form.model),
-              }
+              const [updatedModel, subCmd] = CalendarField.update(
+                msg.subMsg,
+                form.model,
+              )
+              return [
+                { _tag: 'CalendarType', model: updatedModel },
+                subCmd.map((subMsg) => ({
+                  _tag: 'CalendarFieldMsg',
+                  key: msg.key,
+                  subMsg,
+                })),
+              ]
             }
-            return form
-          }),
+            return null
+          },
+          model.forms,
         )
-        return { ...model, forms: newForms }
+        return [{ ...model, forms: newForms }, cmd]
       }
       case 'FileFieldMsg': {
-        const newForms = pipe(
-          model.forms,
-          modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
+        const [newForms, cmd] = updateFormItem(
+          msg.key,
+          (form) => {
             if (form._tag === 'FileType') {
-              return {
-                _tag: 'FileType',
-                model: FileField.update(msg.subMsg, form.model),
-              }
+              const [updatedModel, subCmd] = FileField.update(
+                msg.subMsg,
+                form.model,
+              )
+              return [
+                { _tag: 'FileType', model: updatedModel },
+                subCmd.map((subMsg) => ({
+                  _tag: 'FileFieldMsg',
+                  key: msg.key,
+                  subMsg,
+                })),
+              ]
             }
-            return form
-          }),
+            return null
+          },
+          model.forms,
         )
-        return { ...model, forms: newForms }
+        return [{ ...model, forms: newForms }, cmd]
       }
       case 'SetIsDrag': {
-        return { forms: model.forms, isDrag: msg.status }
+        return [{ forms: model.forms, isDrag: msg.status }, Cmd.none()]
       }
       case 'ResetForm': {
-        return { forms: msg.value, isDrag: false }
+        return [{ forms: msg.value, isDrag: false }, Cmd.none()]
       }
       case 'AddFormItem': {
         const [key, formItem] = msg.value
         const newForms = pipe(model.forms, M.upsertAt(S.Eq)(key, formItem))
-        return { ...model, forms: newForms }
+        return [{ ...model, forms: newForms }, Cmd.none()]
       }
       case 'RemoveFormItem': {
         const newForms = pipe(model.forms, M.deleteAt(S.Eq)(msg.value))
-        return { ...model, forms: newForms }
+        return [{ ...model, forms: newForms }, Cmd.none()]
       }
     }
   }

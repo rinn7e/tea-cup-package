@@ -33,7 +33,7 @@ import * as FileField from '../sub-component/file-field/type'
 import * as RadioField from '../sub-component/radio-field/type'
 import * as TextField from '../sub-component/text-field/type'
 import * as TextPillField from '../sub-component/text-pill-field/type'
-import { modifyAtIfExist } from '../util/common'
+import { MapExtra } from '@rinn7e/tea-cup-prelude'
 
 export {
   autocompleteToString,
@@ -307,7 +307,7 @@ export const unsafeModifyFormValue =
   (key: string, newVal: string) => (formEls: Forms) => {
     return pipe(
       formEls,
-      modifyAtIfExist(S.Eq)(key, (val) => {
+      MapExtra.modifyAtIfExist(S.Eq)(key, (val) => {
         switch (val._tag) {
           case 'TextType':
           case 'TextPillType':

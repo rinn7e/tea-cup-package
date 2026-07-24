@@ -22,9 +22,10 @@ SOFTWARE. */
 import * as A from 'fp-ts/lib/Array'
 import * as S from 'fp-ts/lib/string'
 import { pipe } from 'fp-ts/lib/function'
+import { Cmd } from 'tea-cup-fp'
 
 import type { FormType, Forms } from '../../common/type'
-import { exec, modifyAtIfExist } from '../../util/common'
+import { MapExtra, exec } from '@rinn7e/tea-cup-prelude'
 import type { Model, Msg } from './type'
 
 // Helper convert `FileList` to array.
@@ -46,7 +47,7 @@ export const addFiles = (
     if (files) {
       return pipe(
         model.forms,
-        modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
+        MapExtra.modifyAtIfExist(S.Eq)(msg.key, (form): FormType => {
           if (form._tag === 'FileType') {
             return {
               _tag: 'FileType',
@@ -68,32 +69,41 @@ export const addFiles = (
   return { ...model, forms: newForm }
 }
 
-export const update = (msg: Msg, field: Model): Model => {
+export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'AddFile': {
       msg.event.preventDefault()
       const files = (msg.event.target as HTMLInputElement).files
       if (files) {
-        return {
-          ...field,
-          currentValues: field.currentValues.concat(toFileArray(files)),
-          showValidation: true,
-        }
+        return [
+          {
+            ...field,
+            currentValues: field.currentValues.concat(toFileArray(files)),
+            showValidation: true,
+          },
+          Cmd.none(),
+        ]
       }
-      return field
+      return [field, Cmd.none()]
     }
     case 'RemoveFile': {
       const result = pipe(field.currentValues, A.deleteAt(msg.index))
-      return {
-        ...field,
-        currentValues: result._tag === 'Some' ? result.value : field.currentValues,
-        showValidation: true,
-      }
+      return [
+        {
+          ...field,
+          currentValues: result._tag === 'Some' ? result.value : field.currentValues,
+          showValidation: true,
+        },
+        Cmd.none(),
+      ]
     }
     case 'HideValidation':
-      return {
-        ...field,
-        showValidation: false,
-      }
+      return [
+        {
+          ...field,
+          showValidation: false,
+        },
+        Cmd.none(),
+      ]
   }
 }
