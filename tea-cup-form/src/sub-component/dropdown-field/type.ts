@@ -29,6 +29,7 @@ import { Dispatcher } from 'tea-cup-fp'
 
 import { NullableEq } from '../../util/common'
 
+/** Reducer messages for DropdownField sub-component */
 export type Msg =
   | {
       _tag: 'UpdateDropdownType'
@@ -43,6 +44,7 @@ export type Msg =
       _tag: 'HideValidation'
     }
 
+/** Properties passed to custom UI renderer for DropdownField */
 export type DropdownTypeUiArg = {
   dispatch: Dispatcher<Msg>
   label: string
@@ -56,6 +58,7 @@ export type DropdownTypeUiArg = {
   showValidation: boolean
 }
 
+/** Internal model state for DropdownField */
 export type Model = {
   label: string
   placeholder: string
@@ -78,6 +81,7 @@ export const ModelEq = EqClass.struct<Model>({
   ui: { equals: () => true },
 })
 
+/** Component props for DropdownField */
 export type Props = {
   fieldKey: string
   model: Model

@@ -27,6 +27,7 @@ import * as S from 'fp-ts/lib/string'
 import { type JSX } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
+/** Reducer messages for CheckboxField sub-component */
 export type Msg =
   | {
       _tag: 'ToggleCheckbox'
@@ -34,9 +35,19 @@ export type Msg =
       value: boolean
     }
 
+/** Choice tuple representing [key, isChecked] */
 export type CheckboxChoice = [string, boolean]
 export const CheckboxChoiceEq = EqClass.tuple(S.Eq, B.Eq)
 
+/** Properties passed to custom UI renderer for an individual checkbox item */
+export type CheckboxTypeUiArg = {
+  dispatch: Dispatcher<Msg>
+  fieldKey: string
+  checkboxChoice: CheckboxChoice
+  isMarkdown: boolean
+}
+
+/** Properties passed to custom UI renderer for the entire CheckboxField group */
 export type CheckboxesTypeUiArg = {
   dispatch: Dispatcher<Msg>
   fieldKey: string
@@ -45,6 +56,7 @@ export type CheckboxesTypeUiArg = {
   isMarkdown: boolean
 }
 
+/** Internal model state for CheckboxField */
 export type Model = {
   label: string
   currentValues: CheckboxChoice[]
@@ -61,6 +73,7 @@ export const ModelEq = EqClass.struct<Model>({
   ui: { equals: () => true },
 })
 
+/** Component props for CheckboxField */
 export type Props = {
   fieldKey: string
   model: Model

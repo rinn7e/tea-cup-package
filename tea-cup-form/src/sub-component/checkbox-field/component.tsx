@@ -21,14 +21,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { memo } from 'react'
 
-import { defaultCheckboxesView } from '../../view/default-view'
 import { Props, PropsEq } from './type'
+import { defaultCheckboxesView } from './view'
 
 export const CheckboxField = ({ fieldKey, model, dispatch }: Props) => {
   const view = model.ui ? model.ui : defaultCheckboxesView
   return view({
-    dispatch,
     fieldKey,
+    dispatch,
     label: model.label,
     currentValues: model.currentValues,
     isMarkdown: model.isMarkdown,

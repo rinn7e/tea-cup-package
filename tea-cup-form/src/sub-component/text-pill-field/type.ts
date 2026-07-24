@@ -27,6 +27,7 @@ import * as S from 'fp-ts/lib/string'
 import { type FormEvent, type JSX } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
+/** Reducer messages for TextPillField sub-component */
 export type Msg =
   | {
       _tag: 'UpdateTextPill'
@@ -48,6 +49,7 @@ export type Msg =
       _tag: 'HideValidation'
     }
 
+/** Internal model state for TextPillField */
 export type Model = {
   placeholder: string
   label: string
@@ -61,6 +63,7 @@ export type Model = {
   ui?: (props: TextPillTypeUiArg) => JSX.Element
 }
 
+/** Properties passed to custom UI renderers for TextPillField */
 export type TextPillTypeUiArg = {
   key: string
   label: string
@@ -89,6 +92,7 @@ export const ModelEq = EqClass.struct<Model>({
   ui: { equals: () => true },
 })
 
+/** Component props for TextPillField */
 export type Props = {
   fieldKey: string
   model: Model
