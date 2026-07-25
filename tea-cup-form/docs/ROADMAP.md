@@ -1,6 +1,22 @@
-# `@rinn7e/tea-cup-form` Future Roadmap & Planned Form Fields
+# `@rinn7e/tea-cup-form` Future Roadmap & Implemented Form Fields
 
-This document outlines the planned future form fields, architectural enhancements, and sub-component expansions for `@rinn7e/tea-cup-form`.
+This document tracks implemented sub-components, planned future form fields, and architectural enhancements for `@rinn7e/tea-cup-form`.
+
+---
+
+## Implemented Form Fields
+
+| Namespace | Discriminator | Version | Description |
+| :--- | :--- | :--- | :--- |
+| `Form.Text` | `TextType` | `0.1.0-alpha.1` | Text input & textarea fields |
+| `Form.TextPill` | `TextPillType` | `0.1.0-alpha.1` | Tag / pill input field |
+| `Form.Checkbox` | `CheckboxType` | `0.1.0-alpha.1` | Checkbox list field |
+| `Form.Radio` | `RadioType` | `0.1.0-alpha.1` | Radio selection list field |
+| `Form.Dropdown` | `DropdownType` | `0.1.0-alpha.1` | Custom dropdown field |
+| `Form.Calendar` | `CalendarType` | `0.1.0-alpha.1` | Date picker calendar field |
+| `Form.File` | `FileType` | `0.1.0-alpha.1` | Drag & drop file upload field |
+| `Form.Combobox` | `ComboboxType` | `0.1.0-alpha.2` | Searchable combobox selection field |
+| `Form.Slider` | `SliderType` | `0.1.0-alpha.2` | Single-thumb numeric range slider with Tailwind CSS & custom thumb support |
 
 ---
 
@@ -10,7 +26,6 @@ This document outlines the planned future form fields, architectural enhancement
 | :--- | :--- | :--- | :--- |
 | `Form.Switch` | `SwitchType` | Settings & feature toggles | Binary boolean toggle, animated state, accessible ARIA attributes |
 | `Form.Otp` | `OtpType` | 2FA & PIN verification | Multi-box auto-focus advance, paste support, complete code validation |
-| `Form.Slider` | `SliderType` | Single-value numeric inputs | Single thumb, min/max/step config, label formatting |
 | `Form.DualSlider` | `DualSliderType` | Dual range filtering & bounds | Dual thumbs (`DualRangeSlider`), valueMin/valueMax bounds, track click calculations |
 | `Form.Color` | `ColorType` | Theme & UI customization | Hex/RGBA/HSL color picker, preset swatches, visual preview |
 | `Form.Phone` | `PhoneType` | Contact details & SMS 2FA | Country code dropdown with flags, auto-formatting, phone validator |
@@ -31,12 +46,7 @@ This document outlines the planned future form fields, architectural enhancement
 - **State Model**: `{ length: number, digits: string[], isMasked: boolean }`
 - **Rationale**: Simplifies login and signup verification flows by handling focus movement across digit inputs, clipboard paste, and backspace navigation automatically within the Elm reducer architecture.
 
-### 3. `Form.Slider` (`SliderType`)
-- **Description**: Single-thumb slider for numeric value selection.
-- **State Model**: `{ min: number, max: number, step: number, currentValue: number, formatLabel?: (val: number) => string }`
-- **Rationale**: Useful for single-value continuous/stepped inputs (volume, font size, threshold).
-
-### 4. `Form.DualSlider` (`DualSliderType`) — Detailed Architecture & Implementation Plan
+### 3. `Form.DualSlider` (`DualSliderType`) — Detailed Architecture & Implementation Plan
 
 #### Overview
 A dual-thumb range slider field designed for selecting upper and lower numeric bounds (e.g., budget ranges, year spans, case study filters), porting the pattern from `DualRangeSlider.tsx`.
@@ -138,7 +148,7 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
         const valueMin = Math.min(clickedValue, model.valueMax - model.step)
         return [{ ...model, valueMin, lastSelected: 'left' }, Cmd.none()]
       } else {
-        const valueMax = Math.max(clickedValue, model.valueMin + model.step)
+        const valueMax = Math.max(clickedValue, model.valueMax - model.step)
         return [{ ...model, valueMax, lastSelected: 'right' }, Cmd.none()]
       }
     }
@@ -164,22 +174,22 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
 - FormType Discriminator: `DualSliderType`
 - Reducer integration in `Form.update` for `DualSliderMsg`.
 
-### 5. `Form.Color` (`ColorType`)
+### 4. `Form.Color` (`ColorType`)
 - **Description**: Color picker with palette swatches and hex/RGBA output.
 - **State Model**: `{ currentValue: string, presetSwatches: string[], format: 'hex' \| 'rgba' \| 'hsl' }`
 - **Rationale**: Ideal for theme configuration, custom tags, profile accent colors, and custom bundle branding.
 
-### 6. `Form.Phone` (`PhoneType`)
+### 5. `Form.Phone` (`PhoneType`)
 - **Description**: Integrated phone number input combining country code selection and local number formatting.
 - **State Model**: `{ countryCode: string, phoneNumber: string }`
 - **Rationale**: Eliminates the need to build separate country dropdown and phone number text fields in user onboarding and profile editing forms.
 
-### 7. `Form.RichText` (`RichTextType`)
+### 6. `Form.RichText` (`RichTextType`)
 - **Description**: WYSIWYG / Markdown rich text field.
 - **State Model**: `{ content: string, format: 'markdown' \| 'html', maxLength?: number }`
 - **Rationale**: Form-bound state management for rich content editors, supporting character limits, validation, and serialization.
 
-### 8. `Form.Rating` (`RatingType`)
+### 7. `Form.Rating` (`RatingType`)
 - **Description**: Star or icon-based rating selector.
 - **State Model**: `{ maxStars: number, currentValue: number, allowHalf: boolean }`
 - **Rationale**: Ideal for feedback prompts, survey dialogs, and item scoring.
