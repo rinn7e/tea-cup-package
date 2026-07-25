@@ -31,6 +31,7 @@ import type * as ComboboxField from './sub-component/combobox-field/type'
 import type * as DropdownField from './sub-component/dropdown-field/type'
 import type * as FileField from './sub-component/file-field/type'
 import type * as RadioField from './sub-component/radio-field/type'
+import type * as SliderField from './sub-component/slider-field/type'
 import type * as TextField from './sub-component/text-field/type'
 import type * as TextPillField from './sub-component/text-pill-field/type'
 
@@ -99,6 +100,11 @@ export type Msg =
       _tag: 'ComboboxFieldMsg'
       key: string
       subMsg: ComboboxField.Msg
+    }
+  | {
+      _tag: 'SliderFieldMsg'
+      key: string
+      subMsg: SliderField.Msg
     }
   | {
       _tag: 'SetIsDrag'

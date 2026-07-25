@@ -11,6 +11,7 @@ import {
   valueFileType,
   valuePillTextType,
   valueRadioType,
+  valueSliderType,
   valueTextType,
 } from '@rinn7e/tea-cup-form'
 import * as E from 'fp-ts/lib/Either'
@@ -164,6 +165,22 @@ export const init = (): [Model, Cmd<Msg>] => {
         },
       },
     ],
+    [
+      'slider',
+      {
+        _tag: 'SliderType',
+        model: Form.Slider.init(30)[0],
+        config: {
+          label: 'Time Period',
+          unit: 'days',
+          min: 0,
+          max: 100,
+          step: 1,
+          id: 'example-slider-track',
+          anchorName: '--example-slider-thumb',
+        },
+      },
+    ],
   ])
 
   const [initialForm, initialFormCmd] = Form.init(forms)
@@ -222,6 +239,7 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
           (user) => decodeUser(user).name,
         ),
         files: valueFileType(lookupForm('file', f)).map((f) => f.name),
+        slider: valueSliderType(lookupForm('slider', f)),
       }
       return [
         { ...model, submittedValues: JSON.stringify(values, null, 2) },

@@ -31,6 +31,7 @@ import * as ComboboxField from './sub-component/combobox-field'
 import * as DropdownField from './sub-component/dropdown-field'
 import * as FileField from './sub-component/file-field'
 import * as RadioField from './sub-component/radio-field'
+import * as SliderField from './sub-component/slider-field'
 import * as TextField from './sub-component/text-field'
 import * as TextPillField from './sub-component/text-pill-field'
 import { type Model, type Msg } from './type'
@@ -244,6 +245,30 @@ export const update =
                 { _tag: 'ComboboxType', model: updatedModel },
                 subCmd.map((subMsg) => ({
                   _tag: 'ComboboxFieldMsg',
+                  key: msg.key,
+                  subMsg,
+                })),
+              ]
+            }
+            return null
+          },
+          model.forms,
+        )
+        return [{ ...model, forms: newForms }, cmd]
+      }
+      case 'SliderFieldMsg': {
+        const [newForms, cmd] = updateFormItem(
+          msg.key,
+          (form) => {
+            if (form._tag === 'SliderType') {
+              const [updatedModel, subCmd] = SliderField.update(
+                msg.subMsg,
+                form.model,
+              )
+              return [
+                { ...form, model: updatedModel },
+                subCmd.map((subMsg) => ({
+                  _tag: 'SliderFieldMsg',
                   key: msg.key,
                   subMsg,
                 })),

@@ -19,19 +19,25 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-export * from './type'
-export * from './common/type'
-export * from './common/data'
-export * from './update'
-export * from './subscription'
-export * from './util/validation'
+import { type Config } from './type'
 
-export * as Calendar from './sub-component/calendar-field'
-export * as Checkbox from './sub-component/checkbox-field'
-export * as Combobox from './sub-component/combobox-field'
-export * as Dropdown from './sub-component/dropdown-field'
-export * as File from './sub-component/file-field'
-export * as Radio from './sub-component/radio-field'
-export * as Slider from './sub-component/slider-field'
-export * as Text from './sub-component/text-field'
-export * as TextPill from './sub-component/text-pill-field'
+/**
+ * Converts the absolute screen X coordinate of a mouse/touch event into
+ * the corresponding slider value, clamped and snapped to the nearest step.
+ */
+export const getValueFromX = (
+  clientX: number,
+  rect: DOMRect,
+  config: Config,
+): number => {
+  // Calculate the percentage relative to the track width
+  const pct = (clientX - rect.left) / rect.width
+  // Clamp the percentage between 0 and 1
+  const clampedPct = Math.max(0, Math.min(1, pct))
+  // Map the percentage to the slider's numeric range
+  const val = config.min + clampedPct * (config.max - config.min)
+  // Round to the nearest step increment
+  const roundedVal = Math.round(val / config.step) * config.step
+  // Ensure the value does not exceed min/max boundaries
+  return Math.max(config.min, Math.min(config.max, roundedVal))
+}
