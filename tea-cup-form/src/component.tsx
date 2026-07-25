@@ -188,6 +188,7 @@ const formView = (
     case 'SliderType':
       return (
         <SliderFieldMemo
+          fieldKey={key}
           model={val.model}
           dispatch={map(
             dispatch,
@@ -198,7 +199,6 @@ const formView = (
                 subMsg,
               }) satisfies Msg,
           )}
-          config={val.config}
         />
       )
     default:

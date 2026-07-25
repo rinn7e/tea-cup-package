@@ -25,9 +25,9 @@ export const baseConfig: PlaywrightTestConfig = {
     },
   ],
   webServer: {
-    command: 'npm run dev',
+    command: 'pnpm run dev',
     url: 'http://localhost:5173',
     cwd: '../example-app',
-    reuseExistingServer: false,
+    reuseExistingServer: !process.env.CI,
   },
 }

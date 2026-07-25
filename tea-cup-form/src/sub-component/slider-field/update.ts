@@ -23,22 +23,25 @@ import { Cmd } from 'tea-cup-fp'
 
 import { type Model, type Msg } from './type'
 
-export const init = (initialValue: number): [Model, Cmd<Msg>] => {
-  return [
-    {
-      value: initialValue,
-      isDragging: false,
-    },
-    Cmd.none(),
-  ]
-}
-
 export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'SetDragging':
-      return [{ ...model, isDragging: msg.value }, Cmd.none()]
-    case 'SetValue':
-      return [{ ...model, value: msg.value }, Cmd.none()]
+      if (model.isDragging === msg.value) {
+        return [model, Cmd.none()]
+      } else {
+        return [{ ...model, isDragging: msg.value }, Cmd.none()]
+      }
+    case 'SetValue': {
+      const clamped = Math.max(
+        model.config.min,
+        Math.min(model.config.max, msg.value),
+      )
+      if (model.value === clamped) {
+        return [model, Cmd.none()]
+      } else {
+        return [{ ...model, value: clamped }, Cmd.none()]
+      }
+    }
     case 'NoOp':
       return [model, Cmd.none()]
   }
