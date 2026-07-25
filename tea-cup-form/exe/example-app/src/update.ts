@@ -169,16 +169,16 @@ export const init = (): [Model, Cmd<Msg>] => {
       'slider',
       {
         _tag: 'SliderType',
-        model: Form.Slider.init(30)[0],
-        config: {
-          label: 'Time Period',
-          unit: 'days',
-          min: 0,
-          max: 100,
-          step: 1,
-          id: 'example-slider-track',
-          anchorName: '--example-slider-thumb',
-        },
+        model: Form.Slider.defaultModel(
+          {
+            label: 'Time Period',
+            unit: 'days',
+            min: 0,
+            max: 100,
+            step: 1,
+          },
+          30,
+        ),
       },
     ],
   ])

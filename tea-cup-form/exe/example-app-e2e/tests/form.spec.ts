@@ -17,6 +17,7 @@ test.describe('TeaCup Form Example App', () => {
     await expect(page.getByText('Birthday')).toBeVisible()
     await expect(page.getByText('Assigned Users').first()).toBeVisible()
     await expect(page.getByText('File').first()).toBeVisible()
+    await expect(page.getByText('Time Period').first()).toBeVisible()
   })
 
   test('2. should validate username length', async ({ page }) => {
@@ -190,6 +191,7 @@ test.describe('TeaCup Form Example App', () => {
     await expect(page.locator('pre')).toContainText('"combobox": [')
     await expect(page.locator('pre')).toContainText('"Alice Smith"')
     await expect(page.locator('pre')).toContainText('"manual.pdf"')
+    await expect(page.locator('pre')).toContainText('"slider": 30')
   })
 
   test('13. should search and select user in combobox field', async ({
@@ -215,5 +217,19 @@ test.describe('TeaCup Form Example App', () => {
 
     // Verify tag chip is removed
     await expect(page.getByText('Alice Smith')).not.toBeVisible()
+  })
+
+  test('14. should interact with slider field and update value', async ({
+    page,
+  }) => {
+    const sliderTrack = page.locator('[data-test="slider"]')
+    await expect(sliderTrack).toBeVisible()
+
+    const sliderValueBadge = page.locator('[data-test="slider-value-slider"]')
+    await expect(sliderValueBadge).toContainText('30 days')
+
+    // Click track at offset position to change value
+    await sliderTrack.click({ position: { x: 200, y: 4 } })
+    await expect(sliderValueBadge).not.toContainText('30 days')
   })
 })

@@ -34,7 +34,7 @@ export const subscriptions = (model: Model): Sub<Msg> =>
       switch (val._tag) {
         case 'SliderType':
           return O.some(
-            SliderField.subscriptions(val.model, val.config).map(
+            SliderField.subscriptions(val.model, key).map(
               (subMsg: SliderField.Msg): Msg => ({
                 _tag: 'SliderFieldMsg',
                 key,

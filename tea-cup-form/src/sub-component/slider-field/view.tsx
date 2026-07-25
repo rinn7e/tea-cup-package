@@ -21,140 +21,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { type JSX, type ReactNode } from 'react'
 
-import { type Msg, type SliderTypeUiArg } from './type'
+import { mkIdFromString } from '../../util/common'
+import { type Msg, type SliderTypeUiArg, type ThumbViewUiArg } from './type'
 import { getValueFromX } from './util'
 
-export const defaultSliderView = ({
-  dispatch,
-  value,
-  isDragging,
-  min,
-  max,
-  step,
-  label,
-  unit,
-  showValue,
-  id,
+export const defaultThumbView = ({
+  fieldKey,
   anchorName,
-  customThumbView,
-}: SliderTypeUiArg<Msg>): JSX.Element => {
-  const config = { min, max, step, id, anchorName, customThumbView }
-
-  const handleTrackMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault()
-    dispatch({ _tag: 'SetDragging', value: true })
-    const rect = e.currentTarget.getBoundingClientRect()
-    dispatch({
-      _tag: 'SetValue',
-      value: getValueFromX(e.clientX, rect, config),
-    })
-  }
-
-  const handleTrackTouchStart = (e: React.TouchEvent) => {
-    dispatch({ _tag: 'SetDragging', value: true })
-    if (e.touches.length > 0) {
-      const rect = e.currentTarget.getBoundingClientRect()
-      dispatch({
-        _tag: 'SetValue',
-        value: getValueFromX(e.touches[0].clientX, rect, config),
-      })
-    }
-  }
-
-  const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))
-  const trackBg = `linear-gradient(to right, #3B82F6 0%, #2563EB ${pct}%, #E2E8F0 ${pct}%, #E2E8F0 100%)`
-
-  const hasHeader = Boolean(label || showValue !== false)
-
-  return (
-    <div
-      style={{
-        width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px',
-      }}
-    >
-      {hasHeader && (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '0 2px',
-          }}
-        >
-          {label ? (
-            <label
-              style={{
-                fontSize: '14px',
-                fontWeight: 500,
-                color: '#334155',
-                userSelect: 'none',
-              }}
-            >
-              {label}
-            </label>
-          ) : (
-            <div />
-          )}
-          {showValue !== false && (
-            <span
-              style={{
-                fontSize: '12px',
-                fontWeight: 600,
-                color: '#2563EB',
-                backgroundColor: '#EFF6FF',
-                padding: '2px 8px',
-                borderRadius: '6px',
-                border: '1px solid #DBEAFE',
-                userSelect: 'none',
-              }}
-            >
-              {value} {unit ?? ''}
-            </span>
-          )}
-        </div>
-      )}
-
-      <div
-        style={{
-          height: '28px',
-          display: 'flex',
-          alignItems: 'center',
-          width: '100%',
-          padding: '0 10px',
-          boxSizing: 'border-box',
-        }}
-      >
-        <div
-          id={id}
-          onMouseDown={handleTrackMouseDown}
-          onTouchStart={handleTrackTouchStart}
-          style={{
-            position: 'relative',
-            height: '8px',
-            width: '100%',
-            borderRadius: '9999px',
-            background: trackBg,
-            boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.06)',
-            cursor: isDragging ? 'grabbing' : 'pointer',
-          }}
-        >
-          {thumbView(anchorName, customThumbView, pct, isDragging, dispatch)}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const thumbView = (
-  anchorName: string,
-  customThumbView: SliderTypeUiArg['customThumbView'],
-  pct: number,
-  isDragging: boolean,
-  dispatch: (msg: Msg) => void,
-): ReactNode => {
+  pct,
+  isDragging,
+  dispatch,
+}: ThumbViewUiArg<Msg>): ReactNode => {
   const handleThumbMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
@@ -166,41 +43,102 @@ const thumbView = (
     dispatch({ _tag: 'SetDragging', value: true })
   }
 
-  if (customThumbView) {
-    return customThumbView({
-      pct,
-      anchorName,
-      onMouseDown: handleThumbMouseDown,
-      onTouchStart: handleThumbTouchStart,
-    })
-  } else {
+  return (
+    <div
+      data-test={`slider-thumb-${fieldKey}`}
+      onMouseDown={handleThumbMouseDown}
+      onTouchStart={handleThumbTouchStart}
+      className={`absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-2 border-blue-600 bg-white outline-none ${
+        isDragging
+          ? 'scale-115 cursor-grabbing shadow-lg shadow-blue-500/25 ring-4 ring-blue-500/25 transition-none'
+          : 'cursor-grab shadow-xs hover:scale-105 transition-transform duration-150'
+      }`}
+      style={
+        {
+          left: `calc(${pct}% - 10px)`,
+          'anchor-name': anchorName,
+        } as React.CSSProperties
+      }
+    />
+  )
+}
+
+export const defaultSliderView =
+  (thumbView: (props: ThumbViewUiArg<Msg>) => ReactNode) =>
+  ({
+    dispatch,
+    fieldKey,
+    value,
+    isDragging,
+    config,
+  }: SliderTypeUiArg<Msg>): JSX.Element => {
+    const { min, max, label, unit, showValue } = config
+    const trackId = mkIdFromString(fieldKey)
+    const anchorName = config.anchorName ?? `--${trackId}-thumb`
+
+    const handleTrackMouseDown = (e: React.MouseEvent) => {
+      e.preventDefault()
+      dispatch({ _tag: 'SetDragging', value: true })
+      const rect = e.currentTarget.getBoundingClientRect()
+      dispatch({
+        _tag: 'SetValue',
+        value: getValueFromX(e.clientX, rect, config),
+      })
+    }
+
+    const handleTrackTouchStart = (e: React.TouchEvent) => {
+      dispatch({ _tag: 'SetDragging', value: true })
+      if (e.touches.length > 0) {
+        const rect = e.currentTarget.getBoundingClientRect()
+        dispatch({
+          _tag: 'SetValue',
+          value: getValueFromX(e.touches[0].clientX, rect, config),
+        })
+      }
+    }
+
+    const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))
+    const trackBg = `linear-gradient(to right, #3B82F6 0%, #2563EB ${pct}%, #E2E8F0 ${pct}%, #E2E8F0 100%)`
+
+    const hasHeader = Boolean(label || showValue !== false)
+
     return (
-      <div
-        onMouseDown={handleThumbMouseDown}
-        onTouchStart={handleThumbTouchStart}
-        style={
-          {
-            position: 'absolute',
-            left: `calc(${pct}% - 10px)`,
-            top: '50%',
-            transform: isDragging
-              ? 'translateY(-50%) scale(1.15)'
-              : 'translateY(-50%)',
-            height: '20px',
-            width: '20px',
-            borderRadius: '50%',
-            backgroundColor: '#FFFFFF',
-            border: '2px solid #2563EB',
-            boxShadow: isDragging
-              ? '0 0 0 4px rgba(37, 99, 235, 0.25), 0 2px 6px rgba(0, 0, 0, 0.15)'
-              : '0 2px 5px rgba(0, 0, 0, 0.12), 0 0 0 2px rgba(37, 99, 235, 0.05)',
-            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-            outline: 'none',
-            cursor: isDragging ? 'grabbing' : 'grab',
-            'anchor-name': anchorName,
-          } as React.CSSProperties
-        }
-      />
+      <div className='flex w-full flex-col gap-1.5'>
+        {hasHeader && (
+          <div className='flex items-center justify-between px-0.5'>
+            {label ? (
+              <label className='text-sm font-medium text-slate-700 select-none'>
+                {label}
+              </label>
+            ) : (
+              <div />
+            )}
+            {showValue !== false && (
+              <span
+                data-test={`slider-value-${fieldKey}`}
+                className='rounded-md border border-blue-100 bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-600 select-none'
+              >
+                {value} {unit ?? ''}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className='box-border flex h-7 w-full items-center px-2.5'>
+          <div
+            id={trackId}
+            data-test={fieldKey}
+            onMouseDown={handleTrackMouseDown}
+            onTouchStart={handleTrackTouchStart}
+            className='relative h-2 w-full rounded-full shadow-inner'
+            style={{
+              background: trackBg,
+              cursor: isDragging ? 'grabbing' : 'pointer',
+            }}
+          >
+            {thumbView({ fieldKey, anchorName, pct, isDragging, dispatch })}
+          </div>
+        </div>
+      </div>
     )
   }
-}

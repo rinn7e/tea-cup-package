@@ -108,7 +108,10 @@ export const FileTypeEq = EqClass.struct<FileType>({
 })
 
 export { type ComboboxTypeUiArg } from '../sub-component/combobox-field/type'
-export { type SliderTypeUiArg } from '../sub-component/slider-field/type'
+export {
+  type SliderTypeUiArg,
+  type ThumbViewUiArg,
+} from '../sub-component/slider-field/type'
 
 export type ComboboxType = {
   _tag: 'ComboboxType'

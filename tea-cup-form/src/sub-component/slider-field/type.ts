@@ -24,29 +24,8 @@ import * as EqClass from 'fp-ts/lib/Eq'
 import * as B from 'fp-ts/lib/boolean'
 import * as N from 'fp-ts/lib/number'
 import * as S from 'fp-ts/lib/string'
-import { type JSX, type ReactNode } from 'react'
+import { type JSX } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
-
-export type SliderTypeUiArg<MsgType = Msg> = {
-  dispatch: Dispatcher<MsgType>
-  fieldKey: string
-  value: number
-  isDragging: boolean
-  min: number
-  max: number
-  step: number
-  label: string
-  unit?: string
-  showValue: boolean
-  id: string
-  anchorName: string
-  customThumbView?: (props: {
-    pct: number
-    anchorName: string
-    onMouseDown: (e: React.MouseEvent) => void
-    onTouchStart: (e: React.TouchEvent) => void
-  }) => ReactNode
-}
 
 export type Config = {
   min: number
@@ -55,38 +34,50 @@ export type Config = {
   label?: string
   unit?: string
   showValue?: boolean
-  customThumbView?: (props: {
-    pct: number
-    anchorName: string
-    onMouseDown: (e: React.MouseEvent) => void
-    onTouchStart: (e: React.TouchEvent) => void
-  }) => ReactNode
+  anchorName?: string
   ui?: (props: SliderTypeUiArg<Msg>) => JSX.Element
-  // The HTML id of the track element, used to measure track dimensions during dragging
-  id: string
-  // The CSS anchor-name of the slider thumb, used to anchor floating tooltips (if needed) to it
+}
+
+export const ConfigEq: EqClass.Eq<Config> = EqAlways
+
+export type ThumbViewUiArg<MsgType = Msg> = {
+  fieldKey: string
   anchorName: string
+  pct: number
+  isDragging: boolean
+  dispatch: Dispatcher<MsgType>
+}
+
+export type SliderTypeUiArg<MsgType = Msg> = {
+  dispatch: Dispatcher<MsgType>
+  fieldKey: string
+  value: number
+  isDragging: boolean
+  config: Config
 }
 
 export type Model = {
+  // State
   value: number
   isDragging: boolean
-  ui?: (props: SliderTypeUiArg<Msg>) => JSX.Element
+
+  // Config
+  config: Config
 }
 
-export const defaultModel = (
-  initialValue: number,
-  inputUi?: (props: SliderTypeUiArg<Msg>) => JSX.Element,
-): Model => ({
+export const defaultModel = (config: Config, initialValue: number): Model => ({
+  // State
   value: initialValue,
   isDragging: false,
-  ui: inputUi,
+
+  // Config
+  config,
 })
 
 export const ModelEq = EqClass.struct<Model>({
   value: N.Eq,
   isDragging: B.Eq,
-  ui: EqAlways,
+  config: ConfigEq,
 })
 
 export type Msg =
@@ -94,41 +85,24 @@ export type Msg =
   | { _tag: 'SetValue'; value: number }
   | { _tag: 'NoOp' }
 
-export const ConfigEq = EqClass.struct<Config>({
-  min: N.Eq,
-  max: N.Eq,
-  step: N.Eq,
-  label: EqAlways,
-  unit: EqAlways,
-  showValue: EqAlways,
-  customThumbView: EqAlways,
-  ui: EqAlways,
-  id: S.Eq,
-  anchorName: S.Eq,
-})
-
 export type Props = {
-  fieldKey?: string
+  fieldKey: string
   model: Model
   dispatch: Dispatcher<Msg>
-  config: Config
 }
 
 export const PropsEq = EqClass.struct<Props>({
-  fieldKey: EqAlways,
+  fieldKey: S.Eq,
   model: ModelEq,
   dispatch: EqAlways,
-  config: ConfigEq,
 })
 
 export type SliderType = {
   _tag: 'SliderType'
   model: Model
-  config: Config
 }
 
 export const SliderTypeEq = EqClass.struct<SliderType>({
   _tag: S.Eq,
   model: ModelEq,
-  config: ConfigEq,
 })

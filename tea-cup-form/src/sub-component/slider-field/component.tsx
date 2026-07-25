@@ -22,30 +22,19 @@ SOFTWARE. */
 import { memo } from 'react'
 
 import { type Props, PropsEq } from './type'
-import { defaultSliderView } from './view'
+import { defaultSliderView, defaultThumbView } from './view'
 
-export const SliderFieldComponent = ({
-  fieldKey,
-  model,
-  dispatch,
-  config,
-}: Props) => {
-  const view = model.ui ? model.ui : config.ui ? config.ui : defaultSliderView
+export const SliderField = ({ fieldKey, model, dispatch }: Props) => {
+  const view = model.config.ui
+    ? model.config.ui
+    : defaultSliderView(defaultThumbView)
   return view({
     dispatch,
-    fieldKey: fieldKey ?? '',
+    fieldKey,
     value: model.value,
     isDragging: model.isDragging,
-    min: config.min,
-    max: config.max,
-    step: config.step,
-    label: config.label ?? '',
-    unit: config.unit,
-    showValue: config.showValue ?? true,
-    id: config.id,
-    anchorName: config.anchorName,
-    customThumbView: config.customThumbView,
+    config: model.config,
   })
 }
 
-export const SliderFieldMemo = memo(SliderFieldComponent, PropsEq.equals)
+export const SliderFieldMemo = memo(SliderField, PropsEq.equals)
