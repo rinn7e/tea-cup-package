@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0-alpha.2] - 2026-07-24
 
 ### Added
-- **Sub-Component Architecture**: Modularized form field implementations into sub-components (`Text`, `TextPill`, `Checkbox`, `Radio`, `Dropdown`, `Calendar`, `File`).
+- **Sub-Component Architecture**: Modularized form field implementations into sub-components (`Text`, `TextPill`, `Checkbox`, `Radio`, `Dropdown`, `Calendar`, `File`, `Combobox`, `Slider`).
+- **Slider Sub-Component**: Added `SliderField` (`SliderType`) featuring Tailwind CSS styling, dynamic `fieldKey` element ID derivation, pure document drag listeners via `Form.subscriptions`, curried `defaultSliderView(customThumbView)` renderer, value deduplication, and Playwright E2E tests.
 - Sub-component directory structure:
   - `type.ts`: `Msg`, `Model`, `ModelEq`, `Props`, `PropsEq`, `defaultModel()`, and `XxxTypeUiArg` with JSDoc comments.
   - `update.ts`: Reducer returning `[Model, Cmd<Msg>]`.
@@ -17,22 +18,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `index.ts`: Exports `./type`, `./update`, and `./view`.
 - **`Email` Variant**: Added `{ _tag: 'Email' }` variant to `TextInputVariant`.
 - **`data-test` Attributes**: Added `data-test` attributes to input elements across sub-component view renderers for E2E testing.
-- **Sub-Component Namespaces**: Re-exported sub-components as namespaces in `@rinn7e/tea-cup-form` (`Text`, `TextPill`, `Checkbox`, `Radio`, `Dropdown`, `Calendar`, `File`).
+- **Sub-Component Namespaces**: Re-exported sub-components as namespaces in `@rinn7e/tea-cup-form` (`Text`, `TextPill`, `Checkbox`, `Radio`, `Dropdown`, `Calendar`, `File`, `Combobox`, `Slider`).
 - **Secondary Entrypoint**: React components accessible via `@rinn7e/tea-cup-form/component` (`FormItemMemo`).
-- **Playwright E2E Tests**: Comprehensive 12-test E2E suite covering all sub-components in `exe/example-app-e2e`.
+- **Playwright E2E Tests**: Comprehensive 14-test E2E suite covering all sub-components in `exe/example-app-e2e`.
 
 ### Changed
 - **TEA Command Tuple Return Types**: Updated `init` to return `[Model, Cmd<Msg>]` and `update` signature to `(msg: Msg) => (model: Model): [Model, Cmd<Msg>]`.
 - **Sub-Component Reducer Return Types**: Updated sub-component `update` functions to return `[Model, Cmd<Msg>]`.
 - Moved constructors to `type.ts` and renamed to `defaultModel()`, returning the sub-component's internal `Model` state directly instead of the outer `FormType` union wrapper.
 - Deleted standalone `util.ts` files across all sub-components.
-- Consolidated form helper functions (`lookupForm`, `valueTextType`, `valueCalendarType`, etc.) into `src/common/type.ts`.
+- Consolidated form helper functions (`lookupForm`, `valueTextType`, `valueCalendarType`, `valueSliderType`, etc.) into `src/common/type.ts`.
 - Moved `src/validation.ts` to `src/util/validation.ts`.
 - Removed standalone `view.tsx` and moved `formView` into `src/component.tsx`.
 
 ### Fixed
 - Fixed `ModelEq` in `DropdownField` and `CalendarField` where `showValidation` was set to `{ equals: () => true }` instead of `B.Eq`, enabling React `memo` re-renders on submit error triggers.
 - Restored uploaded file list preview cards, remove buttons, and error tooltips in `defaultFileView`.
+- Fixed visual thumb drag lag on `SliderField` by scoping CSS transition to `transform` instead of `transition-all` during active dragging.
 
 ### Migration Guide (v0.1.0-alpha.1 -> v0.1.0-alpha.2)
 
@@ -89,10 +91,10 @@ import { FormItemMemo } from '@rinn7e/tea-cup-form/component'
 ```
 
 #### 4. Consolidated Helper Exports & Validation Utilities
-Helper functions (`lookupForm`, `valueTextType`, `valueCalendarType`, `showAllValidation`, `runValidationForAll`, etc.) are exported directly from `@rinn7e/tea-cup-form`.
+Helper functions (`lookupForm`, `valueTextType`, `valueCalendarType`, `valueSliderType`, `runValidationForAll`, `showAllValidation`, etc.) are exported directly from `@rinn7e/tea-cup-form`.
 
 ```ts
-import { lookupForm, valueTextType, runValidationForAll, showAllValidation } from '@rinn7e/tea-cup-form'
+import { lookupForm, valueTextType, valueSliderType, runValidationForAll, showAllValidation } from '@rinn7e/tea-cup-form'
 ```
 
 ## [0.1.0-alpha.1] - 2026-07-24
