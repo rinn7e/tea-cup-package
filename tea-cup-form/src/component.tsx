@@ -38,6 +38,8 @@ import * as FileField from './sub-component/file-field'
 import { FileFieldMemo } from './sub-component/file-field/component'
 import * as RadioField from './sub-component/radio-field'
 import { RadioFieldMemo } from './sub-component/radio-field/component'
+import * as SliderField from './sub-component/slider-field'
+import { SliderFieldMemo } from './sub-component/slider-field/component'
 import * as TextField from './sub-component/text-field'
 import { TextFieldMemo } from './sub-component/text-field/component'
 import * as TextPillField from './sub-component/text-pill-field'
@@ -181,6 +183,22 @@ const formView = (
                 subMsg,
               }) satisfies Msg,
           )}
+        />
+      )
+    case 'SliderType':
+      return (
+        <SliderFieldMemo
+          model={val.model}
+          dispatch={map(
+            dispatch,
+            (subMsg: SliderField.Msg) =>
+              ({
+                _tag: 'SliderFieldMsg',
+                key,
+                subMsg,
+              }) satisfies Msg,
+          )}
+          config={val.config}
         />
       )
     default:

@@ -229,6 +229,8 @@ export const notTheSameExtraValidation =
               )
             case 'ComboboxType':
               return JSON.stringify(val.model.selectedItems)
+            case 'SliderType':
+              return JSON.stringify(val.model.value)
           }
         }),
       )

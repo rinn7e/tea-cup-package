@@ -19,19 +19,32 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-export * from './type'
-export * from './common/type'
-export * from './common/data'
-export * from './update'
-export * from './subscription'
-export * from './util/validation'
+import * as A from 'fp-ts/lib/Array'
+import * as O from 'fp-ts/lib/Option'
+import { pipe } from 'fp-ts/lib/function'
+import { Sub } from 'tea-cup-fp'
 
-export * as Calendar from './sub-component/calendar-field'
-export * as Checkbox from './sub-component/checkbox-field'
-export * as Combobox from './sub-component/combobox-field'
-export * as Dropdown from './sub-component/dropdown-field'
-export * as File from './sub-component/file-field'
-export * as Radio from './sub-component/radio-field'
-export * as Slider from './sub-component/slider-field'
-export * as Text from './sub-component/text-field'
-export * as TextPill from './sub-component/text-pill-field'
+import * as SliderField from './sub-component/slider-field'
+import { type Model, type Msg } from './type'
+
+export const subscriptions = (model: Model): Sub<Msg> =>
+  pipe(
+    Array.from(model.forms.entries()),
+    A.filterMap(([key, val]) => {
+      switch (val._tag) {
+        case 'SliderType':
+          return O.some(
+            SliderField.subscriptions(val.model, val.config).map(
+              (subMsg: SliderField.Msg): Msg => ({
+                _tag: 'SliderFieldMsg',
+                key,
+                subMsg,
+              }),
+            ),
+          )
+        default:
+          return O.none
+      }
+    }),
+    Sub.batch,
+  )

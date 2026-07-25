@@ -32,6 +32,7 @@ import * as ComboboxField from '../sub-component/combobox-field/type'
 import * as DropdownField from '../sub-component/dropdown-field/type'
 import * as FileField from '../sub-component/file-field/type'
 import * as RadioField from '../sub-component/radio-field/type'
+import * as SliderField from '../sub-component/slider-field/type'
 import * as TextField from '../sub-component/text-field/type'
 import * as TextPillField from '../sub-component/text-pill-field/type'
 
@@ -107,6 +108,7 @@ export const FileTypeEq = EqClass.struct<FileType>({
 })
 
 export { type ComboboxTypeUiArg } from '../sub-component/combobox-field/type'
+export { type SliderTypeUiArg } from '../sub-component/slider-field/type'
 
 export type ComboboxType = {
   _tag: 'ComboboxType'
@@ -118,6 +120,9 @@ export const ComboboxTypeEq: EqClass.Eq<ComboboxType> =
     model: ComboboxField.ModelEq,
   })
 
+export type SliderType = SliderField.SliderType
+export const SliderTypeEq = SliderField.SliderTypeEq
+
 export type FormType =
   | TextType
   | TextPillType
@@ -127,6 +132,7 @@ export type FormType =
   | CalendarType
   | FileType
   | ComboboxType
+  | SliderType
 
 export const FormTypeEq: EqClass.Eq<FormType> = {
   equals: (x, y) => {
@@ -146,6 +152,8 @@ export const FormTypeEq: EqClass.Eq<FormType> = {
       return FileTypeEq.equals(x, y)
     else if (x._tag === 'ComboboxType' && y._tag === 'ComboboxType')
       return ComboboxTypeEq.equals(x, y)
+    else if (x._tag === 'SliderType' && y._tag === 'SliderType')
+      return SliderTypeEq.equals(x, y)
     else return false
   },
 }
@@ -322,6 +330,20 @@ export const valueComboboxType = (formType: FormType): DataJson[] => {
     default:
       throw new Error(
         `valueComboboxType: Expect ComboboxType but got ${formType._tag} instead.`,
+      )
+  }
+}
+
+/**
+ * Extract the current value from a `SliderType`, throw error if it is not.
+ */
+export const valueSliderType = (formType: FormType): number => {
+  switch (formType._tag) {
+    case 'SliderType':
+      return formType.model.value
+    default:
+      throw new Error(
+        `valueSliderType: Expect SliderType but got ${formType._tag} instead.`,
       )
   }
 }

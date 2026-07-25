@@ -95,6 +95,7 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
             {renderField('calendar')}
             {renderField('combobox')}
             {renderField('file')}
+            {renderField('slider')}
 
             <button
               type='submit'

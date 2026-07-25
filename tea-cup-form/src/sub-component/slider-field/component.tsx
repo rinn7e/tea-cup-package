@@ -19,19 +19,33 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-export * from './type'
-export * from './common/type'
-export * from './common/data'
-export * from './update'
-export * from './subscription'
-export * from './util/validation'
+import { memo } from 'react'
 
-export * as Calendar from './sub-component/calendar-field'
-export * as Checkbox from './sub-component/checkbox-field'
-export * as Combobox from './sub-component/combobox-field'
-export * as Dropdown from './sub-component/dropdown-field'
-export * as File from './sub-component/file-field'
-export * as Radio from './sub-component/radio-field'
-export * as Slider from './sub-component/slider-field'
-export * as Text from './sub-component/text-field'
-export * as TextPill from './sub-component/text-pill-field'
+import { type Props, PropsEq } from './type'
+import { defaultSliderView } from './view'
+
+export const SliderFieldComponent = ({
+  fieldKey,
+  model,
+  dispatch,
+  config,
+}: Props) => {
+  const view = model.ui ? model.ui : config.ui ? config.ui : defaultSliderView
+  return view({
+    dispatch,
+    fieldKey: fieldKey ?? '',
+    value: model.value,
+    isDragging: model.isDragging,
+    min: config.min,
+    max: config.max,
+    step: config.step,
+    label: config.label ?? '',
+    unit: config.unit,
+    showValue: config.showValue ?? true,
+    id: config.id,
+    anchorName: config.anchorName,
+    customThumbView: config.customThumbView,
+  })
+}
+
+export const SliderFieldMemo = memo(SliderFieldComponent, PropsEq.equals)
