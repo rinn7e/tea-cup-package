@@ -24,13 +24,13 @@ import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import type { JSX } from 'react'
 
-import { autocompleteToString } from '../../common/type'
+import { autocompleteToString } from '../text-field/type/model'
 import { errorTooltipContainer } from '../error-tooltip/helper'
 import {
   getContainerClasses,
   getLabelClasses,
 } from '../shared'
-import type { TextPillTypeUiArg } from './type'
+import type { TextPillTypeUiArg } from './type/model'
 
 export const defaultTextPillView = ({
   dispatch,

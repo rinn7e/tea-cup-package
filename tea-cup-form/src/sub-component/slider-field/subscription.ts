@@ -23,7 +23,7 @@ import { Sub } from 'tea-cup-fp'
 
 import { documentEvents } from '../../common/document-event'
 import { mkIdFromString } from '../../util/common'
-import { type Model, type Msg } from './type'
+import type { Model, Msg } from './type/model'
 import { getValueFromX } from './util'
 
 export const subscriptions = (

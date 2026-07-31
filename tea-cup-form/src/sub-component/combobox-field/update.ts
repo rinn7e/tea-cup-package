@@ -28,7 +28,7 @@ import { pipe } from 'fp-ts/lib/function'
 import { Cmd, Task, Time } from 'tea-cup-fp'
 
 import type { DataJson, ErrorJson } from '../../common/data'
-import type { Config, Model, Msg } from './type'
+import type { Config, Model, Msg } from './type/model'
 
 const performSearch = (
   config: Config,

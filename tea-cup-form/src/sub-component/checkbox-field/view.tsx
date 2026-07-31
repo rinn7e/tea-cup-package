@@ -24,7 +24,7 @@ import { pipe } from 'fp-ts/lib/function'
 
 import { mkIdFromString } from '../../util/common'
 import { IconCheck } from '../shared'
-import type { CheckboxTypeUiArg, CheckboxesTypeUiArg } from './type'
+import type { CheckboxTypeUiArg, CheckboxesTypeUiArg } from './type/model'
 
 export const defaultCheckboxView = (arg: CheckboxTypeUiArg) => {
   const [key, val] = arg.checkboxChoice

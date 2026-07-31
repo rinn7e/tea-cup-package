@@ -98,16 +98,3 @@ export const ModelEq = EqClass.struct<Model>({
   validation: { equals: () => true },
   ui: { equals: () => true },
 })
-
-/** Component props for CalendarField */
-export type Props = {
-  fieldKey: string
-  model: Model
-  dispatch: Dispatcher<Msg>
-}
-
-export const PropsEq = EqClass.struct<Props>({
-  fieldKey: S.Eq,
-  model: ModelEq,
-  dispatch: { equals: () => true },
-})

@@ -23,7 +23,7 @@ import * as A from 'fp-ts/lib/Array'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
-import type { Model, Msg } from './type'
+import type { Model, Msg } from './type/model'
 
 export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {

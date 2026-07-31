@@ -30,7 +30,7 @@ import {
   getContainerClasses,
   getLabelClasses,
 } from '../shared'
-import type { CalendarTypeUiArg } from './type'
+import type { CalendarTypeUiArg } from './type/model'
 
 export const defaultCalendarView = ({
   dispatch,

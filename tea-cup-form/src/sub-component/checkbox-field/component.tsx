@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { memo } from 'react'
 
-import { Props, PropsEq } from './type'
+import { Props, PropsEq } from './type/props'
 import { defaultCheckboxesView } from './view'
 
 export const CheckboxField = ({ fieldKey, model, dispatch }: Props) => {

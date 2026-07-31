@@ -22,7 +22,7 @@ SOFTWARE. */
 import { type JSX, type ReactNode } from 'react'
 
 import { mkIdFromString } from '../../util/common'
-import { type Msg, type SliderTypeUiArg, type ThumbViewUiArg } from './type'
+import type { Msg, SliderTypeUiArg, ThumbViewUiArg } from './type/model'
 import { getValueFromX } from './util'
 
 export const defaultThumbView = ({

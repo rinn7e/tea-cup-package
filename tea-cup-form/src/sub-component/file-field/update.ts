@@ -26,7 +26,7 @@ import { Cmd } from 'tea-cup-fp'
 
 import type { FormType, Forms } from '../../common/type'
 import { MapExtra, exec } from '@rinn7e/tea-cup-prelude'
-import type { Model, Msg } from './type'
+import type { Model, Msg } from './type/model'
 
 // Helper convert `FileList` to array.
 export const toFileArray = (files: FileList): File[] => {

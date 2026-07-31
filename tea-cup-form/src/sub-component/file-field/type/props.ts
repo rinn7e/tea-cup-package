@@ -19,90 +19,25 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-import { EqAlways } from '@rinn7e/tea-cup-prelude'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as B from 'fp-ts/lib/boolean'
-import * as N from 'fp-ts/lib/number'
 import * as S from 'fp-ts/lib/string'
-import { type JSX } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
-export type Config = {
-  min: number
-  max: number
-  step: number
-  label?: string
-  unit?: string
-  showValue?: boolean
-  anchorName?: string
-  ui?: (props: SliderTypeUiArg<Msg>) => JSX.Element
-}
+import type { Model, Msg } from './model'
+import { ModelEq } from './model'
 
-export const ConfigEq: EqClass.Eq<Config> = EqAlways
-
-export type ThumbViewUiArg<MsgType = Msg> = {
-  fieldKey: string
-  anchorName: string
-  pct: number
-  isDragging: boolean
-  dispatch: Dispatcher<MsgType>
-}
-
-export type SliderTypeUiArg<MsgType = Msg> = {
-  dispatch: Dispatcher<MsgType>
-  fieldKey: string
-  value: number
-  isDragging: boolean
-  config: Config
-}
-
-export type Model = {
-  // State
-  value: number
-  isDragging: boolean
-
-  // Config
-  config: Config
-}
-
-export const defaultModel = (config: Config, initialValue: number): Model => ({
-  // State
-  value: initialValue,
-  isDragging: false,
-
-  // Config
-  config,
-})
-
-export const ModelEq = EqClass.struct<Model>({
-  value: N.Eq,
-  isDragging: B.Eq,
-  config: ConfigEq,
-})
-
-export type Msg =
-  | { _tag: 'SetDragging'; value: boolean }
-  | { _tag: 'SetValue'; value: number }
-  | { _tag: 'NoOp' }
-
+/** Component props for FileField */
 export type Props = {
   fieldKey: string
   model: Model
   dispatch: Dispatcher<Msg>
+  isDrag: boolean
 }
 
 export const PropsEq = EqClass.struct<Props>({
   fieldKey: S.Eq,
   model: ModelEq,
-  dispatch: EqAlways,
-})
-
-export type SliderType = {
-  _tag: 'SliderType'
-  model: Model
-}
-
-export const SliderTypeEq = EqClass.struct<SliderType>({
-  _tag: S.Eq,
-  model: ModelEq,
+  dispatch: { equals: () => true },
+  isDrag: B.Eq,
 })

@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { Cmd } from 'tea-cup-fp'
 
-import { type Model, type Msg } from './type'
+import type { Model, Msg } from './type/model'
 
 export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {

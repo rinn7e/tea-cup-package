@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { memo } from 'react'
 
-import { Props, PropsEq } from './type'
+import { Props, PropsEq } from './type/props'
 import { defaultTextPillView } from './view'
 
 export const TextPillField = ({ fieldKey, model, dispatch }: Props) => {
