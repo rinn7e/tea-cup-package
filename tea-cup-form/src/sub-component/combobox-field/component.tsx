@@ -22,7 +22,7 @@ SOFTWARE. */
 
 import { memo, type JSX } from 'react'
 
-import { Props, PropsEq } from './type'
+import { Props, PropsEq } from './type/props'
 import { defaultComboboxView } from './view'
 
 export const ComboboxField = ({

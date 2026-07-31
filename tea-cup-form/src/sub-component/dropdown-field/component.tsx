@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { memo } from 'react'
 
-import { Props, PropsEq } from './type'
+import { Props, PropsEq } from './type/props'
 import { defaultDropdownView } from './view'
 
 export const DropdownField = ({ fieldKey, model, dispatch }: Props) => {

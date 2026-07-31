@@ -26,7 +26,7 @@ import type { JSX } from 'react'
 
 import { errorTooltipContainer } from '../error-tooltip/helper'
 import { IconX, getContainerClasses, getLabelClasses } from '../shared'
-import type { ComboboxTypeUiArg } from './type'
+import type { ComboboxTypeUiArg } from './type/model'
 
 export const defaultComboboxView = ({
   dispatch,

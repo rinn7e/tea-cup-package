@@ -27,7 +27,7 @@ import { Dispatcher } from 'tea-cup-fp'
 
 import { errorTooltipContainer } from '../error-tooltip/helper'
 import { IconFile, IconUpload, IconX, getLabelClasses } from '../shared'
-import type { FileTypeUiArg, Msg } from './type'
+import type { FileTypeUiArg, Msg } from './type/model'
 
 const limitDecimal2Digit = (num: number): number => Math.round(num * 100) / 100
 

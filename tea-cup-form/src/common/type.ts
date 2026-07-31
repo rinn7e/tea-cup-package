@@ -26,31 +26,21 @@ import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import * as S from 'fp-ts/lib/string'
 import { DataJson } from './data'
-import * as CalendarField from '../sub-component/calendar-field/type'
-import * as CheckboxField from '../sub-component/checkbox-field/type'
-import * as ComboboxField from '../sub-component/combobox-field/type'
-import * as DropdownField from '../sub-component/dropdown-field/type'
-import * as FileField from '../sub-component/file-field/type'
-import * as RadioField from '../sub-component/radio-field/type'
-import * as SliderField from '../sub-component/slider-field/type'
-import * as TextField from '../sub-component/text-field/type'
-import * as TextPillField from '../sub-component/text-pill-field/type'
-
-export {
-  autocompleteToString,
-  textInputVariantToString,
-  TextInputVariantEq,
-  type TextInputVariant,
-  type TextTypeUiArg,
-} from '../sub-component/text-field/type'
+import * as CalendarField from '../sub-component/calendar-field/type/model'
+import * as CheckboxField from '../sub-component/checkbox-field/type/model'
+import * as ComboboxField from '../sub-component/combobox-field/type/model'
+import * as DropdownField from '../sub-component/dropdown-field/type/model'
+import * as FileField from '../sub-component/file-field/type/model'
+import * as RadioField from '../sub-component/radio-field/type/model'
+import * as SliderField from '../sub-component/slider-field/type/model'
+import * as TextField from '../sub-component/text-field/type/model'
+import * as TextPillField from '../sub-component/text-pill-field/type/model'
 
 export type TextType = { _tag: 'TextType'; model: TextField.Model }
 export const TextTypeEq = EqClass.struct<TextType>({
   _tag: S.Eq,
   model: TextField.ModelEq,
 })
-
-export { type TextPillTypeUiArg } from '../sub-component/text-pill-field/type'
 
 export type TextPillType = { _tag: 'TextPillType'; model: TextPillField.Model }
 export const TextPillTypeEq = EqClass.struct<TextPillType>({
@@ -59,23 +49,11 @@ export const TextPillTypeEq = EqClass.struct<TextPillType>({
 })
 export type TextPillMsg = TextPillField.Msg
 
-export {
-  CheckboxChoiceEq,
-  type CheckboxChoice,
-  type CheckboxesTypeUiArg,
-} from '../sub-component/checkbox-field/type'
-
 export type CheckboxType = { _tag: 'CheckboxType'; model: CheckboxField.Model }
 export const CheckboxTypeEq = EqClass.struct<CheckboxType>({
   _tag: S.Eq,
   model: CheckboxField.ModelEq,
 })
-
-export {
-  RadioChoiceEq,
-  type RadioChoice,
-  type RadiosTypeUiArg,
-} from '../sub-component/radio-field/type'
 
 export type RadioType = { _tag: 'RadioType'; model: RadioField.Model }
 export const RadioTypeEq = EqClass.struct<RadioType>({
@@ -83,15 +61,11 @@ export const RadioTypeEq = EqClass.struct<RadioType>({
   model: RadioField.ModelEq,
 })
 
-export { type DropdownTypeUiArg } from '../sub-component/dropdown-field/type'
-
 export type DropdownType = { _tag: 'DropdownType'; model: DropdownField.Model }
 export const DropdownTypeEq = EqClass.struct<DropdownType>({
   _tag: S.Eq,
   model: DropdownField.ModelEq,
 })
-
-export { type CalendarTypeUiArg } from '../sub-component/calendar-field/type'
 
 export type CalendarType = { _tag: 'CalendarType'; model: CalendarField.Model }
 export const CalendarTypeEq = EqClass.struct<CalendarType>({
@@ -99,19 +73,11 @@ export const CalendarTypeEq = EqClass.struct<CalendarType>({
   model: CalendarField.ModelEq,
 })
 
-export { FileEq, type FileTypeUiArg } from '../sub-component/file-field/type'
-
 export type FileType = { _tag: 'FileType'; model: FileField.Model }
 export const FileTypeEq = EqClass.struct<FileType>({
   _tag: S.Eq,
   model: FileField.ModelEq,
 })
-
-export { type ComboboxTypeUiArg } from '../sub-component/combobox-field/type'
-export {
-  type SliderTypeUiArg,
-  type ThumbViewUiArg,
-} from '../sub-component/slider-field/type'
 
 export type ComboboxType = {
   _tag: 'ComboboxType'

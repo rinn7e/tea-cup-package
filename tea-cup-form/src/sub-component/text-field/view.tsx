@@ -35,7 +35,7 @@ import {
   autocompleteToString,
   textInputVariantToString,
   type TextTypeUiArg,
-} from './type'
+} from './type/model'
 
 export const defaultTextView = ({
   dispatch,

@@ -30,7 +30,7 @@ import {
   getContainerClasses,
   getLabelClasses,
 } from '../shared'
-import type { DropdownTypeUiArg } from './type'
+import type { DropdownTypeUiArg } from './type/model'
 
 export const defaultDropdownView = ({
   dispatch,

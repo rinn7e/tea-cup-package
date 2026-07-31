@@ -25,84 +25,81 @@ import * as E from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
-import { type JSX } from 'react'
+import { type JSX, type MouseEvent } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
-/** Reducer messages for CheckboxField sub-component */
+import { NullableEq } from '@rinn7e/tea-cup-prelude'
+
+/** Reducer messages for DropdownField sub-component */
 export type Msg =
   | {
-      _tag: 'ToggleCheckbox'
-      checkboxKey: string
-      value: boolean
+      _tag: 'UpdateDropdownType'
+      value: string
+      event?: MouseEvent<HTMLDivElement>
+    }
+  | {
+      _tag: 'HandleFocus'
+      isFocus: boolean
+    }
+  | {
+      _tag: 'HideValidation'
     }
 
-/** Choice tuple representing [key, isChecked] */
-export type CheckboxChoice = [string, boolean]
-export const CheckboxChoiceEq = EqClass.tuple(S.Eq, B.Eq)
-
-/** Properties passed to custom UI renderer for an individual checkbox item */
-export type CheckboxTypeUiArg = {
+/** Properties passed to custom UI renderer for DropdownField */
+export type DropdownTypeUiArg = {
   dispatch: Dispatcher<Msg>
-  fieldKey: string
-  checkboxChoice: CheckboxChoice
-  isMarkdown: boolean
-}
-
-/** Properties passed to custom UI renderer for the entire CheckboxField group */
-export type CheckboxesTypeUiArg = {
-  dispatch: Dispatcher<Msg>
-  fieldKey: string
   label: string
-  currentValues: CheckboxChoice[]
-  isMarkdown: boolean
+  currentValue: string | null
+  placeholder: string
+  fieldKey: string
+  isFocus: boolean
+  choices: string[]
+  validationResult: Either<string, string | null>
+  validation: (input: string | null) => Either<string, string | null>
+  showValidation: boolean
 }
 
-/** Internal model state for CheckboxField */
+/** Internal model state for DropdownField */
 export type Model = {
   // State
-  currentValues: CheckboxChoice[]
+  currentValue: string | null
+  showValidation: boolean
+  isFocus: boolean
 
   // Config
   label: string
-  validation: (input: CheckboxChoice[]) => Either<string, CheckboxChoice[]>
-  isMarkdown: boolean
-  ui?: (arg: CheckboxesTypeUiArg) => JSX.Element
+  placeholder: string
+  choices: string[]
+  validation: (input: string | null) => Either<string, string | null>
+  ui?: (arg: DropdownTypeUiArg) => JSX.Element
 }
 
 export const defaultModel = (
-  currentValues: CheckboxChoice[],
-  inputUi?: (arg: CheckboxesTypeUiArg) => JSX.Element,
+  inputUi?: (arg: DropdownTypeUiArg) => JSX.Element,
 ): Model => ({
   // State
-  currentValues,
+  currentValue: null,
+  showValidation: false,
+  isFocus: false,
 
   // Config
-  label: '',
+  label: 'Country',
+  placeholder: 'Select a value',
+  choices: [],
   validation: (val) => E.right(val),
-  isMarkdown: false,
   ui: inputUi ? inputUi : undefined,
 })
 
 export const ModelEq = EqClass.struct<Model>({
   // State
-  currentValues: A.getEq(CheckboxChoiceEq),
+  currentValue: NullableEq(S.Eq),
+  showValidation: B.Eq,
+  isFocus: B.Eq,
 
   // Config
   label: S.Eq,
+  placeholder: S.Eq,
+  choices: A.getEq(S.Eq),
   validation: { equals: () => true },
-  isMarkdown: { equals: () => true },
   ui: { equals: () => true },
-})
-
-/** Component props for CheckboxField */
-export type Props = {
-  fieldKey: string
-  model: Model
-  dispatch: Dispatcher<Msg>
-}
-
-export const PropsEq = EqClass.struct<Props>({
-  fieldKey: S.Eq,
-  model: ModelEq,
-  dispatch: { equals: () => true },
 })

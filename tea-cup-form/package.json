@@ -38,6 +38,7 @@
     "compile": "tsup",
     "build": "pnpm run clean && pnpm run compile",
     "check": "tsc --noEmit",
+    "check-circular": "madge --circular --ts-config ./tsconfig.json --extensions ts,tsx src/",
     "format": "prettier --write .",
     "lint": "eslint src",
     "staged": "pnpm run format && pnpm run check && pnpm run lint"
@@ -69,6 +70,7 @@
     "eslint-plugin-react-x": "^1.52.2",
     "eslint-plugin-unused-imports": "^4.4.1",
     "globals": "^16.2.0",
+    "madge": "^8.0.0",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "rimraf": "^6.1.2",

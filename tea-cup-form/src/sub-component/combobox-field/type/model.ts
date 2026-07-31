@@ -37,7 +37,7 @@ import {
   DataJsonEq,
   ErrorJson,
   ErrorJsonEq,
-} from '../../common/data'
+} from '../../../common/data'
 
 export type Config = {
   handler: (query: string) => TaskEither<ErrorJson, DataJson[]>
@@ -127,15 +127,3 @@ export type ComboboxTypeUiArg = {
   validationResult: Either<string, DataJson[]>
   config: Config
 }
-
-export type Props = {
-  fieldKey: string
-  model: Model
-  dispatch: Dispatcher<Msg>
-}
-
-export const PropsEq = EqClass.struct<Props>({
-  fieldKey: S.Eq,
-  model: ModelEq,
-  dispatch: EqAlways,
-})

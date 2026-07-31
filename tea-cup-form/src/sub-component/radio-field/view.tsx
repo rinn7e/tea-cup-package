@@ -23,7 +23,7 @@ import * as A from 'fp-ts/lib/Array'
 import { pipe } from 'fp-ts/lib/function'
 
 import { mkIdFromString } from '../../util/common'
-import type { RadioTypeUiArg, RadiosTypeUiArg } from './type'
+import type { RadioChoice, RadioTypeUiArg, RadiosTypeUiArg } from './type/model'
 
 export const radioView = (
   isSelected: boolean,

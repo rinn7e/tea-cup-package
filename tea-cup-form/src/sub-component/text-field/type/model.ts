@@ -32,8 +32,6 @@ import {
 } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
-import type { Forms } from '../../common/type'
-
 // ------------------------------------------
 // Helper types & definitions
 // ------------------------------------------
@@ -171,23 +169,4 @@ export const ModelEq = EqClass.struct<Model>({
   autocomplete: B.Eq,
   onKeyDown: { equals: () => true },
   ui: { equals: () => true },
-})
-
-// ------------------------------------------
-// Props
-// ------------------------------------------
-
-/** Component props for TextField */
-export type Props = {
-  fieldKey: string
-  model: Model
-  dispatch: Dispatcher<Msg>
-  forms: Forms
-}
-
-export const PropsEq = EqClass.struct<Props>({
-  fieldKey: S.Eq,
-  model: ModelEq,
-  dispatch: { equals: () => true },
-  forms: { equals: () => true },
 })

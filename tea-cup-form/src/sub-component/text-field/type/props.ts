@@ -19,7 +19,29 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-export * from './type/model'
-export * from './type/props'
-export * from './update'
-export * from './view'
+import * as EqClass from 'fp-ts/lib/Eq'
+import * as S from 'fp-ts/lib/string'
+import { Dispatcher } from 'tea-cup-fp'
+
+import type { Forms } from '../../../common/type'
+import type { Model, Msg } from './model'
+import { ModelEq } from './model'
+
+// ------------------------------------------
+// Props
+// ------------------------------------------
+
+/** Component props for TextField */
+export type Props = {
+  fieldKey: string
+  model: Model
+  dispatch: Dispatcher<Msg>
+  forms: Forms
+}
+
+export const PropsEq = EqClass.struct<Props>({
+  fieldKey: S.Eq,
+  model: ModelEq,
+  dispatch: { equals: () => true },
+  forms: { equals: () => true },
+})

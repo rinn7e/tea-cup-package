@@ -20,6 +20,7 @@
     "compile": "tsup",
     "build": "pnpm run clean && pnpm run compile",
     "check": "tsc --noEmit",
+    "check-circular": "madge --circular --ts-config ./tsconfig.json --extensions ts,tsx src/",
     "format": "prettier --write .",
     "lint": "eslint src",
     "staged": "pnpm run format && pnpm run check && pnpm run lint"
@@ -51,6 +52,7 @@
     "globals": "^16.2.0",
     "io-ts": "^2.2.0",
     "io-ts-types": "^0.5.0",
+    "madge": "^8.0.0",
     "prettier": "^3.8.1",
     "react": "^19.0.0",
     "react-tea-cup": "^5.1.1",

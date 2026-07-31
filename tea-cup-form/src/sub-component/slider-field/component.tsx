@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { memo } from 'react'
 
-import { type Props, PropsEq } from './type'
+import { Props, PropsEq } from './type/props'
 import { defaultSliderView, defaultThumbView } from './view'
 
 export const SliderField = ({ fieldKey, model, dispatch }: Props) => {

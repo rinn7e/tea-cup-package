@@ -28,84 +28,91 @@ import * as S from 'fp-ts/lib/string'
 import { type FormEvent, type JSX } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
-/** Reducer messages for FileField sub-component */
+/** Reducer messages for TextPillField sub-component */
 export type Msg =
   | {
-      _tag: 'AddFile'
-      event: FormEvent<HTMLInputElement>
+      _tag: 'UpdateTextPill'
+      event: FormEvent<HTMLInputElement | HTMLTextAreaElement>
     }
   | {
-      _tag: 'RemoveFile'
+      _tag: 'AddPill'
+      value: string
+    }
+  | {
+      _tag: 'RemovePill'
       index: number
+    }
+  | {
+      _tag: 'HandleFocus'
+      isFocus: boolean
     }
   | {
       _tag: 'HideValidation'
     }
 
-/** Properties passed to custom UI renderer for FileField */
-export type FileTypeUiArg = {
-  dispatch: Dispatcher<Msg>
-  fieldKey: string
-  label: string
-  currentValues: File[]
-  validationResult: Either<string, File[]>
-  isMultiple: boolean
-  isDrag: boolean
-  showValidation: boolean
-}
-
-/** Internal model state for FileField */
+/** Internal model state for TextPillField */
 export type Model = {
   // State
-  currentValues: File[]
+  currentValue: string
+  allValues: string[]
   showValidation: boolean
+  isFocus: boolean
 
   // Config
   label: string
-  isMultiple: boolean
-  validation: (input: File[]) => Either<string, File[]>
-  ui?: (arg: FileTypeUiArg) => JSX.Element
+  placeholder: string
+  validation: (input: string[]) => Either<string, string[]>
+  isTextarea: boolean
+  autocomplete: boolean
+  ui?: (props: TextPillTypeUiArg) => JSX.Element
+}
+
+/** Properties passed to custom UI renderers for TextPillField */
+export type TextPillTypeUiArg = {
+  key: string
+  label: string
+  isFocus: boolean
+  placeholder?: string
+  allValues: string[]
+  currentValue: string
+  showValidation: boolean
+  dispatch: Dispatcher<Msg>
+  validationResult: Either<string, string[]>
+  validation: (input: string[]) => Either<string, string[]>
+  autocomplete: boolean
+  isTextarea: boolean
 }
 
 export const defaultModel = (
-  inputUi?: (arg: FileTypeUiArg) => JSX.Element,
+  inputUi?: (props: TextPillTypeUiArg) => JSX.Element,
 ): Model => ({
   // State
-  currentValues: [],
+  currentValue: '',
+  allValues: [],
   showValidation: false,
+  isFocus: false,
 
   // Config
-  label: 'File Upload',
-  isMultiple: true,
+  label: 'Tags',
+  placeholder: 'Add tag...',
   validation: (val) => E.right(val),
+  isTextarea: false,
+  autocomplete: false,
   ui: inputUi ? inputUi : undefined,
 })
 
-export const FileEq: EqClass.Eq<File> = { equals: (a, b) => a.name === b.name }
-
 export const ModelEq = EqClass.struct<Model>({
   // State
-  currentValues: A.getEq(FileEq),
+  currentValue: S.Eq,
+  allValues: A.getEq(S.Eq),
   showValidation: B.Eq,
+  isFocus: B.Eq,
 
   // Config
   label: S.Eq,
-  isMultiple: { equals: () => true },
+  placeholder: S.Eq,
   validation: { equals: () => true },
+  isTextarea: B.Eq,
+  autocomplete: B.Eq,
   ui: { equals: () => true },
-})
-
-/** Component props for FileField */
-export type Props = {
-  fieldKey: string
-  model: Model
-  dispatch: Dispatcher<Msg>
-  isDrag: boolean
-}
-
-export const PropsEq = EqClass.struct<Props>({
-  fieldKey: S.Eq,
-  model: ModelEq,
-  dispatch: { equals: () => true },
-  isDrag: B.Eq,
 })

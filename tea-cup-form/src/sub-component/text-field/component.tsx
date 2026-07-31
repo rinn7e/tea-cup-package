@@ -23,7 +23,7 @@ import { memo } from 'react'
 
 import type { Forms } from '../../common/type'
 import { runValidationAndLink } from '../../util/validation'
-import { Props, PropsEq } from './type'
+import { Props, PropsEq } from './type/props'
 import { defaultTextView } from './view'
 
 export const TextField = ({ fieldKey, model, dispatch, forms }: Props) => {
