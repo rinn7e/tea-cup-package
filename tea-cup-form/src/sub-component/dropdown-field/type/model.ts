@@ -19,6 +19,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
+import { NullableEq } from '@rinn7e/tea-cup-prelude'
 import * as A from 'fp-ts/lib/Array'
 import { type Either } from 'fp-ts/lib/Either'
 import * as E from 'fp-ts/lib/Either'
@@ -27,8 +28,6 @@ import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
 import { type JSX, type MouseEvent } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
-
-import { NullableEq } from '@rinn7e/tea-cup-prelude'
 
 /** Reducer messages for DropdownField sub-component */
 export type Msg =
@@ -46,7 +45,7 @@ export type Msg =
     }
 
 /** Properties passed to custom UI renderer for DropdownField */
-export type DropdownTypeUiArg = {
+export type UiArg = {
   dispatch: Dispatcher<Msg>
   label: string
   currentValue: string | null
@@ -71,12 +70,10 @@ export type Model = {
   placeholder: string
   choices: string[]
   validation: (input: string | null) => Either<string, string | null>
-  ui?: (arg: DropdownTypeUiArg) => JSX.Element
+  ui?: (arg: UiArg) => JSX.Element
 }
 
-export const defaultModel = (
-  inputUi?: (arg: DropdownTypeUiArg) => JSX.Element,
-): Model => ({
+export const defaultModel = (inputUi?: (arg: UiArg) => JSX.Element): Model => ({
   // State
   currentValue: null,
   showValidation: false,

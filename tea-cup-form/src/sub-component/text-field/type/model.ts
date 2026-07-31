@@ -42,9 +42,7 @@ export type TextInputVariant =
   | { _tag: 'Email' }
   | { _tag: 'Password'; reveal: boolean }
 
-export const textInputVariantToString = (
-  variant: TextInputVariant,
-): string => {
+export const textInputVariantToString = (variant: TextInputVariant): string => {
   switch (variant._tag) {
     case 'Text':
       return 'text'
@@ -73,8 +71,8 @@ export const autocompleteToString = (val: boolean): string => {
 }
 
 /** Properties passed to custom UI renderers for TextField */
-export type TextTypeUiArg<MsgType = Msg> = {
-  dispatch: Dispatcher<MsgType>
+export type UiArg = {
+  dispatch: Dispatcher<Msg>
   variant: TextInputVariant
   key: string
   currentValue: string
@@ -98,8 +96,15 @@ export type TextTypeUiArg<MsgType = Msg> = {
 /** Reducer messages for TextField sub-component */
 export type Msg =
   | { _tag: 'UpdateValue'; value: string }
-  | { _tag: 'UpdateEvent'; event: FormEvent<HTMLInputElement | HTMLTextAreaElement> }
-  | { _tag: 'SetRevealPassword'; reveal: boolean; event: MouseEvent<HTMLElement> }
+  | {
+      _tag: 'UpdateEvent'
+      event: FormEvent<HTMLInputElement | HTMLTextAreaElement>
+    }
+  | {
+      _tag: 'SetRevealPassword'
+      reveal: boolean
+      event: MouseEvent<HTMLElement>
+    }
   | { _tag: 'HandleFocus'; isFocus: boolean }
   | { _tag: 'HideValidation' }
 
@@ -131,11 +136,11 @@ export type Model = {
   onKeyDown?: (
     event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void
-  ui?: (props: TextTypeUiArg<Msg>) => JSX.Element
+  ui?: (props: UiArg) => JSX.Element
 }
 
 export const defaultModel = (
-  inputUi?: (props: TextTypeUiArg<Msg>) => JSX.Element,
+  inputUi?: (props: UiArg) => JSX.Element,
 ): Model => ({
   // State
   currentValue: '',

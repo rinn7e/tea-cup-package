@@ -24,13 +24,10 @@ import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import type { JSX } from 'react'
 
-import { autocompleteToString } from '../text-field/type/model'
 import { errorTooltipContainer } from '../error-tooltip/helper'
-import {
-  getContainerClasses,
-  getLabelClasses,
-} from '../shared'
-import type { TextPillTypeUiArg } from './type/model'
+import { getContainerClasses, getLabelClasses } from '../shared'
+import { autocompleteToString } from '../text-field/type/model'
+import type { UiArg } from './type/model'
 
 export const defaultTextPillView = ({
   dispatch,
@@ -43,7 +40,7 @@ export const defaultTextPillView = ({
   placeholder,
   autocomplete,
   allValues,
-}: TextPillTypeUiArg): JSX.Element => {
+}: UiArg): JSX.Element => {
   const isError = validationResult._tag === 'Left' && showValidation
   const errorMsg = isError ? O.some(validationResult.left) : O.none
 
@@ -109,12 +106,8 @@ export const defaultTextPillView = ({
                 })
               }
             }}
-            onFocus={(_) =>
-              dispatch({ _tag: 'HandleFocus', isFocus: true })
-            }
-            onBlur={(_) =>
-              dispatch({ _tag: 'HandleFocus', isFocus: false })
-            }
+            onFocus={(_) => dispatch({ _tag: 'HandleFocus', isFocus: true })}
+            onBlur={(_) => dispatch({ _tag: 'HandleFocus', isFocus: false })}
             placeholder={placeholder}
             autoComplete={autocompleteToString(autocomplete)}
           />

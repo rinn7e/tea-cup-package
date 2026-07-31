@@ -114,7 +114,9 @@ test.describe('TeaCup Form Example App', () => {
 
     await expect(page.getByText('file-to-remove.png')).toBeVisible()
 
-    const removeBtn = page.locator('[data-test="file-remove-file-to-remove.png"]')
+    const removeBtn = page.locator(
+      '[data-test="file-remove-file-to-remove.png"]',
+    )
     await removeBtn.click()
     await expect(page.getByText('file-to-remove.png')).not.toBeVisible()
   })

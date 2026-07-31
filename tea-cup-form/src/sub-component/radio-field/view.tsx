@@ -23,7 +23,7 @@ import * as A from 'fp-ts/lib/Array'
 import { pipe } from 'fp-ts/lib/function'
 
 import { mkIdFromString } from '../../util/common'
-import type { RadioChoice, RadioTypeUiArg, RadiosTypeUiArg } from './type/model'
+import type { ItemUiArg, UiArg } from './type/model'
 
 export const radioView = (
   isSelected: boolean,
@@ -49,7 +49,7 @@ export const radioView = (
   )
 }
 
-export const defaultRadioView = (arg: RadioTypeUiArg) => {
+export const defaultRadioView = (arg: ItemUiArg) => {
   return (
     <div
       id={mkIdFromString(arg.radioChoice.key)}
@@ -84,7 +84,7 @@ export const defaultRadiosView = ({
   choices,
   currentValue,
   isMarkdown,
-}: RadiosTypeUiArg) => (
+}: UiArg) => (
   <div id='RadioType' className='flex flex-col gap-1'>
     {label !== '' && (
       <label className='mb-1 px-1 text-sm font-bold tracking-tight text-slate-600'>

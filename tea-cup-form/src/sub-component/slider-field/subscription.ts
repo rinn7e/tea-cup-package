@@ -26,10 +26,7 @@ import { mkIdFromString } from '../../util/common'
 import type { Model, Msg } from './type/model'
 import { getValueFromX } from './util'
 
-export const subscriptions = (
-  model: Model,
-  fieldKey: string,
-): Sub<Msg> => {
+export const subscriptions = (model: Model, fieldKey: string): Sub<Msg> => {
   // Only listen to document-level dragging events if drag state is active
   if (!model.isDragging) {
     return Sub.none()

@@ -19,7 +19,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-
 import * as RD from '@devexperts/remote-data-ts'
 import { errorToString } from '@rinn7e/tea-cup-prelude'
 import * as A from 'fp-ts/lib/Array'
@@ -38,34 +37,31 @@ const performSearch = (
   if (query.trim() === '') {
     return Cmd.none()
   } else {
-    return Task.attempt(
-      Task.fromPromise(config.handler(query)),
-      (result) => {
-        switch (result.tag) {
-          case 'Err': {
-            return {
-              _tag: 'SetItems',
-              value: RD.failure(errorToString(result.err) as ErrorJson),
-              timerId,
-            }
-          }
-          case 'Ok': {
-            const rd: RD.RemoteData<ErrorJson, DataJson[]> = pipe(
-              result.value,
-              E.fold(
-                (err) => RD.failure(err),
-                (data: DataJson[]) => RD.success(data),
-              ),
-            )
-            return {
-              _tag: 'SetItems',
-              value: rd,
-              timerId,
-            }
+    return Task.attempt(Task.fromPromise(config.handler(query)), (result) => {
+      switch (result.tag) {
+        case 'Err': {
+          return {
+            _tag: 'SetItems',
+            value: RD.failure(errorToString(result.err) as ErrorJson),
+            timerId,
           }
         }
-      },
-    )
+        case 'Ok': {
+          const rd: RD.RemoteData<ErrorJson, DataJson[]> = pipe(
+            result.value,
+            E.fold(
+              (err) => RD.failure(err),
+              (data: DataJson[]) => RD.success(data),
+            ),
+          )
+          return {
+            _tag: 'SetItems',
+            value: rd,
+            timerId,
+          }
+        }
+      }
+    })
   }
 }
 
@@ -77,10 +73,7 @@ const debounceSearch = (query: string, timerId: number): Cmd<Msg> => {
   }))
 }
 
-export const update = (
-  msg: Msg,
-  field: Model,
-): [Model, Cmd<Msg>] => {
+export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'SetQuery': {
       const query = msg.value
@@ -109,7 +102,10 @@ export const update = (
     }
 
     case 'SetSelectedItems': {
-      return [{ ...field, selectedItems: msg.items, showValidation: true }, Cmd.none()]
+      return [
+        { ...field, selectedItems: msg.items, showValidation: true },
+        Cmd.none(),
+      ]
     }
 
     case 'DeselectItem': {
@@ -119,7 +115,10 @@ export const update = (
         A.filter((p) => !field.config.itemEq.equals(p, toRemove)),
       )
 
-      return [{ ...field, selectedItems: newSelected, showValidation: true }, Cmd.none()]
+      return [
+        { ...field, selectedItems: newSelected, showValidation: true },
+        Cmd.none(),
+      ]
     }
 
     case 'SelectItem': {

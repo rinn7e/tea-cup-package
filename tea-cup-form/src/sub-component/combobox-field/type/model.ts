@@ -19,16 +19,15 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-
 import * as RD from '@devexperts/remote-data-ts'
 import { EqAlways } from '@rinn7e/tea-cup-prelude'
 import * as A from 'fp-ts/lib/Array'
 import type { Either } from 'fp-ts/lib/Either'
 import * as E from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
+import type { TaskEither } from 'fp-ts/lib/TaskEither'
 import * as N from 'fp-ts/lib/number'
 import * as S from 'fp-ts/lib/string'
-import type { TaskEither } from 'fp-ts/lib/TaskEither'
 import type { JSX, ReactNode } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
@@ -63,13 +62,13 @@ export type Model = {
   label: string
   placeholder: string
   validation: (val: DataJson[]) => Either<string, DataJson[]>
-  ui?: (arg: ComboboxTypeUiArg) => JSX.Element
+  ui?: (arg: UiArg) => JSX.Element
 }
 
 export const defaultModel = (
   config: Config,
   selectedItems: DataJson[] = [],
-  inputUi?: (arg: ComboboxTypeUiArg) => JSX.Element,
+  inputUi?: (arg: UiArg) => JSX.Element,
 ): Model => ({
   // State
   query: '',
@@ -106,7 +105,11 @@ export const ModelEq = EqClass.struct<Model>({
 
 export type Msg =
   | { _tag: 'SetQuery'; value: string }
-  | { _tag: 'SetItems'; value: RD.RemoteData<ErrorJson, DataJson[]>; timerId: number }
+  | {
+      _tag: 'SetItems'
+      value: RD.RemoteData<ErrorJson, DataJson[]>
+      timerId: number
+    }
   | { _tag: 'SetSelectedItems'; items: DataJson[] }
   | { _tag: 'DeselectItem'; item: DataJson }
   | { _tag: 'SelectItem'; item: DataJson }
@@ -114,7 +117,7 @@ export type Msg =
   | { _tag: 'HandleFocus'; isFocus: boolean }
   | { _tag: 'HideValidation' }
 
-export type ComboboxTypeUiArg = {
+export type UiArg = {
   dispatch: Dispatcher<Msg>
   key: string
   query: string

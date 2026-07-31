@@ -19,6 +19,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
+import { and, or } from '@rinn7e/tea-cup-prelude'
 import * as A from 'fp-ts/lib/Array'
 import type { Either } from 'fp-ts/lib/Either'
 import * as E from 'fp-ts/lib/Either'
@@ -28,13 +29,12 @@ import { pipe } from 'fp-ts/lib/function'
 import * as S from 'fp-ts/lib/string'
 
 import {
-  lookupForm,
-  valueTextType,
   type FormType,
   type Forms,
   type TextType,
+  lookupForm,
+  valueTextType,
 } from '../common/type'
-import { and, or } from '@rinn7e/tea-cup-prelude'
 
 // Validator
 
@@ -290,11 +290,10 @@ export const runValidationForAll = (
     : E.left('Some fields are invalid.')
 }
 
-export const runValidationAndLink = (
-  formType: TextType,
-  forms: Forms,
-) => {
-  const validationResult = formType.model.validation(formType.model.currentValue)
+export const runValidationAndLink = (formType: TextType, forms: Forms) => {
+  const validationResult = formType.model.validation(
+    formType.model.currentValue,
+  )
   if (validationResult._tag === 'Right') {
     const validationResultArray = pipe(
       formType.model.linkValidations,

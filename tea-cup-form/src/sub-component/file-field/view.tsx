@@ -19,7 +19,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-
 import * as A from 'fp-ts/lib/Array'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
@@ -27,7 +26,7 @@ import { Dispatcher } from 'tea-cup-fp'
 
 import { errorTooltipContainer } from '../error-tooltip/helper'
 import { IconFile, IconUpload, IconX, getLabelClasses } from '../shared'
-import type { FileTypeUiArg, Msg } from './type/model'
+import type { Msg, UiArg } from './type/model'
 
 const limitDecimal2Digit = (num: number): number => Math.round(num * 100) / 100
 
@@ -94,7 +93,7 @@ export const defaultFileView = ({
   isMultiple,
   isDrag,
   showValidation,
-}: FileTypeUiArg) => {
+}: UiArg) => {
   const isError = validationResult._tag === 'Left' && showValidation
   const errorMsg = isError ? O.some(validationResult.left) : O.none
 

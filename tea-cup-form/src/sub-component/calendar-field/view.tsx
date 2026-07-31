@@ -20,6 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as O from 'fp-ts/lib/Option'
+import type { JSX } from 'react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 
@@ -30,7 +31,7 @@ import {
   getContainerClasses,
   getLabelClasses,
 } from '../shared'
-import type { CalendarTypeUiArg } from './type/model'
+import type { UiArg } from './type/model'
 
 export const defaultCalendarView = ({
   dispatch,
@@ -41,7 +42,7 @@ export const defaultCalendarView = ({
   isFocus,
   validationResult,
   showValidation,
-}: CalendarTypeUiArg) => {
+}: UiArg): JSX.Element => {
   const isError = validationResult._tag === 'Left' && showValidation
   const errorMsg = isError ? O.some(validationResult.left) : O.none
 
@@ -67,22 +68,13 @@ export const defaultCalendarView = ({
               dateFormat='dd.MM.yyyy'
               customInput={<CalendarInput data-test={fieldKey} />}
               onCalendarOpen={() =>
-                dispatch(
-                  { _tag: 'HandleFocus', isFocus: true },
-                  false,
-                )
+                dispatch({ _tag: 'HandleFocus', isFocus: true }, false)
               }
               onCalendarClose={() =>
-                dispatch(
-                  { _tag: 'HandleFocus', isFocus: false },
-                  false,
-                )
+                dispatch({ _tag: 'HandleFocus', isFocus: false }, false)
               }
               onChange={(date) =>
-                dispatch(
-                  { _tag: 'UpdateCalendar', value: date },
-                  false,
-                )
+                dispatch({ _tag: 'UpdateCalendar', value: date }, false)
               }
             />
           </div>

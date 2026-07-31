@@ -22,6 +22,7 @@ SOFTWARE. */
 import * as A from 'fp-ts/lib/Array'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
+import type { JSX } from 'react'
 
 import { mkIdFromString } from '../../util/common'
 import { errorTooltipContainer } from '../error-tooltip/helper'
@@ -30,7 +31,7 @@ import {
   getContainerClasses,
   getLabelClasses,
 } from '../shared'
-import type { DropdownTypeUiArg } from './type/model'
+import type { UiArg } from './type/model'
 
 export const defaultDropdownView = ({
   dispatch,
@@ -42,7 +43,7 @@ export const defaultDropdownView = ({
   placeholder,
   validationResult,
   showValidation,
-}: DropdownTypeUiArg) => {
+}: UiArg): JSX.Element => {
   const isError = validationResult._tag === 'Left' && showValidation
   const errorMsg = isError ? O.some(validationResult.left) : O.none
 
@@ -65,15 +66,9 @@ export const defaultDropdownView = ({
             value={currentValue ? currentValue : ''}
             readOnly
             onKeyDown={(event) => event.preventDefault()}
-            onClick={(_) =>
-              dispatch({ _tag: 'HandleFocus', isFocus: true })
-            }
-            onFocus={(_) =>
-              dispatch({ _tag: 'HandleFocus', isFocus: true })
-            }
-            onBlur={(_) =>
-              dispatch({ _tag: 'HandleFocus', isFocus: false })
-            }
+            onClick={(_) => dispatch({ _tag: 'HandleFocus', isFocus: true })}
+            onFocus={(_) => dispatch({ _tag: 'HandleFocus', isFocus: true })}
+            onBlur={(_) => dispatch({ _tag: 'HandleFocus', isFocus: false })}
           />
           <div className='pointer-events-none pr-3 text-slate-400 transition-colors group-hover:text-slate-600'>
             <IconChevronDown />

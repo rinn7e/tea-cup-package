@@ -26,13 +26,15 @@ import React, { type JSX } from 'react'
 
 export const emptyEl = (): JSX.Element => <div></div>
 
-export const CalendarInput = React.forwardRef<HTMLInputElement, any>((props, ref) => (
-  <input
-    {...props}
-    ref={ref}
-    className='w-full bg-transparent px-4 py-3 font-medium text-slate-800 outline-none'
-  />
-))
+export const CalendarInput = React.forwardRef<HTMLInputElement, any>(
+  (props, ref) => (
+    <input
+      {...props}
+      ref={ref}
+      className='w-full bg-transparent px-4 py-3 font-medium text-slate-800 outline-none'
+    />
+  ),
+)
 
 // Icons
 // ------------------------------------------

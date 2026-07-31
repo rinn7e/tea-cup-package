@@ -25,7 +25,7 @@ import * as M from 'fp-ts/lib/Map'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import * as S from 'fp-ts/lib/string'
-import { DataJson } from './data'
+
 import * as CalendarField from '../sub-component/calendar-field/type/model'
 import * as CheckboxField from '../sub-component/checkbox-field/type/model'
 import * as ComboboxField from '../sub-component/combobox-field/type/model'
@@ -35,6 +35,7 @@ import * as RadioField from '../sub-component/radio-field/type/model'
 import * as SliderField from '../sub-component/slider-field/type/model'
 import * as TextField from '../sub-component/text-field/type/model'
 import * as TextPillField from '../sub-component/text-pill-field/type/model'
+import { DataJson } from './data'
 
 export type TextType = { _tag: 'TextType'; model: TextField.Model }
 export const TextTypeEq = EqClass.struct<TextType>({

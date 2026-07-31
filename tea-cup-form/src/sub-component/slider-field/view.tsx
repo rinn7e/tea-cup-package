@@ -22,7 +22,7 @@ SOFTWARE. */
 import { type JSX, type ReactNode } from 'react'
 
 import { mkIdFromString } from '../../util/common'
-import type { Msg, SliderTypeUiArg, ThumbViewUiArg } from './type/model'
+import type { ThumbUiArg, UiArg } from './type/model'
 import { getValueFromX } from './util'
 
 export const defaultThumbView = ({
@@ -31,7 +31,7 @@ export const defaultThumbView = ({
   pct,
   isDragging,
   dispatch,
-}: ThumbViewUiArg<Msg>): ReactNode => {
+}: ThumbUiArg): ReactNode => {
   const handleThumbMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
@@ -50,8 +50,8 @@ export const defaultThumbView = ({
       onTouchStart={handleThumbTouchStart}
       className={`absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-2 border-blue-600 bg-white outline-none ${
         isDragging
-          ? 'scale-115 cursor-grabbing shadow-lg shadow-blue-500/25 ring-4 ring-blue-500/25 transition-none'
-          : 'cursor-grab shadow-xs hover:scale-105 transition-transform duration-150'
+          ? 'scale-115 cursor-grabbing shadow-lg ring-4 shadow-blue-500/25 ring-blue-500/25 transition-none'
+          : 'cursor-grab shadow-xs transition-transform duration-150 hover:scale-105'
       }`}
       style={
         {
@@ -64,14 +64,8 @@ export const defaultThumbView = ({
 }
 
 export const defaultSliderView =
-  (thumbView: (props: ThumbViewUiArg<Msg>) => ReactNode) =>
-  ({
-    dispatch,
-    fieldKey,
-    value,
-    isDragging,
-    config,
-  }: SliderTypeUiArg<Msg>): JSX.Element => {
+  (thumbView: (props: ThumbUiArg) => ReactNode) =>
+  ({ dispatch, fieldKey, value, isDragging, config }: UiArg): JSX.Element => {
     const { min, max, label, unit, showValue } = config
     const trackId = mkIdFromString(fieldKey)
     const anchorName = config.anchorName ?? `--${trackId}-thumb`

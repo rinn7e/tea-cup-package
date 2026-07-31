@@ -28,35 +28,34 @@ import { type JSX } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
 /** Reducer messages for RadioField sub-component */
-export type Msg =
-  | {
-      _tag: 'UpdateRadio'
-      radioKey: string
-      allowUnselected: boolean
-    }
+export type Msg = {
+  _tag: 'UpdateRadio'
+  radioKey: string
+  allowUnselected: boolean
+}
 
 /** Choice item representing key, label, and description for a radio option */
-export type RadioChoice = { key: string; label: string; desc: string }
-export const RadioChoiceEq = EqClass.struct<RadioChoice>({
+export type Choice = { key: string; label: string; desc: string }
+export const ChoiceEq = EqClass.struct<Choice>({
   key: S.Eq,
   label: S.Eq,
   desc: S.Eq,
 })
 
 /** Properties passed to custom UI renderer for an individual radio option */
-export type RadioTypeUiArg = {
+export type ItemUiArg = {
   dispatch: Dispatcher<Msg>
   fieldKey: string
-  radioChoice: RadioChoice
+  radioChoice: Choice
   isActive: boolean
 }
 
 /** Properties passed to custom UI renderer for the entire RadioField group */
-export type RadiosTypeUiArg = {
+export type UiArg = {
   dispatch: Dispatcher<Msg>
   fieldKey: string
   label: string
-  choices: RadioChoice[]
+  choices: Choice[]
   currentValue: Option<string>
   isMarkdown: boolean
 }
@@ -68,15 +67,15 @@ export type Model = {
 
   // Config
   label: string
-  choices: RadioChoice[]
+  choices: Choice[]
   isMarkdown: boolean
-  ui?: (arg: RadiosTypeUiArg) => JSX.Element
+  ui?: (arg: UiArg) => JSX.Element
 }
 
 export const defaultModel = (
-  choices: RadioChoice[],
+  choices: Choice[],
   currentValue: Option<string>,
-  inputUi?: (arg: RadiosTypeUiArg) => JSX.Element,
+  inputUi?: (arg: UiArg) => JSX.Element,
 ): Model => ({
   // State
   currentValue,
@@ -94,7 +93,7 @@ export const ModelEq = EqClass.struct<Model>({
 
   // Config
   label: S.Eq,
-  choices: A.getEq(RadioChoiceEq),
+  choices: A.getEq(ChoiceEq),
   isMarkdown: { equals: () => true },
   ui: { equals: () => true },
 })

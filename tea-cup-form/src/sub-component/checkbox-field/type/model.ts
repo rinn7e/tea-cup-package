@@ -29,49 +29,48 @@ import { type JSX } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
 /** Reducer messages for CheckboxField sub-component */
-export type Msg =
-  | {
-      _tag: 'ToggleCheckbox'
-      checkboxKey: string
-      value: boolean
-    }
+export type Msg = {
+  _tag: 'ToggleCheckbox'
+  checkboxKey: string
+  value: boolean
+}
 
 /** Choice tuple representing [key, isChecked] */
-export type CheckboxChoice = [string, boolean]
-export const CheckboxChoiceEq = EqClass.tuple(S.Eq, B.Eq)
+export type Choice = [string, boolean]
+export const ChoiceEq = EqClass.tuple(S.Eq, B.Eq)
 
 /** Properties passed to custom UI renderer for an individual checkbox item */
-export type CheckboxTypeUiArg = {
+export type ItemUiArg = {
   dispatch: Dispatcher<Msg>
   fieldKey: string
-  checkboxChoice: CheckboxChoice
+  checkboxChoice: Choice
   isMarkdown: boolean
 }
 
 /** Properties passed to custom UI renderer for the entire CheckboxField group */
-export type CheckboxesTypeUiArg = {
+export type UiArg = {
   dispatch: Dispatcher<Msg>
   fieldKey: string
   label: string
-  currentValues: CheckboxChoice[]
+  currentValues: Choice[]
   isMarkdown: boolean
 }
 
 /** Internal model state for CheckboxField */
 export type Model = {
   // State
-  currentValues: CheckboxChoice[]
+  currentValues: Choice[]
 
   // Config
   label: string
-  validation: (input: CheckboxChoice[]) => Either<string, CheckboxChoice[]>
+  validation: (input: Choice[]) => Either<string, Choice[]>
   isMarkdown: boolean
-  ui?: (arg: CheckboxesTypeUiArg) => JSX.Element
+  ui?: (arg: UiArg) => JSX.Element
 }
 
 export const defaultModel = (
-  currentValues: CheckboxChoice[],
-  inputUi?: (arg: CheckboxesTypeUiArg) => JSX.Element,
+  currentValues: Choice[],
+  inputUi?: (arg: UiArg) => JSX.Element,
 ): Model => ({
   // State
   currentValues,
@@ -85,7 +84,7 @@ export const defaultModel = (
 
 export const ModelEq = EqClass.struct<Model>({
   // State
-  currentValues: A.getEq(CheckboxChoiceEq),
+  currentValues: A.getEq(ChoiceEq),
 
   // Config
   label: S.Eq,
