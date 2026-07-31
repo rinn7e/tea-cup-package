@@ -50,25 +50,8 @@ export type Msg =
       _tag: 'HideValidation'
     }
 
-/** Internal model state for TextPillField */
-export type Model = {
-  // State
-  currentValue: string
-  allValues: string[]
-  showValidation: boolean
-  isFocus: boolean
-
-  // Config
-  label: string
-  placeholder: string
-  validation: (input: string[]) => Either<string, string[]>
-  isTextarea: boolean
-  autocomplete: boolean
-  ui?: (props: TextPillTypeUiArg) => JSX.Element
-}
-
 /** Properties passed to custom UI renderers for TextPillField */
-export type TextPillTypeUiArg = {
+export type UiArg = {
   key: string
   label: string
   isFocus: boolean
@@ -83,8 +66,25 @@ export type TextPillTypeUiArg = {
   isTextarea: boolean
 }
 
+/** Internal model state for TextPillField */
+export type Model = {
+  // State
+  currentValue: string
+  allValues: string[]
+  showValidation: boolean
+  isFocus: boolean
+
+  // Config
+  label: string
+  placeholder: string
+  validation: (input: string[]) => Either<string, string[]>
+  isTextarea: boolean
+  autocomplete: boolean
+  ui?: (props: UiArg) => JSX.Element
+}
+
 export const defaultModel = (
-  inputUi?: (props: TextPillTypeUiArg) => JSX.Element,
+  inputUi?: (props: UiArg) => JSX.Element,
 ): Model => ({
   // State
   currentValue: '',

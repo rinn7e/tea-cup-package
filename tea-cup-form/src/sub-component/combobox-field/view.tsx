@@ -19,14 +19,13 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-
 import * as RD from '@devexperts/remote-data-ts'
 import * as O from 'fp-ts/lib/Option'
 import type { JSX } from 'react'
 
 import { errorTooltipContainer } from '../error-tooltip/helper'
 import { IconX, getContainerClasses, getLabelClasses } from '../shared'
-import type { ComboboxTypeUiArg } from './type/model'
+import type { UiArg } from './type/model'
 
 export const defaultComboboxView = ({
   dispatch,
@@ -40,7 +39,7 @@ export const defaultComboboxView = ({
   isFocus,
   validationResult,
   config,
-}: ComboboxTypeUiArg): JSX.Element => {
+}: UiArg): JSX.Element => {
   const isError = validationResult._tag === 'Left' && showValidation
   const errorMsg = isError ? O.some(validationResult.left) : O.none
   const isLoading = RD.isPending(items)

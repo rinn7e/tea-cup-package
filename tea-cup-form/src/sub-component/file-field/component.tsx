@@ -24,12 +24,7 @@ import { memo } from 'react'
 import { Props, PropsEq } from './type/props'
 import { defaultFileView } from './view'
 
-export const FileField = ({
-  fieldKey,
-  model,
-  dispatch,
-  isDrag,
-}: Props) => {
+export const FileField = ({ fieldKey, model, dispatch, isDrag }: Props) => {
   const validationResult = model.validation(model.currentValues)
   const view = model.ui ? model.ui : defaultFileView
   return view({

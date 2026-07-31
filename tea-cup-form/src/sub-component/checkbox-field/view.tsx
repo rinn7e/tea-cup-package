@@ -24,9 +24,9 @@ import { pipe } from 'fp-ts/lib/function'
 
 import { mkIdFromString } from '../../util/common'
 import { IconCheck } from '../shared'
-import type { CheckboxTypeUiArg, CheckboxesTypeUiArg } from './type/model'
+import type { ItemUiArg, UiArg } from './type/model'
 
-export const defaultCheckboxView = (arg: CheckboxTypeUiArg) => {
+export const defaultCheckboxView = (arg: ItemUiArg) => {
   const [key, val] = arg.checkboxChoice
   return (
     <div
@@ -72,7 +72,7 @@ export const defaultCheckboxesView = ({
   label,
   currentValues,
   isMarkdown,
-}: CheckboxesTypeUiArg) => (
+}: UiArg) => (
   <div id='CheckboxType' className='flex flex-col gap-1'>
     {label !== '' && (
       <label className='mb-1 px-1 text-sm font-bold tracking-tight text-slate-600'>

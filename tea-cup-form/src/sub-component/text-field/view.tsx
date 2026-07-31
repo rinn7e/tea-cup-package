@@ -19,10 +19,10 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
+import { exec } from '@rinn7e/tea-cup-prelude'
 import * as O from 'fp-ts/lib/Option'
 import type { JSX } from 'react'
 
-import { exec } from '@rinn7e/tea-cup-prelude'
 import { errorTooltipContainer } from '../error-tooltip/helper'
 import {
   IconEye,
@@ -32,9 +32,9 @@ import {
   getLabelClasses,
 } from '../shared'
 import {
+  type UiArg,
   autocompleteToString,
   textInputVariantToString,
-  type TextTypeUiArg,
 } from './type/model'
 
 export const defaultTextView = ({
@@ -49,7 +49,7 @@ export const defaultTextView = ({
   placeholder,
   autocomplete,
   onKeyDown,
-}: TextTypeUiArg): JSX.Element => {
+}: UiArg): JSX.Element => {
   const isError = validationResult._tag === 'Left' && showValidation
   const errorMsg = isError ? O.some(validationResult.left) : O.none
 
@@ -71,12 +71,8 @@ export const defaultTextView = ({
             placeholder={placeholder}
             value={currentValue}
             onInput={(event) => dispatch({ _tag: 'UpdateEvent', event })}
-            onFocus={(_) =>
-              dispatch({ _tag: 'HandleFocus', isFocus: true })
-            }
-            onBlur={(_) =>
-              dispatch({ _tag: 'HandleFocus', isFocus: false })
-            }
+            onFocus={(_) => dispatch({ _tag: 'HandleFocus', isFocus: true })}
+            onBlur={(_) => dispatch({ _tag: 'HandleFocus', isFocus: false })}
             onKeyDown={onKeyDown}
             name={label}
             autoComplete={autocompleteToString(autocomplete)}

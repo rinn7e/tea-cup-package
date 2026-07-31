@@ -43,7 +43,7 @@ export type Msg =
     }
 
 /** Properties passed to custom UI renderer for FileField */
-export type FileTypeUiArg = {
+export type UiArg = {
   dispatch: Dispatcher<Msg>
   fieldKey: string
   label: string
@@ -64,12 +64,10 @@ export type Model = {
   label: string
   isMultiple: boolean
   validation: (input: File[]) => Either<string, File[]>
-  ui?: (arg: FileTypeUiArg) => JSX.Element
+  ui?: (arg: UiArg) => JSX.Element
 }
 
-export const defaultModel = (
-  inputUi?: (arg: FileTypeUiArg) => JSX.Element,
-): Model => ({
+export const defaultModel = (inputUi?: (arg: UiArg) => JSX.Element): Model => ({
   // State
   currentValues: [],
   showValidation: false,

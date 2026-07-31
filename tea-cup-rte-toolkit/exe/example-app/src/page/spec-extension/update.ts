@@ -1,5 +1,4 @@
 import {
-  type Attribute,
   type Block,
   type DecorationAttribute,
   type ElementDecoration,
@@ -53,7 +52,6 @@ import * as React from 'react'
 import { Cmd } from 'tea-cup-fp'
 
 import { strikethrough, underline } from '@/component/editor/extra-marks'
-import type { Style } from '@/component/editor/type'
 import * as EditorUpdate from '@/component/editor/update'
 
 import type { Model, Msg } from './type'

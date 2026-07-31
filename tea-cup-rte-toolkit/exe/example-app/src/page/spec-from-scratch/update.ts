@@ -1,5 +1,4 @@
 import {
-  type Attribute,
   type Block,
   type DecorationAttribute,
   type ElementDecoration,

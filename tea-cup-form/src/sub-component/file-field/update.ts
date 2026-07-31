@@ -19,13 +19,13 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
+import { MapExtra, exec } from '@rinn7e/tea-cup-prelude'
 import * as A from 'fp-ts/lib/Array'
-import * as S from 'fp-ts/lib/string'
 import { pipe } from 'fp-ts/lib/function'
+import * as S from 'fp-ts/lib/string'
 import { Cmd } from 'tea-cup-fp'
 
 import type { FormType, Forms } from '../../common/type'
-import { MapExtra, exec } from '@rinn7e/tea-cup-prelude'
 import type { Model, Msg } from './type/model'
 
 // Helper convert `FileList` to array.
@@ -53,7 +53,9 @@ export const addFiles = (
               _tag: 'FileType',
               model: {
                 ...form.model,
-                currentValues: form.model.currentValues.concat(toFileArray(files)),
+                currentValues: form.model.currentValues.concat(
+                  toFileArray(files),
+                ),
                 showValidation: true,
               },
             }
@@ -91,7 +93,8 @@ export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
       return [
         {
           ...field,
-          currentValues: result._tag === 'Some' ? result.value : field.currentValues,
+          currentValues:
+            result._tag === 'Some' ? result.value : field.currentValues,
           showValidation: true,
         },
         Cmd.none(),

@@ -44,7 +44,7 @@ import * as TextField from './sub-component/text-field'
 import { TextFieldMemo } from './sub-component/text-field/component'
 import * as TextPillField from './sub-component/text-pill-field'
 import { TextPillFieldMemo } from './sub-component/text-pill-field/component'
-import { PropEq, type Model, type Msg, type Props } from './type'
+import { type Model, type Msg, PropEq, type Props } from './type'
 
 // UI for individual input field
 // Model is needed to do validation on input field that depend on another input field

@@ -94,7 +94,8 @@ const preprocessFormMsgHandler =
   (newForm: Form.Model) =>
   (model: AppModel): AppModel => {
     const isFormValid =
-      Form.runValidationForAll(newForm.forms, Form.noExtraValidation)._tag === 'Right'
+      Form.runValidationForAll(newForm.forms, Form.noExtraValidation)._tag ===
+      'Right'
     return {
       ...model,
       form: newForm,
@@ -115,7 +116,10 @@ export const formMsgHandler =
     )
   }
 
-export const update = (msg: AppMsg, model: AppModel): [AppModel, Cmd<AppMsg>] => {
+export const update = (
+  msg: AppMsg,
+  model: AppModel,
+): [AppModel, Cmd<AppMsg>] => {
   switch (msg._tag) {
     case 'FormMsg': {
       return formMsgHandler(msg.subMsg)(model)
@@ -133,22 +137,14 @@ import { FormItemMemo } from '@rinn7e/tea-cup-form/component'
 
 export const MyFormView = ({ model, dispatch }: Props) => (
   <form onSubmit={handleSubmit}>
+    <FormItemMemo field='username' model={model.form} dispatch={dispatch} />
+    <FormItemMemo field='birthday' model={model.form} dispatch={dispatch} />
     <FormItemMemo
-      field="username"
+      field='range_setting'
       model={model.form}
       dispatch={dispatch}
     />
-    <FormItemMemo
-      field="birthday"
-      model={model.form}
-      dispatch={dispatch}
-    />
-    <FormItemMemo
-      field="range_setting"
-      model={model.form}
-      dispatch={dispatch}
-    />
-    <button type="submit">Submit</button>
+    <button type='submit'>Submit</button>
   </form>
 )
 ```
@@ -157,17 +153,17 @@ export const MyFormView = ({ model, dispatch }: Props) => (
 
 ## Available Sub-Components
 
-| Namespace | FormType Discriminator | Model Constructor | Description |
-| :--- | :--- | :--- | :--- |
-| `Form.Text` | `TextType` | `Text.defaultModel()` | Text input & textarea fields |
-| `Form.TextPill` | `TextPillType` | `TextPill.defaultModel()` | Tag / pill input field |
-| `Form.Checkbox` | `CheckboxType` | `Checkbox.defaultModel(choices)` | Checkbox list field |
-| `Form.Radio` | `RadioType` | `Radio.defaultModel(choices, value)` | Radio selection list field |
-| `Form.Dropdown` | `DropdownType` | `Dropdown.defaultModel()` | Custom dropdown field |
-| `Form.Calendar` | `CalendarType` | `Calendar.defaultModel()` | Date picker calendar field |
-| `Form.File` | `FileType` | `File.defaultModel()` | Drag & drop file upload field |
-| `Form.Combobox` | `ComboboxType` | `Combobox.defaultModel(config)` | Searchable combobox selection field |
-| `Form.Slider` | `SliderType` | `Slider.defaultModel(config, initialValue)` | Numeric range slider input with custom thumb support |
+| Namespace       | FormType Discriminator | Model Constructor                           | Description                                          |
+| :-------------- | :--------------------- | :------------------------------------------ | :--------------------------------------------------- |
+| `Form.Text`     | `TextType`             | `Text.defaultModel()`                       | Text input & textarea fields                         |
+| `Form.TextPill` | `TextPillType`         | `TextPill.defaultModel()`                   | Tag / pill input field                               |
+| `Form.Checkbox` | `CheckboxType`         | `Checkbox.defaultModel(choices)`            | Checkbox list field                                  |
+| `Form.Radio`    | `RadioType`            | `Radio.defaultModel(choices, value)`        | Radio selection list field                           |
+| `Form.Dropdown` | `DropdownType`         | `Dropdown.defaultModel()`                   | Custom dropdown field                                |
+| `Form.Calendar` | `CalendarType`         | `Calendar.defaultModel()`                   | Date picker calendar field                           |
+| `Form.File`     | `FileType`             | `File.defaultModel()`                       | Drag & drop file upload field                        |
+| `Form.Combobox` | `ComboboxType`         | `Combobox.defaultModel(config)`             | Searchable combobox selection field                  |
+| `Form.Slider`   | `SliderType`           | `Slider.defaultModel(config, initialValue)` | Numeric range slider input with custom thumb support |
 
 ---
 

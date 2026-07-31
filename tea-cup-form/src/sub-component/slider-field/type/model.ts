@@ -35,21 +35,21 @@ export type Config = {
   unit?: string
   showValue?: boolean
   anchorName?: string
-  ui?: (props: SliderTypeUiArg<Msg>) => JSX.Element
+  ui?: (props: UiArg) => JSX.Element
 }
 
 export const ConfigEq: EqClass.Eq<Config> = EqAlways
 
-export type ThumbViewUiArg<MsgType = Msg> = {
+export type ThumbUiArg = {
   fieldKey: string
   anchorName: string
   pct: number
   isDragging: boolean
-  dispatch: Dispatcher<MsgType>
+  dispatch: Dispatcher<Msg>
 }
 
-export type SliderTypeUiArg<MsgType = Msg> = {
-  dispatch: Dispatcher<MsgType>
+export type UiArg = {
+  dispatch: Dispatcher<Msg>
   fieldKey: string
   value: number
   isDragging: boolean

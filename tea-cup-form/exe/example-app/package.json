@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "check": "tsc --noEmit",
-    "check:watch": "tsc --noEmit --watch"
+    "check:watch": "tsc --noEmit --watch",
+    "staged": "pnpm run format && pnpm run check && pnpm run lint"
   },
   "dependencies": {
     "@rinn7e/tea-cup-form": "workspace:*",

@@ -19,6 +19,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
+import { NullableEq } from '@rinn7e/tea-cup-prelude'
 import * as D from 'fp-ts/lib/Date'
 import { type Either } from 'fp-ts/lib/Either'
 import * as E from 'fp-ts/lib/Either'
@@ -27,8 +28,6 @@ import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
 import { type JSX } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
-
-import { NullableEq } from '@rinn7e/tea-cup-prelude'
 
 /** Reducer messages for CalendarField sub-component */
 export type Msg =
@@ -45,7 +44,7 @@ export type Msg =
     }
 
 /** Properties passed to custom UI renderer for CalendarField */
-export type CalendarTypeUiArg = {
+export type UiArg = {
   dispatch: Dispatcher<Msg>
   fieldKey: string
   label: string
@@ -68,12 +67,10 @@ export type Model = {
   label: string
   placeholder: string
   validation: (input: Date | null) => Either<string, Date | null>
-  ui?: (arg: CalendarTypeUiArg) => JSX.Element
+  ui?: (arg: UiArg) => JSX.Element
 }
 
-export const defaultModel = (
-  inputUi?: (arg: CalendarTypeUiArg) => JSX.Element,
-): Model => ({
+export const defaultModel = (inputUi?: (arg: UiArg) => JSX.Element): Model => ({
   // State
   currentValue: null,
   showValidation: false,

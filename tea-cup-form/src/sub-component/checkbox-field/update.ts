@@ -23,7 +23,7 @@ import * as A from 'fp-ts/lib/Array'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
-import type { CheckboxChoice, Model, Msg } from './type/model'
+import type { Choice, Model, Msg } from './type/model'
 
 export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
@@ -33,10 +33,12 @@ export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
           ...field,
           currentValues: pipe(
             field.currentValues,
-            A.map(([key, val]): CheckboxChoice => [
-              key,
-              key === msg.checkboxKey ? msg.value : val,
-            ]),
+            A.map(
+              ([key, val]): Choice => [
+                key,
+                key === msg.checkboxKey ? msg.value : val,
+              ],
+            ),
           ),
         },
         Cmd.none(),

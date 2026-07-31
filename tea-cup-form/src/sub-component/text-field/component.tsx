@@ -21,7 +21,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { memo } from 'react'
 
-import type { Forms } from '../../common/type'
 import { runValidationAndLink } from '../../util/validation'
 import { Props, PropsEq } from './type/props'
 import { defaultTextView } from './view'

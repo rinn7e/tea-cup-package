@@ -16,7 +16,6 @@ import {
 } from '@rinn7e/tea-cup-form'
 import * as E from 'fp-ts/lib/Either'
 import * as O from 'fp-ts/lib/Option'
-import * as S from 'fp-ts/lib/string'
 import { mapFst } from 'fp-ts/lib/Tuple'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'

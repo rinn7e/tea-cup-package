@@ -1,7 +1,7 @@
 import type * as Form from '@rinn7e/tea-cup-form'
 import { errorToString } from '@rinn7e/tea-cup-prelude'
-import { pipe } from 'fp-ts/lib/function'
 import * as TE from 'fp-ts/lib/TaskEither'
+import { pipe } from 'fp-ts/lib/function'
 
 export type MockUser = { id: string; name: string; email: string }
 
@@ -16,8 +16,7 @@ export const mockUsers: MockUser[] = [
 export const encodeUser = (u: MockUser): Form.DataJson =>
   JSON.stringify(u) as Form.DataJson
 
-export const decodeUser = (s: Form.DataJson): MockUser =>
-  JSON.parse(s)
+export const decodeUser = (s: Form.DataJson): MockUser => JSON.parse(s)
 
 export const mockUserSearchHandler: (
   query: string,
