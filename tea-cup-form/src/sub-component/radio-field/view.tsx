@@ -83,7 +83,6 @@ export const defaultRadiosView = ({
   label,
   choices,
   currentValue,
-  isMarkdown,
 }: UiArg) => (
   <div id='RadioType' className='flex flex-col gap-1'>
     {label !== '' && (
