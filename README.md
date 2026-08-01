@@ -6,10 +6,11 @@ Monorepo containing components and utilities for react-tea-cup.
 
 This monorepo manages the following sub-packages:
 
-*   **[tea-cup-prelude](file:///home/rinne/projects/my-package/tea-cup-package/tea-cup-prelude)**: Core prelude, types, and Elm Architecture runtime utilities.
-*   **[tea-cup-form](file:///home/rinne/projects/my-package/tea-cup-package/tea-cup-form)**: Reusable, type-safe form validation and state management components.
-*   **[tea-cup-pagination](file:///home/rinne/projects/my-package/tea-cup-package/tea-cup-pagination)**: Standard React pagination component following Elm Architecture principles.
-*   **[tea-cup-intersection-observer](file:///home/rinne/projects/my-package/tea-cup-package/tea-cup-intersection-observer)**: Intersection Observer subscription for React Tea-Cup applications.
+*   **[package/tea-cup-prelude](package/tea-cup-prelude)**: Core prelude, types, and Elm Architecture runtime utilities.
+*   **[package/tea-cup-form](package/tea-cup-form)**: Reusable, type-safe form validation and state management components.
+*   **[package/tea-cup-pagination](package/tea-cup-pagination)**: Standard React pagination component following Elm Architecture principles.
+*   **[package/tea-cup-intersection-observer](package/tea-cup-intersection-observer)**: Intersection Observer subscription for React Tea-Cup applications.
+*   **[package/tea-cup-rte-toolkit](package/tea-cup-rte-toolkit)**: Rich Text Editor toolkit built for React Tea-Cup applications.
 
 ---
 
@@ -81,10 +82,10 @@ In your host application's `package.json`, add the dependencies using relative p
 
 ```json
 "dependencies": {
-  "@rinn7e/tea-cup-prelude": "link:../tea-cup-package/tea-cup-prelude",
-  "@rinn7e/tea-cup-form": "link:../tea-cup-package/tea-cup-form",
-  "@rinn7e/tea-cup-pagination": "link:../tea-cup-package/tea-cup-pagination",
-  "@rinn7e/tea-cup-intersection-observer": "link:../tea-cup-package/tea-cup-intersection-observer"
+  "@rinn7e/tea-cup-prelude": "link:../tea-cup-package/package/tea-cup-prelude",
+  "@rinn7e/tea-cup-form": "link:../tea-cup-package/package/tea-cup-form",
+  "@rinn7e/tea-cup-pagination": "link:../tea-cup-package/package/tea-cup-pagination",
+  "@rinn7e/tea-cup-intersection-observer": "link:../tea-cup-package/package/tea-cup-intersection-observer"
 }
 ```
 
