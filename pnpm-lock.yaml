@@ -100,7 +100,7 @@ importers:
         specifier: ^8.34.1
         version: 8.59.3(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
 
-  package/tea-cup-form/exe/example-app:
+  package/tea-cup-form/app/example-app:
     dependencies:
       '@rinn7e/tea-cup-form':
         specifier: workspace:*
@@ -194,7 +194,7 @@ importers:
         specifier: ^7.0.0
         version: 7.3.3(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)
 
-  package/tea-cup-form/exe/example-app-e2e:
+  package/tea-cup-form/app/example-app-e2e:
     devDependencies:
       '@eslint/js':
         specifier: ^9.39.4
