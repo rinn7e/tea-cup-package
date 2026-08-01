@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`data-test` Attributes**: Added `data-test` attributes to input elements across sub-component view renderers for E2E testing.
 - **Sub-Component Namespaces**: Re-exported sub-components as namespaces in `@rinn7e/tea-cup-form` (`Text`, `TextPill`, `Checkbox`, `Radio`, `Dropdown`, `Calendar`, `File`, `Combobox`, `Slider`).
 - **Secondary Entrypoint**: React components accessible via `@rinn7e/tea-cup-form/component` (`FormItemMemo`).
-- **Playwright E2E Tests**: Comprehensive 14-test E2E suite covering all sub-components in `exe/example-app-e2e`.
+- **Playwright E2E Tests**: Comprehensive 14-test E2E suite covering all sub-components in `app/example-app-e2e`.
 
 ### Changed
 

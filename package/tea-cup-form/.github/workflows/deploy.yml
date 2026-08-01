@@ -40,30 +40,30 @@ jobs:
 
       - name: Install example-app dependencies 🔧
         run: npm install
-        working-directory: exe/example-app
+        working-directory: app/example-app
 
       - name: Install example-app-e2e dependencies 🔧
         run: npm install
-        working-directory: exe/example-app-e2e
+        working-directory: app/example-app-e2e
 
       - name: Install Playwright Browsers 🌐
         run: npx playwright install --with-deps chromium
-        working-directory: exe/example-app-e2e
+        working-directory: app/example-app-e2e
 
       - name: Run E2E tests 🧪
         run: npm run test:e2e
-        working-directory: exe/example-app-e2e
+        working-directory: app/example-app-e2e
 
       - name: Build example-app 🏗️
         run: npm run build
-        working-directory: exe/example-app
+        working-directory: app/example-app
         env:
           VITE_BASE: /tea-cup-form/
 
       - name: Upload artifact 📤
         uses: actions/upload-pages-artifact@v3
         with:
-          path: exe/example-app/dist
+          path: app/example-app/dist
 
       - name: Deploy to GitHub Pages 🚀
         id: deployment
