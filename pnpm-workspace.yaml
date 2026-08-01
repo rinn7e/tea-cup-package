@@ -3,6 +3,7 @@ packages:
   - 'package/*'
   # example apps
   - 'package/*/exe/*'
+  - 'package/*/app/*'
 allowBuilds:
   esbuild: true
   "@rinn7e/tea-cup-prelude": true
