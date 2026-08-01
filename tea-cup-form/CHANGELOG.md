@@ -5,6 +5,17 @@ All notable changes to `@rinn7e/tea-cup-form` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0-alpha.3] - 2026-07-31
+
+### Changed
+
+- **Standardized Sub-Component Namespaces & Types**:
+  - Renamed sub-component UI arguments: `CheckboxUiArg` -> `ItemUiArg`, `RadioUiArg` -> `ItemUiArg`, `CheckboxChoice` -> `Choice`, `RadioChoice` -> `Choice`.
+  - Standardized main UI argument types across all sub-components (`Form.Text.UiArg`, `Form.Checkbox.UiArg`, `Form.Radio.UiArg`, `Form.Dropdown.UiArg`, `Form.Combobox.UiArg`, `Form.Calendar.UiArg`, `Form.File.UiArg`, `Form.Slider.UiArg`).
+  - Removed generic `<MsgType = Msg>` parameter defaults from `UiArg` and `ThumbUiArg`.
+- **Packaging & Quality Pipeline**:
+  - Added `"staged": "pnpm run format && pnpm run check && pnpm run check-circular && pnpm run lint"` to `package.json`.
+
 ## [0.1.0-alpha.2] - 2026-07-24
 
 ### Added
