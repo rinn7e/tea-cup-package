@@ -26,7 +26,7 @@ export default tseslint.config([
         projectService: {
           allowDefaultProject: [
             '*.config.ts',
-            'exe/example-app/vite.config.ts',
+            'app/example-app/vite.config.ts',
           ],
         },
         tsconfigRootDir: import.meta.dirname,

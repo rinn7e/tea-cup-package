@@ -284,7 +284,7 @@ importers:
         specifier: ^8.34.1
         version: 8.59.3(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
 
-  package/tea-cup-intersection-observer/exe/example-app:
+  package/tea-cup-intersection-observer/app/example-app:
     dependencies:
       '@rinn7e/tea-cup-intersection-observer':
         specifier: workspace:*
@@ -599,7 +599,7 @@ importers:
         specifier: ^8.34.1
         version: 8.59.3(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
 
-  package/tea-cup-rte-toolkit/exe/example-app:
+  package/tea-cup-rte-toolkit/app/example-app:
     dependencies:
       '@rinn7e/fp-ts-routing':
         specifier: github:rinn7e/fp-ts-routing#0d9ec901639572171d6ada5b75aeee6ff945dc43
