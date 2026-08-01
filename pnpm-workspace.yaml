@@ -1,15 +1,8 @@
 packages:
   # library
-  - 'tea-cup-prelude'
-  - 'tea-cup-form'
-  - 'tea-cup-pagination'
-  - 'tea-cup-intersection-observer'
-  - 'tea-cup-rte-toolkit'
+  - 'package/*'
   # example apps
-  - 'tea-cup-intersection-observer/exe/example-app'
-  - 'tea-cup-form/exe/example-app'
-  - 'tea-cup-form/exe/example-app-e2e'
-  - 'tea-cup-rte-toolkit/exe/example-app'
+  - 'package/*/exe/*'
 allowBuilds:
   esbuild: true
   "@rinn7e/tea-cup-prelude": true
