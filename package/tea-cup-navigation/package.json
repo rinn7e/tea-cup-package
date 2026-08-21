@@ -1,0 +1,76 @@
+{
+  "name": "@rinn7e/tea-cup-navigation",
+  "version": "0.1.0-alpha.1",
+  "type": "module",
+  "description": "Standard Navigation and Routing for React Tea-Cup applications",
+  "author": "Moremi Vannak",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rinn7e/tea-cup-package.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js",
+      "require": "./lib/index.cjs"
+    },
+    "./component": {
+      "types": "./lib/component.d.ts",
+      "import": "./lib/component.js",
+      "require": "./lib/component.cjs"
+    },
+    "./lib/*": "./lib/*"
+  },
+  "scripts": {
+    "check:watch": "tsc --noEmit --watch",
+    "clean": "rimraf lib",
+    "compile": "tsup",
+    "build": "pnpm run clean && pnpm run compile",
+    "check": "tsc --noEmit",
+    "check-circular": "madge --circular --ts-config ./tsconfig.json --extensions ts,tsx src/",
+    "format": "prettier --write .",
+    "lint": "eslint src",
+    "staged": "pnpm run format && pnpm run check && pnpm run check-circular && pnpm run lint"
+  },
+  "peerDependencies": {
+    "@rinn7e/tea-cup-prelude": "^0.1.0-alpha.1",
+    "fp-ts": "^2.16.11",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-tea-cup": "^5.1.1",
+    "tea-cup-fp": "^1.1.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "@rinn7e/tea-cup-prelude": "workspace:*",
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.29.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react-dom": "^1.52.2",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.22",
+    "eslint-plugin-react-x": "^1.52.2",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "fp-ts": "^2.16.11",
+    "globals": "^16.2.0",
+    "madge": "^8.0.0",
+    "prettier": "^3.8.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-tea-cup": "^5.1.1",
+    "rimraf": "^6.1.2",
+    "tea-cup-fp": "^1.1.1",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.34.1"
+  }
+}

@@ -66,3 +66,84 @@
      }
      return [{ ...model, isDragging: msg.value }, Cmd.none()]
      ```
+
+7. **Exporting `component.tsx` in `index.ts` of Library Packages**:
+   - **Why**: Do not re-export React components (`component.tsx`) from the package root entry `index.ts`. Package root entry points should strictly export pure types, model definitions, and update logic (`type.ts` and `update.ts`). Callers must import view/component code explicitly from `component.tsx` (or package subpath entry).
+   - **Example**: In `@rinn7e/tea-cup-pagination` and `@rinn7e/tea-cup-navigation`, keep `src/index.ts` strictly limited to `type` and `update`:
+     ```typescript
+     // Good: Only export type and update from index.ts
+     export * from './type'
+     export * from './update'
+
+     // Bad: Re-exporting component in index.ts
+     export * from './type'
+     export * from './update'
+     export * from './component'
+     ```
+
+8. **Using `msgCmd` Instead of Direct Message Handler Functions**:
+   - **Why**: Do not use `msgCmd` to trigger internal state transitions unless there is absolutely no other choice (e.g. bridging external asynchronous events where direct function invocation is impossible). Using `msgCmd` creates an unnecessary extra dispatch cycle (`Cmd -> dispatch(Msg) -> update`), causes delayed state application, and prevents direct functional composition with `updateAndCmd` and `pipe`. Always prefer invoking message handler functions directly.
+   - **Example**: In `@rinn7e/tea-cup-navigation` and consumer applications, call handler functions like `changeRouteHandler` directly instead of returning a `msgCmd`:
+     ```typescript
+     // Good: Call handler function directly in the pipeline
+     return changeRouteHandler(navigationConfig, model.shared)(targetRoute, true)(model)
+
+     // Bad: Wrapping in msgCmd to dispatch in a future cycle
+     return [model, msgCmd({ _tag: 'ChangeRoute', route: targetRoute })]
+     ```
+
+9. **Deleting Existing Comments During Refactoring**:
+   - **Why**: Never strip, delete, or overwrite existing comments, documentation notes, or JSDoc comments during code modifications and refactoring. Existing comments often explain subtle business logic, edge cases (e.g. backend error status caveats), test expectations, or TODO items. Preserving comments maintains codebase history and documentation integrity.
+   - **Example**: In `update.ts`, keep all explanatory comments on API error handling and interceptors intact:
+     ```typescript
+     // Good: Preserve existing domain explanations and edge case comments
+     // isUnavailable is true when the server is not responsive which results in not being able to validate if current token is valid or not.
+     const isUnavailable =
+       res.tag === 'Err' &&
+       (res.err.statusCode === 500 ||
+         res.err.statusCode === 0 ||
+         // Err but 200 mean we have malformed json
+         res.err.statusCode === 200)
+
+     // Bad: Stripping out all explanatory comments during refactor
+     const isUnavailable =
+       res.tag === 'Err' &&
+       (res.err.statusCode === 500 ||
+         res.err.statusCode === 0 ||
+         res.err.statusCode === 200)
+     ```
+
+10. **TEA Child Msg Interception**:
+    - **Why**: When a parent component needs to intercept or respond to specific messages from its child components, use the `updateAndCmd` (or `updateAndCmdExtra`) pattern within a `pipe`. This keeps child message handling clean, modular, and declarative by delegating to the child component's `update` function and avoiding manual nested `switch` or `if-else` blocks for interception logic.
+    - **Example**:
+      ```typescript
+      case 'ChildMsg': {
+        const [newChildModel, childCmd] = Child.update(
+          msg.subMsg,
+          model.childModel,
+        )
+
+        return pipe(
+          [
+            { ...model, child: newChildModel },
+            childCmd.map(
+              (m) =>
+                ({
+                  _tag: 'ChildMsg' as const,
+                  subMsg: m,
+                }) as Msg,
+            ),
+          ],
+          updateAndCmd((m) => {
+            if (msg.subMsg._tag === 'MsgToIntercept') {
+              return [
+                { ...m, someParentField: true }, // Update parent model
+                Cmd.none(), // Add parent commands
+              ]
+            } else {
+              return [m, Cmd.none()]
+            }
+          }),
+        )
+      }
+      ```
