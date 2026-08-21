@@ -1,22 +1,48 @@
-# Dependency directories
-node_modules/
-
-# Debug and log files
-*.log
-.pnpm-debug.log*
-
-# System files
+# macOS System Files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 
-# Editor directories and files
+# Windows System Files
+Thumbs.db
+ehthumbs.db
+
+# IDEs and Editors
 .vscode/
 .idea/
+.antigravitycli
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.swp
+*.swo
+*~
 
-# Build/Cache files
-.eslintcache
+# Node Dependencies & Package Manager Logs
+node_modules/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build Outputs
+dist/
 lib/
+build/
+.eslintcache
+.tsbuildinfo
+
+# Playwright & Testing Reports
+playwright-report/
+test-results/
+coverage/
+.nyc_output/
+
+# Environment and Local Configs
+.env
+.env.local
+.env.*.local

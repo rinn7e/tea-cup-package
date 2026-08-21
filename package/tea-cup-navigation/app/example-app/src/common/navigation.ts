@@ -1,0 +1,46 @@
+import type * as Navigation from '@rinn7e/tea-cup-navigation'
+import * as O from 'fp-ts/lib/Option'
+import type { Cmd } from 'tea-cup-fp'
+
+import { type AppRoute, AppRouteEq, parseUrl, toUrl } from './route'
+import type { Shared } from './shared'
+
+export const mkNavigationConfig = <PageModel, Msg>(
+  initPageModel: (
+    route: AppRoute,
+    context: Shared,
+    prev?: {
+      readonly route: AppRoute
+      readonly pageModel: PageModel
+    },
+  ) => [PageModel, Cmd<Msg>],
+): Navigation.Config<AppRoute, PageModel, Shared, Msg> => ({
+  parseUrl,
+  toUrl,
+  routeEq: AppRouteEq,
+  guard: (toRoute, shared) => {
+    const isLoggedIn = O.isSome(shared.user)
+    const requiresAuth =
+      toRoute._tag === 'SettingsPage' ||
+      toRoute._tag === 'EditorPage' ||
+      (toRoute._tag === 'HomePage' && toRoute.tab === 'feed')
+
+    if (requiresAuth && !isLoggedIn) {
+      return { _tag: 'Redirect', to: { _tag: 'LoginPage' } }
+    }
+
+    const requiresGuest =
+      toRoute._tag === 'LoginPage' || toRoute._tag === 'SignupPage'
+
+    if (requiresGuest && isLoggedIn) {
+      return {
+        _tag: 'Redirect',
+        to: { _tag: 'HomePage', tab: 'global', page: 1 },
+      }
+    }
+
+    return { _tag: 'Allow' }
+  },
+  initPageModel,
+  toMsg: (subMsg) => ({ _tag: 'NavigationMsg', subMsg }) as unknown as Msg,
+})
