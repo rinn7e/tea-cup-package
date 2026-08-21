@@ -5,4 +5,5 @@ export default defineConfig({
   outDir: 'lib',
   entry: ['src/index.ts', 'src/component.tsx'],
   format: ['cjs', 'esm'],
+  noExternal: ['fp-ts'],
 })
