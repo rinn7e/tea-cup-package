@@ -31,7 +31,7 @@ import React, { memo } from 'react'
 import { type Props, mkPropsEq } from './type'
 
 /**
- * Unmemoized Link anchor component.
+ * Unmemoized Link anchor or button component.
  * Intercepts standard left-clicks without modifier keys and dispatches `{ _tag: 'ChangeRoute', route }`.
  */
 export const LinkComponent = <Route,>({
@@ -42,28 +42,48 @@ export const LinkComponent = <Route,>({
   className,
   children,
   onClick,
+  isButton = false,
   ...rest
 }: Props<Route>) => {
   const href = toUrl(route)
 
+  const handleClick = (e: React.MouseEvent<HTMLElement>) => {
+    if (onClick) {
+      ;(onClick as React.MouseEventHandler<HTMLElement>)(e)
+    }
+    if (
+      !e.defaultPrevented &&
+      e.button === 0 &&
+      !e.metaKey &&
+      !e.ctrlKey &&
+      !e.shiftKey
+    ) {
+      e.preventDefault()
+      dispatch({ _tag: 'ChangeRoute', route })
+    }
+  }
+
+  if (isButton) {
+    const { type = 'button', ...buttonRest } =
+      rest as React.ButtonHTMLAttributes<HTMLButtonElement>
+    return (
+      <button
+        {...buttonRest}
+        type={type}
+        className={className}
+        onClick={handleClick}
+      >
+        {children}
+      </button>
+    )
+  }
+
   return (
     <a
-      {...rest}
+      {...(rest as React.AnchorHTMLAttributes<HTMLAnchorElement>)}
       href={href}
       className={className}
-      onClick={(e) => {
-        if (onClick) onClick(e)
-        if (
-          !e.defaultPrevented &&
-          e.button === 0 &&
-          !e.metaKey &&
-          !e.ctrlKey &&
-          !e.shiftKey
-        ) {
-          e.preventDefault()
-          dispatch({ _tag: 'ChangeRoute', route })
-        }
-      }}
+      onClick={handleClick}
     >
       {children}
     </a>

@@ -28,7 +28,11 @@ SOFTWARE. */
 import type * as EqClass from 'fp-ts/lib/Eq'
 import * as Eq from 'fp-ts/lib/Eq'
 import * as B from 'fp-ts/lib/boolean'
-import type { AnchorHTMLAttributes, ReactNode } from 'react'
+import type {
+  AnchorHTMLAttributes,
+  ButtonHTMLAttributes,
+  ReactNode,
+} from 'react'
 import type { Cmd, Dispatcher } from 'tea-cup-fp'
 
 /**
@@ -165,7 +169,10 @@ export type Msg<Route> =
 /**
  * Props for the `Link` navigation component.
  */
-export type Props<Route> = AnchorHTMLAttributes<HTMLAnchorElement> & {
+export type Props<Route> = {
+  /** When true, renders as <button> instead of <a>. Defaults to false. */
+  readonly isButton?: boolean
+
   /** Target route to navigate to. */
   readonly route: Route
 
@@ -180,7 +187,14 @@ export type Props<Route> = AnchorHTMLAttributes<HTMLAnchorElement> & {
 
   /** Link contents. */
   readonly children: ReactNode
-}
+
+  /** Optional click event handler. */
+  readonly onClick?: (e: React.MouseEvent<HTMLElement>) => void
+} & Omit<
+  AnchorHTMLAttributes<HTMLAnchorElement> &
+    ButtonHTMLAttributes<HTMLButtonElement>,
+  'onClick'
+>
 
 /**
  * Creates an `Eq` instance for `Props<Route>` to optimize React component memoization.
@@ -192,12 +206,18 @@ export const mkPropsEq = <Route>(
 ): EqClass.Eq<Props<Route>> => ({
   equals: (a, b) => {
     if (
-      a.href !== b.href ||
+      Boolean(a.isButton) !== Boolean(b.isButton) ||
+      (a as AnchorHTMLAttributes<HTMLAnchorElement>).href !==
+        (b as AnchorHTMLAttributes<HTMLAnchorElement>).href ||
       a.className !== b.className ||
       a.children !== b.children ||
-      a.target !== b.target ||
-      a.rel !== b.rel ||
-      a.title !== b.title
+      (a as AnchorHTMLAttributes<HTMLAnchorElement>).target !==
+        (b as AnchorHTMLAttributes<HTMLAnchorElement>).target ||
+      (a as AnchorHTMLAttributes<HTMLAnchorElement>).rel !==
+        (b as AnchorHTMLAttributes<HTMLAnchorElement>).rel ||
+      a.title !== b.title ||
+      (a as ButtonHTMLAttributes<HTMLButtonElement>).disabled !==
+        (b as ButtonHTMLAttributes<HTMLButtonElement>).disabled
     ) {
       return false
     }
