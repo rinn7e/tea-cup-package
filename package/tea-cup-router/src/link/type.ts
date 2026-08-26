@@ -29,13 +29,7 @@ import type { Dispatcher } from 'tea-cup-fp'
 
 import type { Msg } from '../type'
 
-/**
- * Props for the `Link` navigation component.
- */
-export type Props<Route> = {
-  /** When true, renders as <button> instead of <a>. Defaults to false. */
-  readonly isButton?: boolean
-
+export type BaseProps<Route> = {
   /** Target route to navigate to. */
   readonly route: Route
 
@@ -50,14 +44,22 @@ export type Props<Route> = {
 
   /** Link contents. */
   readonly children: ReactNode
+}
 
-  /** Optional click event handler. */
-  readonly onClick?: (e: React.MouseEvent<HTMLElement>) => void
-} & Omit<
-  AnchorHTMLAttributes<HTMLAnchorElement> &
-    ButtonHTMLAttributes<HTMLButtonElement>,
-  'onClick'
->
+export type AnchorProps<Route> = BaseProps<Route> & {
+  /** When true, renders as <button> instead of <a>. Defaults to false. */
+  readonly isButton?: false
+} & AnchorHTMLAttributes<HTMLAnchorElement>
+
+export type ButtonProps<Route> = BaseProps<Route> & {
+  /** When true, renders as <button> instead of <a>. Defaults to false. */
+  readonly isButton: true
+} & ButtonHTMLAttributes<HTMLButtonElement>
+
+/**
+ * Props for the `Link` navigation component.
+ */
+export type Props<Route> = AnchorProps<Route> | ButtonProps<Route>
 
 /**
  * Creates an `Eq` instance for `Props<Route>` to optimize React component memoization.
