@@ -225,10 +225,8 @@ export const booleanFromUndefinedWithDefault = (
 export const nonEmptyStr = (s: string): s is string => s.length > 0
 
 // The same as haskell's error.
-export const error = (err: string): any => {
-  return () => {
-    throw new Error(err)
-  }
+export const error = (err: string): never => {
+  throw new Error(err)
 }
 
 // io-ts Json instances for RemoteData
