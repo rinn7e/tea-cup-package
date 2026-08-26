@@ -109,7 +109,7 @@ export const routerConfig: TeaRouter.Config<
     }
   },
 
-  toMsg: (subMsg) => ({ _tag: 'TeaRouterMsg', subMsg }),
+  toMsg: TeaRouterMsg,
 }
 ```
 
@@ -135,6 +135,11 @@ export type Msg =
   | { readonly _tag: 'HomeMsg'; readonly subMsg: HomeMsg }
   | { readonly _tag: 'ProfileMsg'; readonly subMsg: ProfileMsg }
   | { readonly _tag: 'LoginMsg'; readonly subMsg: LoginMsg }
+
+export const TeaRouterMsg = (subMsg: TeaRouter.Msg<AppRoute>): Msg => ({
+  _tag: 'TeaRouterMsg',
+  subMsg,
+})
 ```
 
 ---
@@ -213,10 +218,7 @@ import { ProgramWithNav } from 'react-tea-cup'
 
 export const App = () => (
   <ProgramWithNav<Model, Msg>
-    onUrlChange={(location) => ({
-      _tag: 'TeaRouterMsg',
-      subMsg: TeaRouter.UrlChangeMsg(location),
-    })}
+    onUrlChange={(location) => TeaRouterMsg(TeaRouter.UrlChangeMsg(location))}
     init={init}
     update={update}
     view={view}
@@ -246,7 +248,7 @@ export const View = ({ model, dispatch }: Props) => {
         <Link
           route={{ _tag: 'HomePage' }}
           toUrl={routerConfig.toUrl}
-          dispatch={(subMsg) => dispatch({ _tag: 'TeaRouterMsg', subMsg })}
+          dispatch={(subMsg) => dispatch(TeaRouterMsg(subMsg))}
           className={currentRoute._tag === 'HomePage' ? 'active' : ''}
         >
           Home
