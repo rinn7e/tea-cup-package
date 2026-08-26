@@ -1,11 +1,11 @@
-import * as Navigation from '@rinn7e/tea-cup-navigation'
 import { updateAndCmd } from '@rinn7e/tea-cup-prelude'
+import * as TeaRouter from '@rinn7e/tea-cup-router'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
-import { mkNavigationConfig } from '@/common/navigation'
 import type { AppRoute, HomeTab } from '@/common/route'
+import { mkRouterConfig } from '@/common/router'
 import type { Shared, User } from '@/common/shared'
 import {
   getStoredUser,
@@ -120,31 +120,33 @@ export const initPageModel = (
   }
 }
 
-export const navigationConfig = mkNavigationConfig<PageModel, Msg>(
-  initPageModel,
-)
+export const routerConfig = mkRouterConfig<PageModel, Msg>(initPageModel)
 
 export const init = (location: Location): [Model, Cmd<Msg>] => {
   const shared: Shared = { user: getStoredUser() }
-  const [navModel, navCmd] = Navigation.init(navigationConfig, location, shared)
+  const [routerModel, routerCmd] = TeaRouter.init(
+    routerConfig,
+    location,
+    shared,
+  )
   const model: Model = {
-    navigation: navModel,
+    router: routerModel,
     shared,
   }
-  return [model, navCmd]
+  return [model, routerCmd]
 }
 
-export const navigationMsgHandler = (
-  subMsg: Extract<Msg, { _tag: 'NavigationMsg' }>['subMsg'],
+export const routerMsgHandler = (
+  subMsg: Extract<Msg, { _tag: 'TeaRouterMsg' }>['subMsg'],
   model: Model,
 ): [Model, Cmd<Msg>] => {
-  const [navModel, navCmd] = Navigation.update(navigationConfig, model.shared)(
+  const [routerModel, routerCmd] = TeaRouter.update(routerConfig, model.shared)(
     subMsg,
-    model.navigation,
+    model.router,
   )
 
   return pipe(
-    [{ ...model, navigation: navModel }, navCmd] as [Model, Cmd<Msg>],
+    [{ ...model, router: routerModel }, routerCmd] as [Model, Cmd<Msg>],
     updateAndCmd((m) => [m, Cmd.none()]),
   )
 }
@@ -167,14 +169,14 @@ const homePageMsgHandler = (
   subMsg: HomePage.Msg,
   model: Model,
 ): [Model, Cmd<Msg>] => {
-  const pageModel = Navigation.getPageModel(model.navigation)
+  const pageModel = TeaRouter.getPageModel(model.router)
   if (pageModel._tag === 'HomePageModel') {
     const [homeModel, homeCmd] = HomeUpdate.update(subMsg, pageModel.model)
     return pipe(
       [
         {
           ...model,
-          navigation: Navigation.setPageModel(model.navigation, {
+          router: TeaRouter.setPageModel(model.router, {
             _tag: 'HomePageModel',
             model: homeModel,
           }),
@@ -204,14 +206,14 @@ const loginPageMsgHandler = (
   subMsg: LoginPage.Msg,
   model: Model,
 ): [Model, Cmd<Msg>] => {
-  const pageModel = Navigation.getPageModel(model.navigation)
+  const pageModel = TeaRouter.getPageModel(model.router)
   if (pageModel._tag === 'LoginPageModel') {
     const [loginModel, loginCmd] = LoginUpdate.update(subMsg, pageModel.model)
     return pipe(
       [
         {
           ...model,
-          navigation: Navigation.setPageModel(model.navigation, {
+          router: TeaRouter.setPageModel(model.router, {
             _tag: 'LoginPageModel',
             model: loginModel,
           }),
@@ -238,7 +240,7 @@ const signupPageMsgHandler = (
   subMsg: SignupPage.Msg,
   model: Model,
 ): [Model, Cmd<Msg>] => {
-  const pageModel = Navigation.getPageModel(model.navigation)
+  const pageModel = TeaRouter.getPageModel(model.router)
   if (pageModel._tag === 'SignupPageModel') {
     const [signupModel, signupCmd] = SignupUpdate.update(
       subMsg,
@@ -248,7 +250,7 @@ const signupPageMsgHandler = (
       [
         {
           ...model,
-          navigation: Navigation.setPageModel(model.navigation, {
+          router: TeaRouter.setPageModel(model.router, {
             _tag: 'SignupPageModel',
             model: signupModel,
           }),
@@ -275,7 +277,7 @@ const settingsPageMsgHandler = (
   subMsg: SettingsPage.Msg,
   model: Model,
 ): [Model, Cmd<Msg>] => {
-  const pageModel = Navigation.getPageModel(model.navigation)
+  const pageModel = TeaRouter.getPageModel(model.router)
   if (pageModel._tag === 'SettingsPageModel') {
     const [settingsModel, settingsCmd] = SettingsUpdate.update(
       subMsg,
@@ -285,7 +287,7 @@ const settingsPageMsgHandler = (
       [
         {
           ...model,
-          navigation: Navigation.setPageModel(model.navigation, {
+          router: TeaRouter.setPageModel(model.router, {
             _tag: 'SettingsPageModel',
             model: settingsModel,
           }),
@@ -312,7 +314,7 @@ const profilePageMsgHandler = (
   subMsg: ProfilePage.Msg,
   model: Model,
 ): [Model, Cmd<Msg>] => {
-  const pageModel = Navigation.getPageModel(model.navigation)
+  const pageModel = TeaRouter.getPageModel(model.router)
   if (pageModel._tag === 'ProfilePageModel') {
     const [profileModel, profileCmd] = ProfileUpdate.update(
       subMsg,
@@ -322,7 +324,7 @@ const profilePageMsgHandler = (
       [
         {
           ...model,
-          navigation: Navigation.setPageModel(model.navigation, {
+          router: TeaRouter.setPageModel(model.router, {
             _tag: 'ProfilePageModel',
             model: profileModel,
           }),
@@ -349,7 +351,7 @@ const articlePageMsgHandler = (
   subMsg: ArticlePage.Msg,
   model: Model,
 ): [Model, Cmd<Msg>] => {
-  const pageModel = Navigation.getPageModel(model.navigation)
+  const pageModel = TeaRouter.getPageModel(model.router)
   if (pageModel._tag === 'ArticlePageModel') {
     const [articleModel, articleCmd] = ArticleUpdate.update(
       subMsg,
@@ -358,7 +360,7 @@ const articlePageMsgHandler = (
     return [
       {
         ...model,
-        navigation: Navigation.setPageModel(model.navigation, {
+        router: TeaRouter.setPageModel(model.router, {
           _tag: 'ArticlePageModel',
           model: articleModel,
         }),
@@ -378,7 +380,7 @@ const editorPageMsgHandler = (
   subMsg: EditorPage.Msg,
   model: Model,
 ): [Model, Cmd<Msg>] => {
-  const pageModel = Navigation.getPageModel(model.navigation)
+  const pageModel = TeaRouter.getPageModel(model.router)
   if (pageModel._tag === 'EditorPageModel') {
     const [editorModel, editorCmd] = EditorUpdate.update(
       subMsg,
@@ -388,7 +390,7 @@ const editorPageMsgHandler = (
       [
         {
           ...model,
-          navigation: Navigation.setPageModel(model.navigation, {
+          router: TeaRouter.setPageModel(model.router, {
             _tag: 'EditorPageModel',
             model: editorModel,
           }),
@@ -415,7 +417,7 @@ const notFoundPageMsgHandler = (
   subMsg: NotFoundPage.Msg,
   model: Model,
 ): [Model, Cmd<Msg>] => {
-  const pageModel = Navigation.getPageModel(model.navigation)
+  const pageModel = TeaRouter.getPageModel(model.router)
   if (pageModel._tag === 'NotFoundPageModel') {
     const [notFoundModel, notFoundCmd] = NotFoundUpdate.update(
       subMsg,
@@ -424,7 +426,7 @@ const notFoundPageMsgHandler = (
     return [
       {
         ...model,
-        navigation: Navigation.setPageModel(model.navigation, {
+        router: TeaRouter.setPageModel(model.router, {
           _tag: 'NotFoundPageModel',
           model: notFoundModel,
         }),
@@ -445,8 +447,8 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
     case 'NoOp':
       return [model, Cmd.none()]
 
-    case 'NavigationMsg':
-      return navigationMsgHandler(msg.subMsg, model)
+    case 'TeaRouterMsg':
+      return routerMsgHandler(msg.subMsg, model)
 
     case 'SetUser':
       return setUserMsgHandler(msg.user, model)
@@ -484,16 +486,17 @@ const interceptChangeTabFromHomePage =
   (tab: HomeTab) =>
   (m: Model): [Model, Cmd<Msg>] => {
     if (tab === 'feed' && O.isNone(m.shared.user)) {
-      return navigationMsgHandler(
-        { _tag: 'ChangeRoute', route: { _tag: 'LoginPage' } },
+      return routerMsgHandler(
+        TeaRouter.ChangeRouteMsg({ _tag: 'LoginPage' }),
         m,
       )
     }
-    return navigationMsgHandler(
-      {
-        _tag: 'ChangeRouteNoReload',
-        route: { _tag: 'HomePage', tab, page: 1 },
-      },
+    return routerMsgHandler(
+      TeaRouter.ChangeRouteNoReloadMsg({
+        _tag: 'HomePage',
+        tab,
+        page: 1,
+      }),
       m,
     )
   }
@@ -501,14 +504,15 @@ const interceptChangeTabFromHomePage =
 const interceptChangePageFromHomePage =
   (page: number) =>
   (m: Model): [Model, Cmd<Msg>] => {
-    const pageModel = Navigation.getPageModel(m.navigation)
+    const pageModel = TeaRouter.getPageModel(m.router)
     const currentTab =
       pageModel._tag === 'HomePageModel' ? pageModel.model.tab : 'global'
-    return navigationMsgHandler(
-      {
-        _tag: 'ChangeRouteNoReload',
-        route: { _tag: 'HomePage', tab: currentTab, page },
-      },
+    return routerMsgHandler(
+      TeaRouter.ChangeRouteNoReloadMsg({
+        _tag: 'HomePage',
+        tab: currentTab,
+        page,
+      }),
       m,
     )
   }
@@ -523,11 +527,12 @@ const interceptSubmitFromLoginPage =
       ...m,
       shared: { user: O.some(user) },
     }
-    return navigationMsgHandler(
-      {
-        _tag: 'ChangeRoute',
-        route: { _tag: 'HomePage', tab: 'global', page: 1 },
-      },
+    return routerMsgHandler(
+      TeaRouter.ChangeRouteMsg({
+        _tag: 'HomePage',
+        tab: 'global',
+        page: 1,
+      }),
       nextModel,
     )
   }
@@ -542,11 +547,12 @@ const interceptSubmitFromSignupPage =
       ...m,
       shared: { user: O.some(user) },
     }
-    return navigationMsgHandler(
-      {
-        _tag: 'ChangeRoute',
-        route: { _tag: 'HomePage', tab: 'global', page: 1 },
-      },
+    return routerMsgHandler(
+      TeaRouter.ChangeRouteMsg({
+        _tag: 'HomePage',
+        tab: 'global',
+        page: 1,
+      }),
       nextModel,
     )
   }
@@ -557,11 +563,12 @@ const interceptLogoutFromSettingsPage = (m: Model): [Model, Cmd<Msg>] => {
     ...m,
     shared: { user: O.none },
   }
-  return navigationMsgHandler(
-    {
-      _tag: 'ChangeRoute',
-      route: { _tag: 'HomePage', tab: 'global', page: 1 },
-    },
+  return routerMsgHandler(
+    TeaRouter.ChangeRouteMsg({
+      _tag: 'HomePage',
+      tab: 'global',
+      page: 1,
+    }),
     nextModel,
   )
 }
@@ -569,17 +576,14 @@ const interceptLogoutFromSettingsPage = (m: Model): [Model, Cmd<Msg>] => {
 const interceptToggleFavoritesFromProfilePage = (
   m: Model,
 ): [Model, Cmd<Msg>] => {
-  const pageModel = Navigation.getPageModel(m.navigation)
+  const pageModel = TeaRouter.getPageModel(m.router)
   if (pageModel._tag === 'ProfilePageModel') {
-    return navigationMsgHandler(
-      {
-        _tag: 'ChangeRouteNoReload',
-        route: {
-          _tag: 'ProfilePage',
-          username: pageModel.model.username,
-          favorites: pageModel.model.favorites,
-        },
-      },
+    return routerMsgHandler(
+      TeaRouter.ChangeRouteNoReloadMsg({
+        _tag: 'ProfilePage',
+        username: pageModel.model.username,
+        favorites: pageModel.model.favorites,
+      }),
       m,
     )
   }
@@ -590,8 +594,8 @@ const interceptSubmitFromEditorPage =
   (title: string) =>
   (m: Model): [Model, Cmd<Msg>] => {
     const slug = title.toLowerCase().replace(/\s+/g, '-') || 'my-article'
-    return navigationMsgHandler(
-      { _tag: 'ChangeRoute', route: { _tag: 'ArticlePage', slug } },
+    return routerMsgHandler(
+      TeaRouter.ChangeRouteMsg({ _tag: 'ArticlePage', slug }),
       m,
     )
   }

@@ -20,20 +20,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 /**
- * @module @rinn7e/tea-cup-navigation/type
+ * @module @rinn7e/tea-cup-router/type
  *
- * Core type definitions for the TEA-Cup Navigation router.
+ * Core type definitions for the TEA-Cup Router.
  * Provides type-safe models, configuration, route guards, and messages.
  */
 import type * as EqClass from 'fp-ts/lib/Eq'
 import * as Eq from 'fp-ts/lib/Eq'
 import * as B from 'fp-ts/lib/boolean'
-import type {
-  AnchorHTMLAttributes,
-  ButtonHTMLAttributes,
-  ReactNode,
-} from 'react'
-import type { Cmd, Dispatcher } from 'tea-cup-fp'
+import type { Cmd } from 'tea-cup-fp'
 
 /**
  * Result of evaluating a RouteGuard.
@@ -108,7 +103,7 @@ export type Config<Route, PageModel, Context, PageMsg = Msg<Route>> = {
   /**
    * Optional message constructor to wrap router commands into application-level messages.
    */
-  readonly toMsg?: (navMsg: Msg<Route>) => PageMsg
+  readonly toMsg?: (routerMsg: Msg<Route>) => PageMsg
 }
 
 /**
@@ -148,82 +143,91 @@ export const mkModelEq = <Route, PageModel>(
   })
 
 /**
+ * Unexported unique symbol used to enforce nominal branding across Navigation messages.
+ *
+ * Why this is needed:
+ * 1. TypeScript uses structural typing by default, which allows consumers to instantiate raw object
+ *    literals (e.g. `{ _tag: 'ChangeRoute', route }`) directly rather than using constructor functions.
+ * 2. By requiring an unexported symbol property `[_msgBrand]: true`, external callers are strictly
+ *    forbidden from constructing raw literals and are forced to use the explicit constructor helpers
+ *    (`urlChangeMsg`, `changeRouteMsg`, etc.).
+ * 3. Pattern matching (e.g. `switch (msg._tag)`) remains 100% unaffected and type-safe.
+ * 4. As a compile-time-only `declare const`, it is completely erased during compilation with zero runtime cost.
+ */
+declare const _msgBrand: unique symbol
+
+/**
+ * Triggered on browser URL changes (e.g. popstate, back/forward button).
+ */
+export type UrlChangeMsg = {
+  readonly _tag: 'UrlChange'
+  readonly location: Location
+  readonly [_msgBrand]: true
+}
+
+export const UrlChangeMsg = (location: Location): UrlChangeMsg =>
+  ({
+    _tag: 'UrlChange',
+    location,
+  }) as UrlChangeMsg
+
+/**
+ * Triggers full navigation to a route (evaluating guards and initializing page model).
+ */
+export type ChangeRouteMsg<Route> = {
+  readonly _tag: 'ChangeRoute'
+  readonly route: Route
+  readonly [_msgBrand]: true
+}
+
+export const ChangeRouteMsg = <Route>(route: Route): ChangeRouteMsg<Route> =>
+  ({
+    _tag: 'ChangeRoute',
+    route,
+  }) as ChangeRouteMsg<Route>
+
+/**
+ * Updates the route and URL in browser address bar without re-initializing the page model.
+ */
+export type ChangeRouteNoReloadMsg<Route> = {
+  readonly _tag: 'ChangeRouteNoReload'
+  readonly route: Route
+  readonly [_msgBrand]: true
+}
+
+export const ChangeRouteNoReloadMsg = <Route>(
+  route: Route,
+): ChangeRouteNoReloadMsg<Route> =>
+  ({
+    _tag: 'ChangeRouteNoReload',
+    route,
+  }) as ChangeRouteNoReloadMsg<Route>
+
+/**
+ * Updates the URL in browser address bar only without modifying active route or page model.
+ */
+export type ChangeRouteUrlNoReloadMsg<Route> = {
+  readonly _tag: 'ChangeRouteUrlNoReload'
+  readonly route: Route
+  readonly [_msgBrand]: true
+}
+
+export const ChangeRouteUrlNoReloadMsg = <Route>(
+  route: Route,
+): ChangeRouteUrlNoReloadMsg<Route> =>
+  ({
+    _tag: 'ChangeRouteUrlNoReload',
+    route,
+  }) as ChangeRouteUrlNoReloadMsg<Route>
+
+/**
  * Router messages for the TEA architecture.
  */
 export type Msg<Route> =
-  /** Triggered on browser URL changes (e.g. popstate, back/forward button). */
-  | { readonly _tag: 'UrlChange'; readonly location: Location }
-
-  /** Triggers full navigation to a route (evaluating guards and initializing page model). */
-  | { readonly _tag: 'ChangeRoute'; readonly route: Route }
-
-  /** Updates the route and URL in browser address bar without re-initializing the page model. */
-  | { readonly _tag: 'ChangeRouteNoReload'; readonly route: Route }
-
-  /** Updates the URL in browser address bar only without modifying active route or page model. */
-  | { readonly _tag: 'ChangeRouteUrlNoReload'; readonly route: Route }
-
-  /** No-operation message. */
-  | { readonly _tag: 'NoOp' }
-
-/**
- * Props for the `Link` navigation component.
- */
-export type Props<Route> = {
-  /** When true, renders as <button> instead of <a>. Defaults to false. */
-  readonly isButton?: boolean
-
-  /** Target route to navigate to. */
-  readonly route: Route
-
-  /** Converts the route to an href string. */
-  readonly toUrl: (route: Route) => string
-
-  /** Dispatcher function to send TEA messages. */
-  readonly dispatch: Dispatcher<Msg<Route>>
-
-  /** Optional route equality comparator for memoization. */
-  readonly routeEq?: EqClass.Eq<Route>
-
-  /** Link contents. */
-  readonly children: ReactNode
-
-  /** Optional click event handler. */
-  readonly onClick?: (e: React.MouseEvent<HTMLElement>) => void
-} & Omit<
-  AnchorHTMLAttributes<HTMLAnchorElement> &
-    ButtonHTMLAttributes<HTMLButtonElement>,
-  'onClick'
->
-
-/**
- * Creates an `Eq` instance for `Props<Route>` to optimize React component memoization.
- *
- * @param routeEq - Optional route Eq comparator.
- */
-export const mkPropsEq = <Route>(
-  routeEq?: EqClass.Eq<Route>,
-): EqClass.Eq<Props<Route>> => ({
-  equals: (a, b) => {
-    if (
-      Boolean(a.isButton) !== Boolean(b.isButton) ||
-      (a as AnchorHTMLAttributes<HTMLAnchorElement>).href !==
-        (b as AnchorHTMLAttributes<HTMLAnchorElement>).href ||
-      a.className !== b.className ||
-      a.children !== b.children ||
-      (a as AnchorHTMLAttributes<HTMLAnchorElement>).target !==
-        (b as AnchorHTMLAttributes<HTMLAnchorElement>).target ||
-      (a as AnchorHTMLAttributes<HTMLAnchorElement>).rel !==
-        (b as AnchorHTMLAttributes<HTMLAnchorElement>).rel ||
-      a.title !== b.title ||
-      (a as ButtonHTMLAttributes<HTMLButtonElement>).disabled !==
-        (b as ButtonHTMLAttributes<HTMLButtonElement>).disabled
-    ) {
-      return false
+  | UrlChangeMsg
+  | ChangeRouteMsg<Route>
+  | ChangeRouteNoReloadMsg<Route>
+  | ChangeRouteUrlNoReloadMsg<Route>
+  | {
+      readonly _tag: 'NoOp'
     }
-    if (routeEq) {
-      return routeEq.equals(a.route, b.route)
-    }
-    return a.route === b.route
-  },
-})

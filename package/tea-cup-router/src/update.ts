@@ -20,7 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 /**
- * @module @rinn7e/tea-cup-navigation/update
+ * @module @rinn7e/tea-cup-router/update
  *
  * Core update functions and message handlers for the TEA router.
  * Supports both pure TEA message dispatching and direct handler function invocations.

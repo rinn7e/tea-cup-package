@@ -1,4 +1,4 @@
-# `@rinn7e/tea-cup-navigation`
+# `@rinn7e/tea-cup-router`
 
 A modular, type-safe, functional router and navigation management library built for React and The Elm Architecture (TEA), powered by `tea-cup-fp` and `react-tea-cup`.
 
@@ -8,8 +8,8 @@ A modular, type-safe, functional router and navigation management library built 
 
 - **Double-Update Loop Prevention**: Implements the `isInternal` state handshake pattern to prevent redundant page model re-initializations when synchronizing browser URL history.
 - **Declarative Route Guards**: Flexible authorization and access control (`Allow`, `Redirect`, `Reject`) with support for shared application contexts and internal/external navigation origins.
-- **State-Preserving In-Place Navigation**: Supports `ChangeRouteNoReload` for updating URL search params, tabs, or pagination without resetting active page state, and `ChangeRouteUrlNoReload` for URL-only updates.
-- **Isolated React Entrypoint**: Pure router types, configuration, and reducers are exported from `@rinn7e/tea-cup-navigation`. The declarative `<Link />` component is isolated under `@rinn7e/tea-cup-navigation/component`.
+- **State-Preserving In-Place Navigation**: Supports `ChangeRouteNoReloadMsg` for updating URL search params, tabs, or pagination without resetting active page state, and `ChangeRouteUrlNoReloadMsg` for URL-only updates.
+- **Isolated React Entrypoint**: Pure router types, configuration, and reducers are exported from `@rinn7e/tea-cup-router`. The declarative `<Link />` component is isolated under `@rinn7e/tea-cup-router/link/component`.
 - **First-Class TEA Integration**: Cleanly integrates with `ProgramWithNav` and `Dispatcher<Msg>` without mutable state or hidden side-effects.
 
 ---
@@ -18,10 +18,10 @@ A modular, type-safe, functional router and navigation management library built 
 
 In standard TEA / Elm routing, updating the route internally emits a `newUrl` command to push the change to browser history. When the browser executes the URL push, it fires an `onUrlChange` event back into the application runtime. Naive routers re-parse the route and re-initialize page models on `onUrlChange`, causing expensive data fetches and state resets to run **twice**.
 
-`@rinn7e/tea-cup-navigation` eliminates this by maintaining an `isInternal` flag in the router model:
+`@rinn7e/tea-cup-router` eliminates this by maintaining an `isInternal` flag in the router model:
 
-1. **Internal Navigation (`ChangeRoute`)**: Sets `isInternal = true`, transitions the `pageModel` immediately, and emits the `newUrl` command.
-2. **Browser URL Event (`UrlChange`)**:
+1. **Internal Navigation (`ChangeRouteMsg`)**: Sets `isInternal = true`, transitions the `pageModel` immediately, and emits the `newUrl` command.
+2. **Browser URL Event (`UrlChangeMsg`)**:
    - If `isInternal === true`: The URL change was triggered by the app itself. The router consumes the flag (`isInternal = false`) and ignores the message without re-initializing the page.
    - If `isInternal === false`: The URL change originated externally (e.g. browser Back / Forward buttons or direct address bar entry). The router parses the URL and runs full navigation.
 
@@ -32,19 +32,19 @@ For an in-depth breakdown of this design, read [Solving Elm Router "Double Updat
 ## Installation
 
 ```bash
-pnpm add @rinn7e/tea-cup-navigation
+pnpm add @rinn7e/tea-cup-router
 ```
 
 ---
 
 ## Quick Start
 
-### 1. Define Routes & Navigation Configuration
+### 1. Define Routes & Router Configuration
 
 Create a router configuration using `Config<Route, PageModel, Context, Msg>`:
 
 ```ts
-import * as Navigation from '@rinn7e/tea-cup-navigation'
+import * as TeaRouter from '@rinn7e/tea-cup-router'
 import { Cmd } from 'tea-cup-fp'
 
 export type AppRoute =
@@ -61,7 +61,7 @@ export type AppContext = {
   readonly isAuthenticated: boolean
 }
 
-export const navigationConfig: Navigation.Config<
+export const routerConfig: TeaRouter.Config<
   AppRoute,
   PageModel,
   AppContext,
@@ -109,7 +109,7 @@ export const navigationConfig: Navigation.Config<
     }
   },
 
-  toMsg: (subMsg) => ({ _tag: 'NavigationMsg', subMsg }),
+  toMsg: (subMsg) => ({ _tag: 'TeaRouterMsg', subMsg }),
 }
 ```
 
@@ -117,20 +117,20 @@ export const navigationConfig: Navigation.Config<
 
 ### 2. Integrate into TEA Model & Msg
 
-Embed `Navigation.Model` and `Navigation.Msg` into your top-level TEA state:
+Embed `TeaRouter.Model` and `TeaRouter.Msg` into your top-level TEA state:
 
 ```ts
-import type * as Navigation from '@rinn7e/tea-cup-navigation'
+import type * as TeaRouter from '@rinn7e/tea-cup-router'
 
 export type Model = {
-  readonly navigation: Navigation.Model<AppRoute, PageModel>
+  readonly router: TeaRouter.Model<AppRoute, PageModel>
   readonly shared: AppContext
 }
 
 export type Msg =
   | {
-      readonly _tag: 'NavigationMsg'
-      readonly subMsg: Navigation.Msg<AppRoute>
+      readonly _tag: 'TeaRouterMsg'
+      readonly subMsg: TeaRouter.Msg<AppRoute>
     }
   | { readonly _tag: 'HomeMsg'; readonly subMsg: HomeMsg }
   | { readonly _tag: 'ProfileMsg'; readonly subMsg: ProfileMsg }
@@ -139,52 +139,56 @@ export type Msg =
 
 ---
 
-### 3. Handle Navigation in `update.ts`
+### 3. Handle Routing in `update.ts`
 
-Initialize with `Navigation.init` and delegate router updates to `Navigation.update`:
+Initialize with `TeaRouter.init` and delegate router updates to `TeaRouter.update`:
 
 ```ts
-import * as Navigation from '@rinn7e/tea-cup-navigation'
+import * as TeaRouter from '@rinn7e/tea-cup-router'
 import { Cmd } from 'tea-cup-fp'
 
 export const init = (location: Location): [Model, Cmd<Msg>] => {
   const shared: AppContext = { isAuthenticated: checkAuth() }
-  const [navModel, navCmd] = Navigation.init(navigationConfig, location, shared)
+  const [routerModel, routerCmd] = TeaRouter.init(
+    routerConfig,
+    location,
+    shared,
+  )
 
   return [
     {
-      navigation: navModel,
+      router: routerModel,
       shared,
     },
-    navCmd,
+    routerCmd,
   ]
 }
 
-export const navigationMsgHandler = (
-  subMsg: Navigation.Msg<AppRoute>,
+export const routerMsgHandler = (
+  subMsg: TeaRouter.Msg<AppRoute>,
   model: Model,
 ): [Model, Cmd<Msg>] => {
-  const [navModel, navCmd] = Navigation.update(navigationConfig, model.shared)(
+  const [routerModel, routerCmd] = TeaRouter.update(routerConfig, model.shared)(
     subMsg,
-    model.navigation,
+    model.router,
   )
 
-  return [{ ...model, navigation: navModel }, navCmd]
+  return [{ ...model, router: routerModel }, routerCmd]
 }
 
 export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
-    case 'NavigationMsg':
-      return navigationMsgHandler(msg.subMsg, model)
+    case 'TeaRouterMsg':
+      return routerMsgHandler(msg.subMsg, model)
 
     case 'HomeMsg': {
-      const pageModel = Navigation.getPageModel(model.navigation)
+      const pageModel = TeaRouter.getPageModel(model.router)
       if (pageModel._tag !== 'HomePageModel') return [model, Cmd.none()]
       const [subModel, subCmd] = updateHome(msg.subMsg, pageModel.model)
       return [
         {
           ...model,
-          navigation: Navigation.setPageModel(model.navigation, {
+          router: TeaRouter.setPageModel(model.router, {
             _tag: 'HomePageModel',
             model: subModel,
           }),
@@ -204,13 +208,14 @@ Hook up browser location changes via `onUrlChange`:
 
 ```tsx
 import { devTools } from '@rinn7e/tea-cup-prelude'
+import * as TeaRouter from '@rinn7e/tea-cup-router'
 import { ProgramWithNav } from 'react-tea-cup'
 
 export const App = () => (
   <ProgramWithNav<Model, Msg>
     onUrlChange={(location) => ({
-      _tag: 'NavigationMsg',
-      subMsg: { _tag: 'UrlChange', location },
+      _tag: 'TeaRouterMsg',
+      subMsg: TeaRouter.UrlChangeMsg(location),
     })}
     init={init}
     update={update}
@@ -225,23 +230,23 @@ export const App = () => (
 
 ### 5. Render Views & Links
 
-Import `<Link />` from `@rinn7e/tea-cup-navigation/component` and use accessor functions:
+Import `<Link />` from `@rinn7e/tea-cup-router/link/component` and use accessor functions:
 
 ```tsx
-import * as Navigation from '@rinn7e/tea-cup-navigation'
-import { Link } from '@rinn7e/tea-cup-navigation/component'
+import * as TeaRouter from '@rinn7e/tea-cup-router'
+import { Link } from '@rinn7e/tea-cup-router/link/component'
 
 export const View = ({ model, dispatch }: Props) => {
-  const currentRoute = Navigation.getRoute(model.navigation)
-  const pageModel = Navigation.getPageModel(model.navigation)
+  const currentRoute = TeaRouter.getRoute(model.router)
+  const pageModel = TeaRouter.getPageModel(model.router)
 
   return (
     <div>
       <nav>
         <Link
           route={{ _tag: 'HomePage' }}
-          toUrl={navigationConfig.toUrl}
-          dispatch={(subMsg) => dispatch({ _tag: 'NavigationMsg', subMsg })}
+          toUrl={routerConfig.toUrl}
+          dispatch={(subMsg) => dispatch({ _tag: 'TeaRouterMsg', subMsg })}
           className={currentRoute._tag === 'HomePage' ? 'active' : ''}
         >
           Home
@@ -260,12 +265,16 @@ export const View = ({ model, dispatch }: Props) => {
 
 ### Core Types & Models
 
-| Type                                         | Description                                                                                                    |
-| :------------------------------------------- | :------------------------------------------------------------------------------------------------------------- |
-| `Config<Route, PageModel, Context, PageMsg>` | Complete router configuration (parser, serializer, equality, guards, and initializers).                        |
-| `Model<Route, PageModel>`                    | Router model holding `{ route, pageModel, isInternal }`.                                                       |
-| `Msg<Route>`                                 | Router message sum-type (`UrlChange`, `ChangeRoute`, `ChangeRouteNoReload`, `ChangeRouteUrlNoReload`, `NoOp`). |
-| `GuardResult<Route>`                         | Result of guard evaluation: `{ _tag: 'Allow' }`, `{ _tag: 'Redirect', to }`, or `{ _tag: 'Reject' }`.          |
+| Type / Constructor                           | Description                                                                                                                |
+| :------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------- |
+| `Config<Route, PageModel, Context, PageMsg>` | Complete router configuration (parser, serializer, equality, guards, and initializers).                                    |
+| `Model<Route, PageModel>`                    | Router model holding `{ route, pageModel, isInternal }`.                                                                   |
+| `Msg<Route>`                                 | Router message sum-type (`UrlChangeMsg`, `ChangeRouteMsg`, `ChangeRouteNoReloadMsg`, `ChangeRouteUrlNoReloadMsg`, `NoOp`). |
+| `GuardResult<Route>`                         | Result of guard evaluation: `{ _tag: 'Allow' }`, `{ _tag: 'Redirect', to }`, or `{ _tag: 'Reject' }`.                      |
+| `UrlChangeMsg(location)`                     | Branded constructor for `UrlChangeMsg`.                                                                                    |
+| `ChangeRouteMsg(route)`                      | Branded constructor for `ChangeRouteMsg<Route>`.                                                                           |
+| `ChangeRouteNoReloadMsg(route)`              | Branded constructor for `ChangeRouteNoReloadMsg<Route>`.                                                                   |
+| `ChangeRouteUrlNoReloadMsg(route)`           | Branded constructor for `ChangeRouteUrlNoReloadMsg<Route>`.                                                                |
 
 ### Accessor & Update Functions
 
@@ -297,7 +306,7 @@ pnpm run check-circular
 pnpm run build
 
 # Run Playwright E2E test suite (12 comprehensive edge-case scenarios)
-pnpm --filter tea-cup-navigation-example-e2e test:e2e
+pnpm --filter tea-cup-router-example-e2e test:e2e
 ```
 
 ---

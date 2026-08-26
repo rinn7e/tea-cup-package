@@ -1,4 +1,4 @@
-import type * as Navigation from '@rinn7e/tea-cup-navigation'
+import type * as TeaRouter from '@rinn7e/tea-cup-router'
 import type { Option } from 'fp-ts/lib/Option'
 
 import type { AppRoute } from '@/common/route'
@@ -23,15 +23,15 @@ export type PageModel =
   | { readonly _tag: 'NotFoundPageModel'; readonly model: NotFoundPage.Model }
 
 export type Model = {
-  readonly navigation: Navigation.Model<AppRoute, PageModel>
+  readonly router: TeaRouter.Model<AppRoute, PageModel>
   readonly shared: Shared
 }
 
 export type Msg =
   | { readonly _tag: 'NoOp' }
   | {
-      readonly _tag: 'NavigationMsg'
-      readonly subMsg: Navigation.Msg<AppRoute>
+      readonly _tag: 'TeaRouterMsg'
+      readonly subMsg: TeaRouter.Msg<AppRoute>
     }
   | { readonly _tag: 'SetUser'; readonly user: Option<User> }
   | { readonly _tag: 'HomePageMsg'; readonly subMsg: HomePage.Msg }

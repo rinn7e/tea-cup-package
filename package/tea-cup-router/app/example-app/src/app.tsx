@@ -1,5 +1,5 @@
-import * as Navigation from '@rinn7e/tea-cup-navigation'
-import { Link } from '@rinn7e/tea-cup-navigation/component'
+import * as TeaRouter from '@rinn7e/tea-cup-router'
+import { Link } from '@rinn7e/tea-cup-router/link/component'
 import * as O from 'fp-ts/lib/Option'
 import React from 'react'
 import type { Dispatcher } from 'tea-cup-fp'
@@ -22,13 +22,13 @@ type Props = {
 }
 
 export const App = ({ model, dispatch }: Props) => {
-  const currentRoute = Navigation.getRoute(model.navigation)
-  const pageModel = Navigation.getPageModel(model.navigation)
+  const currentRoute = TeaRouter.getRoute(model.router)
+  const pageModel = TeaRouter.getPageModel(model.router)
   const userOpt = model.shared.user
   const isLoggedIn = O.isSome(userOpt)
 
-  const navDispatch = (navMsg: Navigation.Msg<AppRoute>) =>
-    dispatch({ _tag: 'NavigationMsg', subMsg: navMsg })
+  const routerDispatch = (routerMsg: TeaRouter.Msg<AppRoute>) =>
+    dispatch({ _tag: 'TeaRouterMsg', subMsg: routerMsg })
 
   return (
     <div className='max-w-4xl mx-auto p-6 font-sans space-y-6'>
@@ -37,7 +37,7 @@ export const App = ({ model, dispatch }: Props) => {
         <div className='flex flex-wrap items-center justify-between gap-4'>
           <div className='flex items-center gap-2'>
             <span className='text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent'>
-              TeaCup Navigation Demo
+              TeaCup Router Demo
             </span>
           </div>
 
@@ -45,7 +45,7 @@ export const App = ({ model, dispatch }: Props) => {
             <Link
               route={{ _tag: 'HomePage', tab: 'global', page: 1 }}
               toUrl={toUrl}
-              dispatch={navDispatch}
+              dispatch={routerDispatch}
               className='px-3 py-1.5 rounded-md hover:bg-slate-100 font-medium text-slate-700'
             >
               Home
@@ -56,7 +56,7 @@ export const App = ({ model, dispatch }: Props) => {
                 <Link
                   route={{ _tag: 'LoginPage' }}
                   toUrl={toUrl}
-                  dispatch={navDispatch}
+                  dispatch={routerDispatch}
                   className='px-3 py-1.5 rounded-md hover:bg-slate-100 font-medium text-slate-700'
                 >
                   Sign In
@@ -64,7 +64,7 @@ export const App = ({ model, dispatch }: Props) => {
                 <Link
                   route={{ _tag: 'SignupPage' }}
                   toUrl={toUrl}
-                  dispatch={navDispatch}
+                  dispatch={routerDispatch}
                   className='px-3 py-1.5 rounded-md hover:bg-slate-100 font-medium text-slate-700'
                 >
                   Sign Up
@@ -75,7 +75,7 @@ export const App = ({ model, dispatch }: Props) => {
                 <Link
                   route={{ _tag: 'EditorPage' }}
                   toUrl={toUrl}
-                  dispatch={navDispatch}
+                  dispatch={routerDispatch}
                   className='px-3 py-1.5 rounded-md hover:bg-slate-100 font-medium text-slate-700'
                 >
                   New Article
@@ -83,7 +83,7 @@ export const App = ({ model, dispatch }: Props) => {
                 <Link
                   route={{ _tag: 'SettingsPage' }}
                   toUrl={toUrl}
-                  dispatch={navDispatch}
+                  dispatch={routerDispatch}
                   className='px-3 py-1.5 rounded-md hover:bg-slate-100 font-medium text-slate-700'
                 >
                   Settings
@@ -95,7 +95,7 @@ export const App = ({ model, dispatch }: Props) => {
                     favorites: false,
                   }}
                   toUrl={toUrl}
-                  dispatch={navDispatch}
+                  dispatch={routerDispatch}
                   className='px-3 py-1.5 rounded-md hover:bg-slate-100 font-medium text-slate-700'
                 >
                   Profile (@{userOpt.value.username})
@@ -106,7 +106,7 @@ export const App = ({ model, dispatch }: Props) => {
             <Link
               route={{ _tag: 'NotFoundPage' }}
               toUrl={toUrl}
-              dispatch={navDispatch}
+              dispatch={routerDispatch}
               className='px-3 py-1.5 rounded-md hover:bg-slate-100 font-medium text-slate-400'
             >
               404 Page
@@ -145,7 +145,7 @@ export const App = ({ model, dispatch }: Props) => {
       {/* State Inspector Card */}
       <section className='bg-slate-900 text-slate-100 rounded-xl p-4 shadow-sm font-mono text-xs space-y-2'>
         <div className='flex justify-between items-center text-slate-400 border-b border-slate-800 pb-1'>
-          <span>NAVIGATION STATE INSPECTOR</span>
+          <span>ROUTER STATE INSPECTOR</span>
           <span
             data-testid='auth-status'
             className={isLoggedIn ? 'text-emerald-400' : 'text-amber-400'}
@@ -198,7 +198,7 @@ export const App = ({ model, dispatch }: Props) => {
 }
 
 const renderPageView = (model: Model, dispatch: Dispatcher<Msg>) => {
-  const pageModel = Navigation.getPageModel(model.navigation)
+  const pageModel = TeaRouter.getPageModel(model.router)
 
   switch (pageModel._tag) {
     case 'HomePageModel':

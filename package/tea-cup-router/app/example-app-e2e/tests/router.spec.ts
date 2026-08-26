@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test.describe('TeaCup Navigation Example App', () => {
+test.describe('TeaCup Router Example App', () => {
   test('1. should parse initial direct URLs correctly', async ({ page }) => {
     // Visit Home
     await page.goto('/')

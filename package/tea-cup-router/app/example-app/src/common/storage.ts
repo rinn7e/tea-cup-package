@@ -2,7 +2,7 @@ import * as O from 'fp-ts/lib/Option'
 
 import type { User } from './shared'
 
-const STORAGE_KEY = 'tea_cup_navigation_demo_user'
+const STORAGE_KEY = 'tea_cup_router_demo_user'
 
 export const getStoredUser = (): O.Option<User> => {
   try {

@@ -20,7 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 /**
- * @module @rinn7e/tea-cup-navigation/component
+ * @module @rinn7e/tea-cup-router/link/component
  *
  * Declarative React Link components for TEA applications.
  * Handles client-side navigation while supporting native browser features
@@ -28,11 +28,12 @@ SOFTWARE. */
  */
 import React, { memo } from 'react'
 
+import { ChangeRouteMsg } from '../type'
 import { type Props, mkPropsEq } from './type'
 
 /**
  * Unmemoized Link anchor or button component.
- * Intercepts standard left-clicks without modifier keys and dispatches `{ _tag: 'ChangeRoute', route }`.
+ * Intercepts standard left-clicks without modifier keys and dispatches `ChangeRouteMsg(route)`.
  */
 export const LinkComponent = <Route,>({
   route,
@@ -59,7 +60,7 @@ export const LinkComponent = <Route,>({
       !e.shiftKey
     ) {
       e.preventDefault()
-      dispatch({ _tag: 'ChangeRoute', route })
+      dispatch(ChangeRouteMsg(route))
     }
   }
 
@@ -92,9 +93,12 @@ export const LinkComponent = <Route,>({
 
 /**
  * Memoized Link component optimized with `mkPropsEq`.
- * Callers should import qualified: `import { Link as NavLink } from '@rinn7e/tea-cup-navigation/component'`.
+ * Callers should import: `import { Link } from '@rinn7e/tea-cup-router/link/component'`.
  */
 export const Link = memo(LinkComponent, (prev, next) => {
   const propEq = mkPropsEq(prev.routeEq)
   return propEq.equals(prev, next)
 }) as <Route>(props: Props<Route>) => React.ReactElement
+
+export type { Props }
+export { mkPropsEq }

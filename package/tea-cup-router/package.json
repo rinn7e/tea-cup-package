@@ -1,8 +1,8 @@
 {
-  "name": "@rinn7e/tea-cup-navigation",
+  "name": "@rinn7e/tea-cup-router",
   "version": "0.1.0-alpha.1",
   "type": "module",
-  "description": "Standard Navigation and Routing for React Tea-Cup applications",
+  "description": "Standard Router and Navigation for React Tea-Cup applications",
   "author": "Moremi Vannak",
   "license": "MIT",
   "repository": {
@@ -21,10 +21,15 @@
       "import": "./lib/index.js",
       "require": "./lib/index.cjs"
     },
-    "./component": {
-      "types": "./lib/component.d.ts",
-      "import": "./lib/component.js",
-      "require": "./lib/component.cjs"
+    "./link/component": {
+      "types": "./lib/link/component.d.ts",
+      "import": "./lib/link/component.js",
+      "require": "./lib/link/component.cjs"
+    },
+    "./link": {
+      "types": "./lib/link/index.d.ts",
+      "import": "./lib/link/index.js",
+      "require": "./lib/link/index.cjs"
     },
     "./lib/*": "./lib/*"
   },

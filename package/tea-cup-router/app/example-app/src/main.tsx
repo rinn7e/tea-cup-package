@@ -1,4 +1,5 @@
 import { devTools } from '@rinn7e/tea-cup-prelude'
+import * as TeaRouter from '@rinn7e/tea-cup-router'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { ProgramWithNav } from 'react-tea-cup'
@@ -15,8 +16,8 @@ if (root) {
     <React.StrictMode>
       <ProgramWithNav<Model, Msg>
         onUrlChange={(location) => ({
-          _tag: 'NavigationMsg',
-          subMsg: { _tag: 'UrlChange', location },
+          _tag: 'TeaRouterMsg',
+          subMsg: TeaRouter.UrlChangeMsg(location),
         })}
         init={(location) => init(location)}
         update={update}
