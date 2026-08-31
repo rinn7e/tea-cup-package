@@ -274,24 +274,24 @@ export const View = ({ model, dispatch }: Props) => {
 | `Msg<Route>`                                 | Router message sum-type (`UrlChangeMsg`, `ChangeRouteMsg`, `ChangeRouteNoReloadMsg`, `ChangeRouteUrlNoReloadMsg`, `NoOp`). |
 | `GuardResult<Route>`                         | Result of guard evaluation: `{ _tag: 'Allow' }`, `{ _tag: 'Redirect', to }`, or `{ _tag: 'Reject' }`.                      |
 | `UrlChangeMsg(location)`                     | Branded constructor for `UrlChangeMsg`.                                                                                    |
-| `ChangeRouteMsg(route)`                      | Branded constructor for `ChangeRouteMsg<Route>`.                                                                           |
+| `ChangeRouteMsg(route, forceRefresh?)`       | Branded constructor for `ChangeRouteMsg<Route>` with optional `forceRefresh`.                                              |
 | `ChangeRouteNoReloadMsg(route)`              | Branded constructor for `ChangeRouteNoReloadMsg<Route>`.                                                                   |
 | `ChangeRouteUrlNoReloadMsg(route)`           | Branded constructor for `ChangeRouteUrlNoReloadMsg<Route>`.                                                                |
 
 ### Accessor & Update Functions
 
-| Function                              | Signature                                                              | Description                                                      |
-| :------------------------------------ | :--------------------------------------------------------------------- | :--------------------------------------------------------------- |
-| `getRoute(model)`                     | `(Model<R, P>) => R`                                                   | Retrieves the active route from the router model.                |
-| `getPageModel(model)`                 | `(Model<R, P>) => P`                                                   | Retrieves the active page model from the router model.           |
-| `setPageModel(model, pageModel)`      | `(Model<R, P>, P) => Model<R, P>`                                      | Replaces the active page model within the router model.          |
-| `init(config, location, context)`     | `(Config, Location, Context) => [Model, Cmd]`                          | Initializes router state and triggers route guards/initializers. |
-| `update(config, context)`             | `(Config, Context) => (Msg, Model) => [Model, Cmd]`                    | Main TEA router update reducer.                                  |
-| `changeRouteHandler(config, context)` | `(Config, Context) => (Route, isInternal?) => (Model) => [Model, Cmd]` | Direct handler for programmatic navigation.                      |
-| `changeRouteNoReloadHandler(config)`  | `(Config) => (Route) => (Model) => [Model, Cmd]`                       | Updates route & address bar without re-initializing page model.  |
-| `urlChangeHandler(config, context)`   | `(Config, Context) => (Location) => (Model) => [Model, Cmd]`           | Direct handler for browser popstate / URL events.                |
-| `mkModelEq(routeEq, pageModelEq)`     | `(Eq<R>, Eq<P>) => Eq<Model<R, P>>`                                    | Constructs an `Eq` instance for React memoization.               |
-| `mkPropsEq(routeEq?)`                 | `(Eq<R>?) => Eq<Props<R>>`                                             | Constructs an `Eq` instance for `<Link />` memoization.          |
+| Function                              | Signature                                                                             | Description                                                      |
+| :------------------------------------ | :------------------------------------------------------------------------------------ | :--------------------------------------------------------------- |
+| `getRoute(model)`                     | `(Model<R, P>) => R`                                                                  | Retrieves the active route from the router model.                |
+| `getPageModel(model)`                 | `(Model<R, P>) => P`                                                                  | Retrieves the active page model from the router model.           |
+| `setPageModel(model, pageModel)`      | `(Model<R, P>, P) => Model<R, P>`                                                     | Replaces the active page model within the router model.          |
+| `init(config, location, context)`     | `(Config, Location, Context) => [Model, Cmd]`                                         | Initializes router state and triggers route guards/initializers. |
+| `update(config, context)`             | `(Config, Context) => (Msg, Model) => [Model, Cmd]`                                   | Main TEA router update reducer.                                  |
+| `changeRouteHandler(config, context)` | `(Config, Context) => (Route, forceRefresh?, isInternal?) => (Model) => [Model, Cmd]` | Direct handler for programmatic navigation with `forceRefresh`.  |
+| `changeRouteNoReloadHandler(config)`  | `(Config) => (Route) => (Model) => [Model, Cmd]`                                      | Updates route & address bar without re-initializing page model.  |
+| `urlChangeHandler(config, context)`   | `(Config, Context) => (Location) => (Model) => [Model, Cmd]`                          | Direct handler for browser popstate / URL events.                |
+| `mkModelEq(routeEq, pageModelEq)`     | `(Eq<R>, Eq<P>) => Eq<Model<R, P>>`                                                   | Constructs an `Eq` instance for React memoization.               |
+| `mkPropsEq(routeEq?)`                 | `(Eq<R>?) => Eq<Props<R>>`                                                            | Constructs an `Eq` instance for `<Link />` memoization.          |
 
 ---
 
@@ -307,7 +307,7 @@ pnpm run check-circular
 # Build production bundle (ESM, CJS, DTS)
 pnpm run build
 
-# Run Playwright E2E test suite (12 comprehensive edge-case scenarios)
+# Run Playwright E2E test suite (14 comprehensive edge-case scenarios)
 pnpm --filter tea-cup-router-example-e2e test:e2e
 ```
 

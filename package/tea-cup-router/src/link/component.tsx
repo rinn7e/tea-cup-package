@@ -40,6 +40,7 @@ export const LinkComponent = <Route,>({
   toUrl,
   dispatch,
   routeEq: _routeEq,
+  forceRefresh,
   className,
   children,
   onClick,
@@ -60,7 +61,7 @@ export const LinkComponent = <Route,>({
       !e.shiftKey
     ) {
       e.preventDefault()
-      dispatch(ChangeRouteMsg(route))
+      dispatch(ChangeRouteMsg(route, forceRefresh))
     }
   }
 

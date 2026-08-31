@@ -43,12 +43,23 @@ export const App = ({ model, dispatch }: Props) => {
 
           <nav className='flex flex-wrap items-center gap-3 text-sm'>
             <Link
+              data-testid='nav-home'
               route={{ _tag: 'HomePage', tab: 'global', page: 1 }}
               toUrl={toUrl}
               dispatch={routerDispatch}
               className='px-3 py-1.5 rounded-md hover:bg-slate-100 font-medium text-slate-700'
             >
               Home
+            </Link>
+            <Link
+              data-testid='nav-home-force-refresh'
+              route={{ _tag: 'HomePage', tab: 'global', page: 1 }}
+              forceRefresh={true}
+              toUrl={toUrl}
+              dispatch={routerDispatch}
+              className='px-3 py-1.5 rounded-md hover:bg-rose-50 font-medium text-rose-600'
+            >
+              Home (Force Refresh)
             </Link>
 
             {!isLoggedIn ? (

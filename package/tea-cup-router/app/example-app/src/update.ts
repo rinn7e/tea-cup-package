@@ -38,11 +38,12 @@ export const initPageModel = (
     readonly route: AppRoute
     readonly pageModel: PageModel
   },
+  forceRefresh: boolean = false,
 ): [PageModel, Cmd<Msg>] => {
   switch (newRoute._tag) {
     case 'HomePage': {
       const prevHome =
-        prev?.pageModel._tag === 'HomePageModel'
+        !forceRefresh && prev?.pageModel._tag === 'HomePageModel'
           ? prev.pageModel.model
           : undefined
       const [homeModel, homeCmd] = HomeUpdate.init(
@@ -194,6 +195,13 @@ const homePageMsgHandler = (
         }
         if (subMsg._tag === 'ChangePage') {
           return interceptChangePageFromHomePage(subMsg.page)(m)
+        }
+        if (subMsg._tag === 'ForceRefresh') {
+          const currentRoute = TeaRouter.getRoute(m.router)
+          return routerMsgHandler(
+            TeaRouter.ChangeRouteMsg(currentRoute, true),
+            m,
+          )
         }
         return [m, Cmd.none()]
       }),

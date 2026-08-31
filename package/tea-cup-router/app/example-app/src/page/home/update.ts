@@ -1,4 +1,4 @@
-import { Cmd } from 'tea-cup-fp'
+import { Cmd, Task, Time } from 'tea-cup-fp'
 
 import type { HomeTab } from '@/common/route'
 
@@ -14,6 +14,7 @@ export const init = (
         ...prevModel,
         tab: route.tab,
         page: route.page,
+        isFirstInitialized: false,
       },
       Cmd.none(),
     ]
@@ -25,8 +26,12 @@ export const init = (
       page: route.page,
       counter: 0,
       notes: '',
+      isFirstInitialized: true,
     },
-    Cmd.none(),
+    Task.perform(
+      Time.in(800),
+      (): Msg => ({ _tag: 'SetIsFirstInitialized', value: false }),
+    ),
   ]
 }
 
@@ -43,5 +48,11 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
 
     case 'ChangePage':
       return [{ ...model, page: msg.page }, Cmd.none()]
+
+    case 'ForceRefresh':
+      return [model, Cmd.none()]
+
+    case 'SetIsFirstInitialized':
+      return [{ ...model, isFirstInitialized: msg.value }, Cmd.none()]
   }
 }

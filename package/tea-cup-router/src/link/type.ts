@@ -42,6 +42,9 @@ export type BaseProps<Route> = {
   /** Optional route equality comparator for memoization. */
   readonly routeEq?: EqClass.Eq<Route>
 
+  /** Optional flag to force re-initialization even if navigating to the current route. */
+  readonly forceRefresh?: boolean
+
   /** Link contents. */
   readonly children: ReactNode
 }
@@ -72,6 +75,7 @@ export const mkPropsEq = <Route>(
   equals: (a, b) => {
     if (
       Boolean(a.isButton) !== Boolean(b.isButton) ||
+      Boolean(a.forceRefresh) !== Boolean(b.forceRefresh) ||
       (a as AnchorHTMLAttributes<HTMLAnchorElement>).href !==
         (b as AnchorHTMLAttributes<HTMLAnchorElement>).href ||
       a.className !== b.className ||

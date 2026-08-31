@@ -87,9 +87,15 @@ export const changeRouteHandler =
     config: Config<Route, PageModel, Context, PageMsg>,
     context: Context,
   ) =>
-  (route: Route, isInternal: boolean = true) =>
+  (route: Route, forceRefresh: boolean = false, isInternal: boolean = true) =>
   (model: Model<Route, PageModel>): [Model<Route, PageModel>, Cmd<PageMsg>] => {
-    return navigateTo(config, context)(route, isInternal, model)
+    return navigateTo(config, context)(
+      route,
+      isInternal,
+      model,
+      undefined,
+      forceRefresh,
+    )
   }
 
 /**
@@ -232,7 +238,11 @@ export const update =
         return urlChangeHandler(config, context)(msg.location)(model)
 
       case 'ChangeRoute':
-        return changeRouteHandler(config, context)(msg.route, true)(model)
+        return changeRouteHandler(config, context)(
+          msg.route,
+          msg.forceRefresh ?? false,
+          true,
+        )(model)
 
       case 'ChangeRouteNoReload':
         return changeRouteNoReloadHandler(config)(msg.route)(model)
@@ -256,11 +266,18 @@ const navigateTo =
     isInternal: boolean,
     model: Model<Route, PageModel>,
     existingPageCmd?: Cmd<PageMsg>,
+    forceRefresh: boolean = false,
   ): [Model<Route, PageModel>, Cmd<PageMsg>] => {
     if (config.guard) {
       const guardRes = config.guard(targetRoute, context, isInternal)
       if (guardRes._tag === 'Redirect') {
-        return navigateTo(config, context)(guardRes.to, true, model)
+        return navigateTo(config, context)(
+          guardRes.to,
+          true,
+          model,
+          undefined,
+          forceRefresh,
+        )
       }
       if (guardRes._tag === 'Reject') {
         return [model, Cmd.none()]
@@ -268,16 +285,21 @@ const navigateTo =
     }
 
     const isSame = config.routeEq.equals(model.route, targetRoute)
-    if (isSame && !isInternal && !existingPageCmd) {
+    if (isSame && !isInternal && !existingPageCmd && !forceRefresh) {
       return [model, Cmd.none()]
     }
 
     const [pageModel, pageCmd] = existingPageCmd
       ? [model.pageModel, existingPageCmd]
-      : config.initPageModel(targetRoute, context, {
-          route: model.route,
-          pageModel: model.pageModel,
-        })
+      : config.initPageModel(
+          targetRoute,
+          context,
+          {
+            route: model.route,
+            pageModel: model.pageModel,
+          },
+          forceRefresh,
+        )
 
     const urlCmd = isInternal
       ? config.toMsg

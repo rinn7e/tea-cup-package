@@ -15,12 +15,24 @@ export const view = ({ model, dispatch }: Props) => {
 
   return (
     <div className='space-y-6'>
-      <div>
-        <h1 className='text-2xl font-bold text-slate-800'>Home Page</h1>
-        <p className='text-sm text-slate-500'>
-          Demonstrates tab switching and pagination with `ChangeRouteNoReload`
-          which preserves local page model state!
-        </p>
+      <div className='flex flex-wrap items-center justify-between gap-2'>
+        <div>
+          <h1 className='text-2xl font-bold text-slate-800'>Home Page</h1>
+          <p className='text-sm text-slate-500'>
+            Demonstrates tab switching and pagination with `ChangeRouteNoReload`
+            which preserves local page model state!
+          </p>
+        </div>
+
+        {model.isFirstInitialized && (
+          <div
+            data-testid='first-initialized-indicator'
+            className='flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg text-xs font-semibold shadow-sm animate-pulse transition-all duration-300'
+          >
+            <span className='inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping' />
+            <span>✨ Fresh Page Initialized! (forceRefresh active)</span>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -64,7 +76,13 @@ export const view = ({ model, dispatch }: Props) => {
       </div>
 
       {/* Interactive State Demo */}
-      <div className='p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-4'>
+      <div
+        className={`p-4 bg-slate-50 border rounded-lg space-y-4 transition-all duration-500 ${
+          model.isFirstInitialized
+            ? 'border-emerald-500 ring-2 ring-emerald-300 shadow-md'
+            : 'border-slate-200'
+        }`}
+      >
         <h3 className='text-sm font-semibold text-slate-700 uppercase tracking-wider'>
           Local Page Interactive State (Should Persist Across Tab Changes)
         </h3>
@@ -83,6 +101,14 @@ export const view = ({ model, dispatch }: Props) => {
             className='px-3 py-1 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium'
           >
             Increment Counter
+          </button>
+          <button
+            type='button'
+            data-testid='btn-home-force-refresh'
+            onClick={() => dispatch({ _tag: 'ForceRefresh' })}
+            className='px-3 py-1 text-sm bg-rose-600 hover:bg-rose-700 text-white rounded font-medium'
+          >
+            Force Refresh (Reset State)
           </button>
         </div>
 

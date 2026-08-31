@@ -71,7 +71,7 @@ test.describe('TeaCup Router Example App', () => {
     await expect(page.getByTestId('route-tag')).toHaveText('SignupPage')
 
     // Click Home link
-    await page.getByRole('link', { name: 'Home' }).click()
+    await page.getByTestId('nav-home').click()
     await expect(page.getByRole('heading', { name: 'Home Page' })).toBeVisible()
     await expect(page.getByTestId('current-url')).toHaveText('/')
   })
@@ -330,7 +330,7 @@ test.describe('TeaCup Router Example App', () => {
     await page.getByRole('link', { name: 'Sign Up' }).click()
     await expect(page).toHaveURL('/signup')
 
-    await page.getByRole('link', { name: 'Home' }).click()
+    await page.getByTestId('nav-home').click()
     await expect(page).toHaveURL('/')
 
     // Jump 2 steps back: / -> /signup -> /login
@@ -356,7 +356,7 @@ test.describe('TeaCup Router Example App', () => {
     await expect(page.getByTestId('home-counter')).toHaveText('1')
 
     // Click Home link while already on Home
-    await page.getByRole('link', { name: 'Home' }).click()
+    await page.getByTestId('nav-home').click()
     await expect(page).toHaveURL('/')
     await expect(page.getByTestId('current-url')).toHaveText('/')
     await expect(page.getByRole('heading', { name: 'Home Page' })).toBeVisible()
@@ -393,5 +393,89 @@ test.describe('TeaCup Router Example App', () => {
     await expect(page).toHaveURL('/login')
     await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible()
     await expect(page.getByTestId('current-url')).toHaveText('/login')
+  })
+
+  test('13. should force-refresh and re-initialize page model when ChangeRouteMsg is dispatched with forceRefresh=true', async ({
+    page,
+  }) => {
+    await page.goto('/')
+
+    // Initial page load shows indicator, then it disappears
+    await expect(page.getByTestId('first-initialized-indicator')).toBeVisible()
+    await expect(page.getByTestId('first-initialized-indicator')).toBeHidden({
+      timeout: 2000,
+    })
+
+    // Mutate local state
+    await page.getByTestId('btn-home-increment').click()
+    await page.getByTestId('btn-home-increment').click()
+    await page.getByTestId('home-notes').fill('State to be reset')
+    await expect(page.getByTestId('home-counter')).toHaveText('2')
+    await expect(page.getByTestId('home-notes')).toHaveValue(
+      'State to be reset',
+    )
+
+    // Switch tab (ChangeRouteNoReload) -> State must persist & NO refresh indicator appears
+    await page.getByTestId('tab-tag').click()
+    await expect(page.getByTestId('home-counter')).toHaveText('2')
+    await expect(page.getByTestId('home-notes')).toHaveValue(
+      'State to be reset',
+    )
+    await expect(page.getByTestId('first-initialized-indicator')).toBeHidden()
+
+    // Dispatch ChangeRouteMsg with forceRefresh: true
+    await page.getByTestId('btn-home-force-refresh').click()
+
+    // Refresh indicator appears on forceRefresh!
+    await expect(page.getByTestId('first-initialized-indicator')).toBeVisible()
+
+    // State MUST be completely reset/re-initialized
+    await expect(page.getByTestId('home-counter')).toHaveText('0')
+    await expect(page.getByTestId('home-notes')).toHaveValue('')
+
+    // Indicator disappears after timeout
+    await expect(page.getByTestId('first-initialized-indicator')).toBeHidden({
+      timeout: 2000,
+    })
+  })
+
+  test('14. should force-refresh and re-initialize page model via Link component with forceRefresh={true}', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await expect(page.getByTestId('first-initialized-indicator')).toBeHidden({
+      timeout: 2000,
+    })
+
+    // Mutate local state
+    await page.getByTestId('btn-home-increment').click()
+    await page.getByTestId('home-notes').fill('Preserved on normal click')
+    await expect(page.getByTestId('home-counter')).toHaveText('1')
+    await expect(page.getByTestId('home-notes')).toHaveValue(
+      'Preserved on normal click',
+    )
+
+    // Click standard Home link -> Idempotent, state is preserved, NO refresh indicator
+    await page.getByTestId('nav-home').click()
+    await expect(page.getByTestId('home-counter')).toHaveText('1')
+    await expect(page.getByTestId('home-notes')).toHaveValue(
+      'Preserved on normal click',
+    )
+    await expect(page.getByTestId('first-initialized-indicator')).toBeHidden()
+
+    // Click Link with forceRefresh={true}
+    await page.getByTestId('nav-home-force-refresh').click()
+
+    // Indicator appears!
+    await expect(page.getByTestId('first-initialized-indicator')).toBeVisible()
+
+    // State MUST be completely reset/re-initialized
+    await expect(page.getByTestId('home-counter')).toHaveText('0')
+    await expect(page.getByTestId('home-notes')).toHaveValue('')
+
+    // Indicator disappears after timeout
+    await expect(page.getByTestId('first-initialized-indicator')).toBeHidden({
+      timeout: 2000,
+    })
   })
 })

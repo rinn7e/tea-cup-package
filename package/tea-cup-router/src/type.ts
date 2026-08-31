@@ -98,6 +98,7 @@ export type Config<Route, PageModel, Context, PageMsg = Msg<Route>> = {
       readonly route: Route
       readonly pageModel: PageModel
     },
+    forceRefresh?: boolean,
   ) => [PageModel, Cmd<PageMsg>]
 
   /**
@@ -177,13 +178,18 @@ export const UrlChangeMsg = (location: Location): UrlChangeMsg =>
 export type ChangeRouteMsg<Route> = {
   readonly _tag: 'ChangeRoute'
   readonly route: Route
+  readonly forceRefresh?: boolean
   readonly [_msgBrand]: true
 }
 
-export const ChangeRouteMsg = <Route>(route: Route): ChangeRouteMsg<Route> =>
+export const ChangeRouteMsg = <Route>(
+  route: Route,
+  forceRefresh?: boolean,
+): ChangeRouteMsg<Route> =>
   ({
     _tag: 'ChangeRoute',
     route,
+    ...(forceRefresh !== undefined ? { forceRefresh } : {}),
   }) as ChangeRouteMsg<Route>
 
 /**

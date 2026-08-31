@@ -15,6 +15,7 @@ export const mkRouterConfig = <PageModel, Msg>(
       readonly route: AppRoute
       readonly pageModel: PageModel
     },
+    forceRefresh?: boolean,
   ) => [PageModel, Cmd<Msg>],
 ): TeaRouter.Config<AppRoute, PageModel, Shared, Msg> => ({
   parseUrl,
