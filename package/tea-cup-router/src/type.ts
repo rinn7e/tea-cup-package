@@ -144,33 +144,12 @@ export const mkModelEq = <Route, PageModel>(
   })
 
 /**
- * Unexported unique symbol used to enforce nominal branding across Navigation messages.
- *
- * Why this is needed:
- * 1. TypeScript uses structural typing by default, which allows consumers to instantiate raw object
- *    literals (e.g. `{ _tag: 'ChangeRoute', route }`) directly rather than using constructor functions.
- * 2. By requiring an unexported symbol property `[_msgBrand]: true`, external callers are strictly
- *    forbidden from constructing raw literals and are forced to use the explicit constructor helpers
- *    (`urlChangeMsg`, `changeRouteMsg`, etc.).
- * 3. Pattern matching (e.g. `switch (msg._tag)`) remains 100% unaffected and type-safe.
- * 4. As a compile-time-only `declare const`, it is completely erased during compilation with zero runtime cost.
- */
-declare const _msgBrand: unique symbol
-
-/**
  * Triggered on browser URL changes (e.g. popstate, back/forward button).
  */
 export type UrlChangeMsg = {
   readonly _tag: 'UrlChange'
   readonly location: Location
-  readonly [_msgBrand]: true
 }
-
-export const UrlChangeMsg = (location: Location): UrlChangeMsg =>
-  ({
-    _tag: 'UrlChange',
-    location,
-  }) as UrlChangeMsg
 
 /**
  * Triggers full navigation to a route (evaluating guards and initializing page model).
@@ -179,18 +158,7 @@ export type ChangeRouteMsg<Route> = {
   readonly _tag: 'ChangeRoute'
   readonly route: Route
   readonly forceRefresh?: boolean
-  readonly [_msgBrand]: true
 }
-
-export const ChangeRouteMsg = <Route>(
-  route: Route,
-  forceRefresh?: boolean,
-): ChangeRouteMsg<Route> =>
-  ({
-    _tag: 'ChangeRoute',
-    route,
-    ...(forceRefresh !== undefined ? { forceRefresh } : {}),
-  }) as ChangeRouteMsg<Route>
 
 /**
  * Updates the route and URL in browser address bar without re-initializing the page model.
@@ -198,16 +166,7 @@ export const ChangeRouteMsg = <Route>(
 export type ChangeRouteNoReloadMsg<Route> = {
   readonly _tag: 'ChangeRouteNoReload'
   readonly route: Route
-  readonly [_msgBrand]: true
 }
-
-export const ChangeRouteNoReloadMsg = <Route>(
-  route: Route,
-): ChangeRouteNoReloadMsg<Route> =>
-  ({
-    _tag: 'ChangeRouteNoReload',
-    route,
-  }) as ChangeRouteNoReloadMsg<Route>
 
 /**
  * Updates the URL in browser address bar only without modifying active route or page model.
@@ -215,16 +174,7 @@ export const ChangeRouteNoReloadMsg = <Route>(
 export type ChangeRouteUrlNoReloadMsg<Route> = {
   readonly _tag: 'ChangeRouteUrlNoReload'
   readonly route: Route
-  readonly [_msgBrand]: true
 }
-
-export const ChangeRouteUrlNoReloadMsg = <Route>(
-  route: Route,
-): ChangeRouteUrlNoReloadMsg<Route> =>
-  ({
-    _tag: 'ChangeRouteUrlNoReload',
-    route,
-  }) as ChangeRouteUrlNoReloadMsg<Route>
 
 /**
  * Router messages for the TEA architecture.

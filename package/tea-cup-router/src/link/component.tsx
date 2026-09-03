@@ -28,12 +28,11 @@ SOFTWARE. */
  */
 import React, { memo } from 'react'
 
-import { ChangeRouteMsg } from '../type'
 import { type Props, mkPropsEq } from './type'
 
 /**
  * Unmemoized Link anchor or button component.
- * Intercepts standard left-clicks without modifier keys and dispatches `ChangeRouteMsg(route)`.
+ * Intercepts standard left-clicks without modifier keys and dispatches `{ _tag: 'ChangeRoute', route, forceRefresh }`.
  */
 export const LinkComponent = <Route,>({
   route,
@@ -61,7 +60,11 @@ export const LinkComponent = <Route,>({
       !e.shiftKey
     ) {
       e.preventDefault()
-      dispatch(ChangeRouteMsg(route, forceRefresh))
+      dispatch({
+        _tag: 'ChangeRoute',
+        route,
+        forceRefresh,
+      })
     }
   }
 
@@ -100,6 +103,3 @@ export const Link = memo(LinkComponent, (prev, next) => {
   const propEq = mkPropsEq(prev.routeEq)
   return propEq.equals(prev, next)
 }) as <Route>(props: Props<Route>) => React.ReactElement
-
-export type { Props }
-export { mkPropsEq }

@@ -218,7 +218,7 @@ import { ProgramWithNav } from 'react-tea-cup'
 
 export const App = () => (
   <ProgramWithNav<Model, Msg>
-    onUrlChange={(location) => TeaRouterMsg(TeaRouter.UrlChangeMsg(location))}
+    onUrlChange={(location) => TeaRouterMsg({ _tag: 'UrlChange', location })}
     init={init}
     update={update}
     view={view}
@@ -267,16 +267,16 @@ export const View = ({ model, dispatch }: Props) => {
 
 ### Core Types & Models
 
-| Type / Constructor                           | Description                                                                                                                |
+| Type                                         | Description                                                                                                                |
 | :------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------- |
 | `Config<Route, PageModel, Context, PageMsg>` | Complete router configuration (parser, serializer, equality, guards, and initializers).                                    |
 | `Model<Route, PageModel>`                    | Router model holding `{ route, pageModel, isInternal }`.                                                                   |
 | `Msg<Route>`                                 | Router message sum-type (`UrlChangeMsg`, `ChangeRouteMsg`, `ChangeRouteNoReloadMsg`, `ChangeRouteUrlNoReloadMsg`, `NoOp`). |
 | `GuardResult<Route>`                         | Result of guard evaluation: `{ _tag: 'Allow' }`, `{ _tag: 'Redirect', to }`, or `{ _tag: 'Reject' }`.                      |
-| `UrlChangeMsg(location)`                     | Branded constructor for `UrlChangeMsg`.                                                                                    |
-| `ChangeRouteMsg(route, forceRefresh?)`       | Branded constructor for `ChangeRouteMsg<Route>` with optional `forceRefresh`.                                              |
-| `ChangeRouteNoReloadMsg(route)`              | Branded constructor for `ChangeRouteNoReloadMsg<Route>`.                                                                   |
-| `ChangeRouteUrlNoReloadMsg(route)`           | Branded constructor for `ChangeRouteUrlNoReloadMsg<Route>`.                                                                |
+| `UrlChangeMsg`                               | `{ readonly _tag: 'UrlChange'; readonly location: Location }`                                                              |
+| `ChangeRouteMsg<Route>`                      | `{ readonly _tag: 'ChangeRoute'; readonly route: Route; readonly forceRefresh?: boolean }`                                 |
+| `ChangeRouteNoReloadMsg<Route>`              | `{ readonly _tag: 'ChangeRouteNoReload'; readonly route: Route }`                                                          |
+| `ChangeRouteUrlNoReloadMsg<Route>`           | `{ readonly _tag: 'ChangeRouteUrlNoReload'; readonly route: Route }`                                                       |
 
 ### Accessor & Update Functions
 

@@ -199,7 +199,7 @@ const homePageMsgHandler = (
         if (subMsg._tag === 'ForceRefresh') {
           const currentRoute = TeaRouter.getRoute(m.router)
           return routerMsgHandler(
-            TeaRouter.ChangeRouteMsg(currentRoute, true),
+            { _tag: 'ChangeRoute', route: currentRoute, forceRefresh: true },
             m,
           )
         }
@@ -495,16 +495,19 @@ const interceptChangeTabFromHomePage =
   (m: Model): [Model, Cmd<Msg>] => {
     if (tab === 'feed' && O.isNone(m.shared.user)) {
       return routerMsgHandler(
-        TeaRouter.ChangeRouteMsg({ _tag: 'LoginPage' }),
+        { _tag: 'ChangeRoute', route: { _tag: 'LoginPage' } },
         m,
       )
     }
     return routerMsgHandler(
-      TeaRouter.ChangeRouteNoReloadMsg({
-        _tag: 'HomePage',
-        tab,
-        page: 1,
-      }),
+      {
+        _tag: 'ChangeRouteNoReload',
+        route: {
+          _tag: 'HomePage',
+          tab,
+          page: 1,
+        },
+      },
       m,
     )
   }
@@ -516,11 +519,14 @@ const interceptChangePageFromHomePage =
     const currentTab =
       pageModel._tag === 'HomePageModel' ? pageModel.model.tab : 'global'
     return routerMsgHandler(
-      TeaRouter.ChangeRouteNoReloadMsg({
-        _tag: 'HomePage',
-        tab: currentTab,
-        page,
-      }),
+      {
+        _tag: 'ChangeRouteNoReload',
+        route: {
+          _tag: 'HomePage',
+          tab: currentTab,
+          page,
+        },
+      },
       m,
     )
   }
@@ -536,11 +542,14 @@ const interceptSubmitFromLoginPage =
       shared: { user: O.some(user) },
     }
     return routerMsgHandler(
-      TeaRouter.ChangeRouteMsg({
-        _tag: 'HomePage',
-        tab: 'global',
-        page: 1,
-      }),
+      {
+        _tag: 'ChangeRoute',
+        route: {
+          _tag: 'HomePage',
+          tab: 'global',
+          page: 1,
+        },
+      },
       nextModel,
     )
   }
@@ -556,11 +565,14 @@ const interceptSubmitFromSignupPage =
       shared: { user: O.some(user) },
     }
     return routerMsgHandler(
-      TeaRouter.ChangeRouteMsg({
-        _tag: 'HomePage',
-        tab: 'global',
-        page: 1,
-      }),
+      {
+        _tag: 'ChangeRoute',
+        route: {
+          _tag: 'HomePage',
+          tab: 'global',
+          page: 1,
+        },
+      },
       nextModel,
     )
   }
@@ -572,11 +584,14 @@ const interceptLogoutFromSettingsPage = (m: Model): [Model, Cmd<Msg>] => {
     shared: { user: O.none },
   }
   return routerMsgHandler(
-    TeaRouter.ChangeRouteMsg({
-      _tag: 'HomePage',
-      tab: 'global',
-      page: 1,
-    }),
+    {
+      _tag: 'ChangeRoute',
+      route: {
+        _tag: 'HomePage',
+        tab: 'global',
+        page: 1,
+      },
+    },
     nextModel,
   )
 }
@@ -587,11 +602,14 @@ const interceptToggleFavoritesFromProfilePage = (
   const pageModel = TeaRouter.getPageModel(m.router)
   if (pageModel._tag === 'ProfilePageModel') {
     return routerMsgHandler(
-      TeaRouter.ChangeRouteNoReloadMsg({
-        _tag: 'ProfilePage',
-        username: pageModel.model.username,
-        favorites: pageModel.model.favorites,
-      }),
+      {
+        _tag: 'ChangeRouteNoReload',
+        route: {
+          _tag: 'ProfilePage',
+          username: pageModel.model.username,
+          favorites: pageModel.model.favorites,
+        },
+      },
       m,
     )
   }
@@ -603,7 +621,7 @@ const interceptSubmitFromEditorPage =
   (m: Model): [Model, Cmd<Msg>] => {
     const slug = title.toLowerCase().replace(/\s+/g, '-') || 'my-article'
     return routerMsgHandler(
-      TeaRouter.ChangeRouteMsg({ _tag: 'ArticlePage', slug }),
+      { _tag: 'ChangeRoute', route: { _tag: 'ArticlePage', slug } },
       m,
     )
   }
