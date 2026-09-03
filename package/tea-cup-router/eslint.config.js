@@ -51,6 +51,12 @@ export default tseslint.config([
       'import/no-cycle': [2, { ignoreExternal: true }],
 
       '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/consistent-type-assertions': [
+        'error',
+        {
+          assertionStyle: 'never',
+        },
+      ],
       '@typescript-eslint/no-explicit-any': 'off',
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': 'off',

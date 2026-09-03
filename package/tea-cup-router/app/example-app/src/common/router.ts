@@ -2,12 +2,12 @@ import type * as TeaRouter from '@rinn7e/tea-cup-router'
 import * as O from 'fp-ts/lib/Option'
 import type { Cmd } from 'tea-cup-fp'
 
-import { TeaRouterMsg } from '@/type'
+import { type Msg, type PageModel, teaRouterMsg } from '@/type'
 
 import { type AppRoute, AppRouteEq, parseUrl, toUrl } from './route'
 import type { Shared } from './shared'
 
-export const mkRouterConfig = <PageModel, Msg>(
+export const mkRouterConfig = (
   initPageModel: (
     route: AppRoute,
     context: Shared,
@@ -45,5 +45,5 @@ export const mkRouterConfig = <PageModel, Msg>(
     return { _tag: 'Allow' }
   },
   initPageModel,
-  toMsg: (subMsg) => TeaRouterMsg(subMsg) as unknown as Msg,
+  toMsg: teaRouterMsg,
 })

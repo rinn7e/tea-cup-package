@@ -109,7 +109,7 @@ export const routerConfig: TeaRouter.Config<
     }
   },
 
-  toMsg: TeaRouterMsg,
+  toMsg: teaRouterMsg,
 }
 ```
 
@@ -136,7 +136,7 @@ export type Msg =
   | { readonly _tag: 'ProfileMsg'; readonly subMsg: ProfileMsg }
   | { readonly _tag: 'LoginMsg'; readonly subMsg: LoginMsg }
 
-export const TeaRouterMsg = (subMsg: TeaRouter.Msg<AppRoute>): Msg => ({
+export const teaRouterMsg = (subMsg: TeaRouter.Msg<AppRoute>): Msg => ({
   _tag: 'TeaRouterMsg',
   subMsg,
 })
@@ -218,7 +218,7 @@ import { ProgramWithNav } from 'react-tea-cup'
 
 export const App = () => (
   <ProgramWithNav<Model, Msg>
-    onUrlChange={(location) => TeaRouterMsg({ _tag: 'UrlChange', location })}
+    onUrlChange={(location) => teaRouterMsg({ _tag: 'UrlChange', location })}
     init={init}
     update={update}
     view={view}
@@ -248,7 +248,7 @@ export const View = ({ model, dispatch }: Props) => {
         <Link
           route={{ _tag: 'HomePage' }}
           toUrl={routerConfig.toUrl}
-          dispatch={(subMsg) => dispatch(TeaRouterMsg(subMsg))}
+          dispatch={(subMsg) => dispatch(teaRouterMsg(subMsg))}
           className={currentRoute._tag === 'HomePage' ? 'active' : ''}
         >
           Home
@@ -280,18 +280,20 @@ export const View = ({ model, dispatch }: Props) => {
 
 ### Accessor & Update Functions
 
-| Function                              | Signature                                                                             | Description                                                      |
-| :------------------------------------ | :------------------------------------------------------------------------------------ | :--------------------------------------------------------------- |
-| `getRoute(model)`                     | `(Model<R, P>) => R`                                                                  | Retrieves the active route from the router model.                |
-| `getPageModel(model)`                 | `(Model<R, P>) => P`                                                                  | Retrieves the active page model from the router model.           |
-| `setPageModel(model, pageModel)`      | `(Model<R, P>, P) => Model<R, P>`                                                     | Replaces the active page model within the router model.          |
-| `init(config, location, context)`     | `(Config, Location, Context) => [Model, Cmd]`                                         | Initializes router state and triggers route guards/initializers. |
-| `update(config, context)`             | `(Config, Context) => (Msg, Model) => [Model, Cmd]`                                   | Main TEA router update reducer.                                  |
-| `changeRouteHandler(config, context)` | `(Config, Context) => (Route, forceRefresh?, isInternal?) => (Model) => [Model, Cmd]` | Direct handler for programmatic navigation with `forceRefresh`.  |
-| `changeRouteNoReloadHandler(config)`  | `(Config) => (Route) => (Model) => [Model, Cmd]`                                      | Updates route & address bar without re-initializing page model.  |
-| `urlChangeHandler(config, context)`   | `(Config, Context) => (Location) => (Model) => [Model, Cmd]`                          | Direct handler for browser popstate / URL events.                |
-| `mkModelEq(routeEq, pageModelEq)`     | `(Eq<R>, Eq<P>) => Eq<Model<R, P>>`                                                   | Constructs an `Eq` instance for React memoization.               |
-| `mkPropsEq(routeEq?)`                 | `(Eq<R>?) => Eq<Props<R>>`                                                            | Constructs an `Eq` instance for `<Link />` memoization.          |
+| Function                              | Signature                                                                             | Description                                                             |
+| :------------------------------------ | :------------------------------------------------------------------------------------ | :---------------------------------------------------------------------- |
+| `getRoute(model)`                     | `(Model<R, P>) => R`                                                                  | Retrieves the active route from the router model.                       |
+| `getPageModel(model)`                 | `(Model<R, P>) => P`                                                                  | Retrieves the active page model from the router model.                  |
+| `setPageModel(model, pageModel)`      | `(Model<R, P>, P) => Model<R, P>`                                                     | Replaces the active page model within the router model.                 |
+| `init(config, location, context)`     | `(Config, Location, Context) => [Model, Cmd]`                                         | Initializes router state and triggers route guards/initializers.        |
+| `update(config, context)`             | `(Config, Context) => (Msg, Model) => [Model, Cmd]`                                   | Main TEA router update reducer.                                         |
+| `changeRouteHandler(config, context)` | `(Config, Context) => (Route, forceRefresh?, isInternal?) => (Model) => [Model, Cmd]` | Direct handler for programmatic navigation with `forceRefresh`.         |
+| `changeRouteNoReloadHandler(config)`  | `(Config) => (Route) => (Model) => [Model, Cmd]`                                      | Updates route & address bar without re-initializing page model.         |
+| `urlChangeHandler(config, context)`   | `(Config, Context) => (Location) => (Model) => [Model, Cmd]`                          | Direct handler for browser popstate / URL events.                       |
+| `mkModelEq(routeEq, pageModelEq)`     | `(Eq<R>, Eq<P>) => Eq<Model<R, P>>`                                                   | Constructs an `Eq` instance for React memoization.                      |
+| `mkPropsEq(routeEq?)`                 | `(Eq<R>?) => Eq<Props<R>>`                                                            | Constructs an `Eq` instance for `<Link />` memoization.                 |
+| `mkAnchorPropsEq(routeEq?)`           | `(Eq<R>?) => Eq<AnchorProps<R>>`                                                      | Constructs an `Eq` instance for anchor `<Link />` memoization.          |
+| `mkButtonPropsEq(routeEq?)`           | `(Eq<R>?) => Eq<ButtonProps<R>>`                                                      | Constructs an `Eq` instance for button `<Link isButton />` memoization. |
 
 ---
 

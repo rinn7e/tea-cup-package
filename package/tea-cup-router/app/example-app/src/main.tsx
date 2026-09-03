@@ -6,7 +6,7 @@ import { Sub } from 'tea-cup-fp'
 
 import { App } from './app'
 import './index.css'
-import { type Model, type Msg, TeaRouterMsg } from './type'
+import { type Model, type Msg, teaRouterMsg } from './type'
 import { init, update } from './update'
 
 const root = document.getElementById('app')
@@ -15,7 +15,7 @@ if (root) {
     <React.StrictMode>
       <ProgramWithNav<Model, Msg>
         onUrlChange={(location) =>
-          TeaRouterMsg({ _tag: 'UrlChange', location })
+          teaRouterMsg({ _tag: 'UrlChange', location })
         }
         init={(location) => init(location)}
         update={update}

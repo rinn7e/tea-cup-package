@@ -121,7 +121,7 @@ export const initPageModel = (
   }
 }
 
-export const routerConfig = mkRouterConfig<PageModel, Msg>(initPageModel)
+export const routerConfig = mkRouterConfig(initPageModel)
 
 export const init = (location: Location): [Model, Cmd<Msg>] => {
   const shared: Shared = { user: getStoredUser() }
@@ -146,10 +146,7 @@ export const routerMsgHandler = (
     model.router,
   )
 
-  return pipe(
-    [{ ...model, router: routerModel }, routerCmd] as [Model, Cmd<Msg>],
-    updateAndCmd((m) => [m, Cmd.none()]),
-  )
+  return [{ ...model, router: routerModel }, routerCmd]
 }
 
 const setUserMsgHandler = (
@@ -188,7 +185,7 @@ const homePageMsgHandler = (
             subMsg: sub,
           }),
         ),
-      ] as [Model, Cmd<Msg>],
+      ] satisfies [Model, Cmd<Msg>],
       updateAndCmd((m) => {
         if (subMsg._tag === 'ChangeTab') {
           return interceptChangeTabFromHomePage(subMsg.tab)(m)
@@ -232,7 +229,7 @@ const loginPageMsgHandler = (
             subMsg: sub,
           }),
         ),
-      ] as [Model, Cmd<Msg>],
+      ] satisfies [Model, Cmd<Msg>],
       updateAndCmd((m) => {
         if (subMsg._tag === 'Submit') {
           return interceptSubmitFromLoginPage(pageModel.model.email)(m)
@@ -269,7 +266,7 @@ const signupPageMsgHandler = (
             subMsg: sub,
           }),
         ),
-      ] as [Model, Cmd<Msg>],
+      ] satisfies [Model, Cmd<Msg>],
       updateAndCmd((m) => {
         if (subMsg._tag === 'Submit') {
           return interceptSubmitFromSignupPage(pageModel.model.username)(m)
@@ -306,7 +303,7 @@ const settingsPageMsgHandler = (
             subMsg: sub,
           }),
         ),
-      ] as [Model, Cmd<Msg>],
+      ] satisfies [Model, Cmd<Msg>],
       updateAndCmd((m) => {
         if (subMsg._tag === 'Logout') {
           return interceptLogoutFromSettingsPage(m)
@@ -343,7 +340,7 @@ const profilePageMsgHandler = (
             subMsg: sub,
           }),
         ),
-      ] as [Model, Cmd<Msg>],
+      ] satisfies [Model, Cmd<Msg>],
       updateAndCmd((m) => {
         if (subMsg._tag === 'ToggleFavorites') {
           return interceptToggleFavoritesFromProfilePage(m)
@@ -409,7 +406,7 @@ const editorPageMsgHandler = (
             subMsg: sub,
           }),
         ),
-      ] as [Model, Cmd<Msg>],
+      ] satisfies [Model, Cmd<Msg>],
       updateAndCmd((m) => {
         if (subMsg._tag === 'Submit') {
           return interceptSubmitFromEditorPage(pageModel.model.title)(m)

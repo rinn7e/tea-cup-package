@@ -65,28 +65,22 @@ export type ButtonProps<Route> = BaseProps<Route> & {
 export type Props<Route> = AnchorProps<Route> | ButtonProps<Route>
 
 /**
- * Creates an `Eq` instance for `Props<Route>` to optimize React component memoization.
+ * Creates an `Eq` instance for `AnchorProps<Route>` to optimize React anchor memoization.
  *
  * @param routeEq - Optional route Eq comparator.
  */
-export const mkPropsEq = <Route>(
+export const mkAnchorPropsEq = <Route>(
   routeEq?: EqClass.Eq<Route>,
-): EqClass.Eq<Props<Route>> => ({
+): EqClass.Eq<AnchorProps<Route>> => ({
   equals: (a, b) => {
     if (
-      Boolean(a.isButton) !== Boolean(b.isButton) ||
       Boolean(a.forceRefresh) !== Boolean(b.forceRefresh) ||
-      (a as AnchorHTMLAttributes<HTMLAnchorElement>).href !==
-        (b as AnchorHTMLAttributes<HTMLAnchorElement>).href ||
+      a.href !== b.href ||
       a.className !== b.className ||
       a.children !== b.children ||
-      (a as AnchorHTMLAttributes<HTMLAnchorElement>).target !==
-        (b as AnchorHTMLAttributes<HTMLAnchorElement>).target ||
-      (a as AnchorHTMLAttributes<HTMLAnchorElement>).rel !==
-        (b as AnchorHTMLAttributes<HTMLAnchorElement>).rel ||
-      a.title !== b.title ||
-      (a as ButtonHTMLAttributes<HTMLButtonElement>).disabled !==
-        (b as ButtonHTMLAttributes<HTMLButtonElement>).disabled
+      a.target !== b.target ||
+      a.rel !== b.rel ||
+      a.title !== b.title
     ) {
       return false
     }
@@ -98,3 +92,52 @@ export const mkPropsEq = <Route>(
     return a.route === b.route
   },
 })
+
+/**
+ * Creates an `Eq` instance for `ButtonProps<Route>` to optimize React button memoization.
+ *
+ * @param routeEq - Optional route Eq comparator.
+ */
+export const mkButtonPropsEq = <Route>(
+  routeEq?: EqClass.Eq<Route>,
+): EqClass.Eq<ButtonProps<Route>> => ({
+  equals: (a, b) => {
+    if (
+      Boolean(a.forceRefresh) !== Boolean(b.forceRefresh) ||
+      a.type !== b.type ||
+      a.className !== b.className ||
+      a.children !== b.children ||
+      a.title !== b.title ||
+      a.disabled !== b.disabled
+    ) {
+      return false
+    }
+
+    if (routeEq) {
+      return routeEq.equals(a.route, b.route)
+    }
+
+    return a.route === b.route
+  },
+})
+
+/**
+ * Creates an `Eq` instance for `Props<Route>` to optimize React component memoization.
+ *
+ * @param routeEq - Optional route Eq comparator.
+ */
+export const mkPropsEq = <Route>(
+  routeEq?: EqClass.Eq<Route>,
+): EqClass.Eq<Props<Route>> => {
+  const anchorEq = mkAnchorPropsEq(routeEq)
+  const buttonEq = mkButtonPropsEq(routeEq)
+
+  return {
+    equals: (a, b) => {
+      if (a.isButton) {
+        return b.isButton ? buttonEq.equals(a, b) : false
+      }
+      return !b.isButton ? anchorEq.equals(a, b) : false
+    },
+  }
+}

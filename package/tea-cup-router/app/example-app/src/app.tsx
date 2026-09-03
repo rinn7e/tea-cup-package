@@ -14,7 +14,7 @@ import * as ProfilePage from '@/page/profile/component'
 import * as SettingsPage from '@/page/settings/component'
 import * as SignupPage from '@/page/signup/component'
 
-import { type Model, type Msg, TeaRouterMsg } from './type'
+import { type Model, type Msg, teaRouterMsg } from './type'
 
 type Props = {
   model: Model
@@ -28,7 +28,7 @@ export const App = ({ model, dispatch }: Props) => {
   const isLoggedIn = O.isSome(userOpt)
 
   const routerDispatch = (routerMsg: TeaRouter.Msg<AppRoute>) =>
-    dispatch(TeaRouterMsg(routerMsg))
+    dispatch(teaRouterMsg(routerMsg))
 
   return (
     <div className='max-w-4xl mx-auto p-6 font-sans space-y-6'>

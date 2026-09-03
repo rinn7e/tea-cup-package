@@ -102,9 +102,9 @@ export type Config<Route, PageModel, Context, PageMsg = Msg<Route>> = {
   ) => [PageModel, Cmd<PageMsg>]
 
   /**
-   * Optional message constructor to wrap router commands into application-level messages.
+   * Message constructor to wrap router commands into application-level messages.
    */
-  readonly toMsg?: (routerMsg: Msg<Route>) => PageMsg
+  readonly toMsg: (routerMsg: Msg<Route>) => PageMsg
 }
 
 /**

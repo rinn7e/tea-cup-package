@@ -116,26 +116,27 @@ export const toUrl = (route: AppRoute): string => {
 
 export const AppRouteEq: EqClass.Eq<AppRoute> = {
   equals: (a, b) => {
-    if (a._tag !== b._tag) return false
     switch (a._tag) {
-      case 'HomePage': {
-        const bHome = b as typeof a
-        return a.tab === bHome.tab && a.page === bHome.page
-      }
-      case 'ProfilePage': {
-        const bProf = b as typeof a
-        return a.username === bProf.username && a.favorites === bProf.favorites
-      }
-      case 'ArticlePage': {
-        const bArt = b as typeof a
-        return a.slug === bArt.slug
-      }
-      case 'EditorPage': {
-        const bEd = b as typeof a
-        return a.slug === bEd.slug
-      }
-      default:
-        return true
+      case 'HomePage':
+        return b._tag === 'HomePage' && a.tab === b.tab && a.page === b.page
+      case 'ProfilePage':
+        return (
+          b._tag === 'ProfilePage' &&
+          a.username === b.username &&
+          a.favorites === b.favorites
+        )
+      case 'ArticlePage':
+        return b._tag === 'ArticlePage' && a.slug === b.slug
+      case 'EditorPage':
+        return b._tag === 'EditorPage' && a.slug === b.slug
+      case 'LoginPage':
+        return b._tag === 'LoginPage'
+      case 'SignupPage':
+        return b._tag === 'SignupPage'
+      case 'SettingsPage':
+        return b._tag === 'SettingsPage'
+      case 'NotFoundPage':
+        return b._tag === 'NotFoundPage'
     }
   },
 }

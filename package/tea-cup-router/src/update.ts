@@ -112,9 +112,7 @@ export const changeRouteNoReloadHandler =
   (route: Route) =>
   (model: Model<Route, PageModel>): [Model<Route, PageModel>, Cmd<PageMsg>] => {
     const url = config.toUrl(route)
-    const urlCmd = config.toMsg
-      ? changeUrlCmd<Route>(url).map(config.toMsg)
-      : (changeUrlCmd<Route>(url) as unknown as Cmd<PageMsg>)
+    const urlCmd = changeUrlCmd<Route>(url).map(config.toMsg)
 
     return [
       {
@@ -140,9 +138,7 @@ export const changeRouteUrlNoReloadHandler =
   (route: Route) =>
   (model: Model<Route, PageModel>): [Model<Route, PageModel>, Cmd<PageMsg>] => {
     const url = config.toUrl(route)
-    const urlCmd = config.toMsg
-      ? changeUrlCmd<Route>(url).map(config.toMsg)
-      : (changeUrlCmd<Route>(url) as unknown as Cmd<PageMsg>)
+    const urlCmd = changeUrlCmd<Route>(url).map(config.toMsg)
 
     return [
       {
@@ -302,11 +298,7 @@ const navigateTo =
         )
 
     const urlCmd = isInternal
-      ? config.toMsg
-        ? changeUrlCmd<Route>(config.toUrl(targetRoute)).map(config.toMsg)
-        : (changeUrlCmd<Route>(
-            config.toUrl(targetRoute),
-          ) as unknown as Cmd<PageMsg>)
+      ? changeUrlCmd<Route>(config.toUrl(targetRoute)).map(config.toMsg)
       : Cmd.none<PageMsg>()
 
     return [

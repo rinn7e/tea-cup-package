@@ -34,43 +34,50 @@ import { type Props, mkPropsEq } from './type'
  * Unmemoized Link anchor or button component.
  * Intercepts standard left-clicks without modifier keys and dispatches `{ _tag: 'ChangeRoute', route, forceRefresh }`.
  */
-export const LinkComponent = <Route,>({
-  route,
-  toUrl,
-  dispatch,
-  routeEq: _routeEq,
-  forceRefresh,
-  className,
-  children,
-  onClick,
-  isButton = false,
-  ...rest
-}: Props<Route>) => {
-  const href = toUrl(route)
+export const LinkComponent = <Route,>(
+  props: Props<Route>,
+): React.ReactElement => {
+  // Branch on `props.isButton` to discriminate between `ButtonProps` and `AnchorProps`.
+  // This allows TypeScript to narrow the union type cleanly, ensuring native attributes
+  // (e.g., `type`/`disabled` for buttons vs `href`/`target`/`rel` for anchors) and event handlers
+  // (`MouseEvent<HTMLButtonElement>` vs `MouseEvent<HTMLAnchorElement>`) are 100% type-safe without type coercion.
+  // We also peel off custom TEA props (`route`, `toUrl`, `dispatch`, `routeEq`, `forceRefresh`, `isButton`)
+  // so they are not leaked to the underlying DOM element as invalid HTML attributes.
+  if (props.isButton) {
+    const {
+      route,
+      dispatch,
+      forceRefresh,
+      className,
+      children,
+      onClick,
+      type = 'button',
+      isButton: _isButton,
+      toUrl: _toUrl,
+      routeEq: _routeEq,
+      ...buttonRest
+    } = props
 
-  const handleClick = (e: React.MouseEvent<HTMLElement>) => {
-    if (onClick) {
-      ;(onClick as React.MouseEventHandler<HTMLElement>)(e)
+    const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+      if (onClick) {
+        onClick(e)
+      }
+      if (
+        !e.defaultPrevented &&
+        e.button === 0 &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.shiftKey
+      ) {
+        e.preventDefault()
+        dispatch({
+          _tag: 'ChangeRoute',
+          route,
+          forceRefresh,
+        })
+      }
     }
-    if (
-      !e.defaultPrevented &&
-      e.button === 0 &&
-      !e.metaKey &&
-      !e.ctrlKey &&
-      !e.shiftKey
-    ) {
-      e.preventDefault()
-      dispatch({
-        _tag: 'ChangeRoute',
-        route,
-        forceRefresh,
-      })
-    }
-  }
 
-  if (isButton) {
-    const { type = 'button', ...buttonRest } =
-      rest as React.ButtonHTMLAttributes<HTMLButtonElement>
     return (
       <button
         {...buttonRest}
@@ -81,24 +88,60 @@ export const LinkComponent = <Route,>({
         {children}
       </button>
     )
-  }
+  } else {
+    const {
+      route,
+      toUrl,
+      dispatch,
+      forceRefresh,
+      className,
+      children,
+      onClick,
+      isButton: _isButton,
+      routeEq: _routeEq,
+      ...anchorRest
+    } = props
 
-  return (
-    <a
-      {...(rest as React.AnchorHTMLAttributes<HTMLAnchorElement>)}
-      href={href}
-      className={className}
-      onClick={handleClick}
-    >
-      {children}
-    </a>
-  )
+    const href = toUrl(route)
+
+    const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (onClick) {
+        onClick(e)
+      }
+      if (
+        !e.defaultPrevented &&
+        e.button === 0 &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.shiftKey
+      ) {
+        e.preventDefault()
+        dispatch({
+          _tag: 'ChangeRoute',
+          route,
+          forceRefresh,
+        })
+      }
+    }
+
+    return (
+      <a
+        {...anchorRest}
+        href={href}
+        className={className}
+        onClick={handleClick}
+      >
+        {children}
+      </a>
+    )
+  }
 }
 
 /**
  * Memoized Link component optimized with `mkPropsEq`.
  * Callers should import: `import { Link } from '@rinn7e/tea-cup-router/link/component'`.
  */
+// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 export const Link = memo(LinkComponent, (prev, next) => {
   const propEq = mkPropsEq(prev.routeEq)
   return propEq.equals(prev, next)
