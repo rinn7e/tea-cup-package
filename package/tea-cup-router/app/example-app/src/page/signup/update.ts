@@ -18,6 +18,7 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
     case 'SetEmail':
       return [{ ...model, email: msg.email }, Cmd.none()]
 
+    // Purely handled by parent: parent intercepts to register user and navigate to HomePage
     case 'Submit':
       return [model, Cmd.none()]
   }

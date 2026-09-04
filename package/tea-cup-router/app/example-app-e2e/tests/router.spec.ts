@@ -478,4 +478,129 @@ test.describe('TeaCup Router Example App', () => {
       timeout: 2000,
     })
   })
+
+  test('15. should navigate to modified route via ModifyRouteMsg', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await expect(page.getByRole('heading', { name: 'Home Page' })).toBeVisible()
+    await expect(page.getByTestId('current-url')).toHaveText('/')
+
+    // Mutate state
+    await page.getByTestId('btn-home-increment').click()
+    await page.getByTestId('home-notes').fill('State across modifyRoute')
+    await expect(page.getByTestId('home-counter')).toHaveText('1')
+
+    // Click Modify Route (Next Page) button -> transitions route to page 2
+    await page.getByTestId('btn-modify-route-page').click()
+    await expect(page.getByTestId('current-url')).toHaveText('/?page=2')
+    await expect(page.getByTestId('page-btn-2')).toHaveClass(/bg-slate-800/)
+
+    // State is preserved because prevModel is reused when route is same page tag
+    await expect(page.getByTestId('home-counter')).toHaveText('1')
+    await expect(page.getByTestId('home-notes')).toHaveValue(
+      'State across modifyRoute',
+    )
+
+    // Click again -> goes to page 3
+    await page.getByTestId('btn-modify-route-page').click()
+    await expect(page.getByTestId('current-url')).toHaveText('/?page=3')
+    await expect(page.getByTestId('page-btn-3')).toHaveClass(/bg-slate-800/)
+    await expect(page.getByTestId('home-counter')).toHaveText('1')
+  })
+
+  test('16. should modify route in place and preserve page model state via ModifyRouteNoReloadMsg', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await expect(page.getByRole('heading', { name: 'Home Page' })).toBeVisible()
+
+    // Mutate state
+    await page.getByTestId('btn-home-increment').click()
+    await page.getByTestId('btn-home-increment').click()
+    await page
+      .getByTestId('home-notes')
+      .fill('Preserved on ModifyRouteNoReload')
+    await expect(page.getByTestId('home-counter')).toHaveText('2')
+
+    // Toggle Tag via ModifyRouteNoReload
+    await page.getByTestId('btn-modify-route-no-reload-tab').click()
+    await expect(page.getByTestId('current-url')).toHaveText('/?tab=tag')
+    await expect(page.getByTestId('tab-tag')).toHaveClass(/bg-emerald-600/)
+
+    // Verify local state is completely preserved without re-initializing
+    await expect(page.getByTestId('home-counter')).toHaveText('2')
+    await expect(page.getByTestId('home-notes')).toHaveValue(
+      'Preserved on ModifyRouteNoReload',
+    )
+
+    // Toggle back to global via ModifyRouteNoReload
+    await page.getByTestId('btn-modify-route-no-reload-tab').click()
+    await expect(page.getByTestId('current-url')).toHaveText('/')
+    await expect(page.getByTestId('tab-global')).toHaveClass(/bg-emerald-600/)
+    await expect(page.getByTestId('home-counter')).toHaveText('2')
+    await expect(page.getByTestId('home-notes')).toHaveValue(
+      'Preserved on ModifyRouteNoReload',
+    )
+  })
+
+  test('17. should modify browser URL address bar only via ModifyRouteUrlNoReloadMsg', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await expect(page.getByTestId('current-url')).toHaveText('/')
+
+    // Mutate state
+    await page.getByTestId('btn-home-increment').click()
+    await page.getByTestId('home-notes').fill('Unchanged on URL only modify')
+    await expect(page.getByTestId('home-counter')).toHaveText('1')
+
+    // Click Modify Route URL Only
+    await page.getByTestId('btn-modify-route-url-only').click()
+
+    // Browser address bar URL updates to /?page=99
+    await expect(page).toHaveURL('/?page=99')
+
+    // But internal model route (inspector) remains unchanged at /
+    await expect(page.getByTestId('current-url')).toHaveText('/')
+
+    // Active route in page model is STILL page 1 (since only the URL bar was modified)
+    await expect(page.getByTestId('page-btn-1')).toHaveClass(/bg-slate-800/)
+    await expect(page.getByTestId('home-counter')).toHaveText('1')
+    await expect(page.getByTestId('home-notes')).toHaveValue(
+      'Unchanged on URL only modify',
+    )
+  })
+
+  test('18. should re-initialize active page model via RefreshMsg', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await expect(page.getByTestId('first-initialized-indicator')).toBeHidden({
+      timeout: 2000,
+    })
+
+    // Mutate state
+    await page.getByTestId('btn-home-increment').click()
+    await page.getByTestId('btn-home-increment').click()
+    await page.getByTestId('btn-home-increment').click()
+    await page.getByTestId('home-notes').fill('To be refreshed')
+    await expect(page.getByTestId('home-counter')).toHaveText('3')
+    await expect(page.getByTestId('home-notes')).toHaveValue('To be refreshed')
+
+    // Click Router Refresh button
+    await page.getByTestId('btn-router-refresh').click()
+
+    // Refresh indicator appears!
+    await expect(page.getByTestId('first-initialized-indicator')).toBeVisible()
+
+    // Local model state is completely reset
+    await expect(page.getByTestId('home-counter')).toHaveText('0')
+    await expect(page.getByTestId('home-notes')).toHaveValue('')
+
+    // Indicator disappears after timeout
+    await expect(page.getByTestId('first-initialized-indicator')).toBeHidden({
+      timeout: 2000,
+    })
+  })
 })

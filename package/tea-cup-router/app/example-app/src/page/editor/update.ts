@@ -19,6 +19,7 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
     case 'SetBody':
       return [{ ...model, body: msg.body }, Cmd.none()]
 
+    // Purely handled by parent: parent intercepts to navigate to the published ArticlePage
     case 'Submit':
       return [model, Cmd.none()]
   }

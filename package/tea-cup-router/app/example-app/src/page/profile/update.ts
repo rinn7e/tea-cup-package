@@ -19,6 +19,7 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
     case 'Increment':
       return [{ ...model, count: model.count + 1 }, Cmd.none()]
 
+    // Partially handled by parent: toggles local favorites flag, then parent intercepts to sync route & URL via ChangeRouteNoReload
     case 'ToggleFavorites':
       return [{ ...model, favorites: !model.favorites }, Cmd.none()]
   }

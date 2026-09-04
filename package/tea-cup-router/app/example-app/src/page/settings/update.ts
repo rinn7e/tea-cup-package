@@ -20,6 +20,7 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
     case 'SetBio':
       return [{ ...model, bio: msg.bio }, Cmd.none()]
 
+    // Purely handled by parent: parent intercepts to clear stored user and navigate to HomePage
     case 'Logout':
       return [model, Cmd.none()]
   }

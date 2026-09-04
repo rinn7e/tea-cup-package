@@ -150,6 +150,81 @@ export const changeRouteUrlNoReloadHandler =
   }
 
 /**
+ * Direct message handler to transform the current route (`ModifyRoute`).
+ *
+ * @param config - Router configuration.
+ * @param context - Shared application context.
+ * @returns Curried handler function: `(func, forceRefresh?, isInternal?) => (model) => [Model, Cmd]`.
+ */
+export const modifyRouteHandler =
+  <Route, PageModel, Context, PageMsg = Msg<Route>>(
+    config: Config<Route, PageModel, Context, PageMsg>,
+    context: Context,
+  ) =>
+  (
+    func: (currentRoute: Route) => Route,
+    forceRefresh: boolean = false,
+    isInternal: boolean = true,
+  ) =>
+  (model: Model<Route, PageModel>): [Model<Route, PageModel>, Cmd<PageMsg>] => {
+    const newRoute = func(model.route)
+    return changeRouteHandler(config, context)(
+      newRoute,
+      forceRefresh,
+      isInternal,
+    )(model)
+  }
+
+/**
+ * Direct message handler to transform the current route without re-initializing the page model (`ModifyRouteNoReload`).
+ *
+ * @param config - Router configuration.
+ * @returns Curried handler function: `(func) => (model) => [Model, Cmd]`.
+ */
+export const modifyRouteNoReloadHandler =
+  <Route, PageModel, Context, PageMsg = Msg<Route>>(
+    config: Config<Route, PageModel, Context, PageMsg>,
+  ) =>
+  (func: (currentRoute: Route) => Route) =>
+  (model: Model<Route, PageModel>): [Model<Route, PageModel>, Cmd<PageMsg>] => {
+    const newRoute = func(model.route)
+    return changeRouteNoReloadHandler(config)(newRoute)(model)
+  }
+
+/**
+ * Direct message handler to transform the browser address bar URL only (`ModifyRouteUrlNoReload`),
+ * without changing the active route or page model.
+ *
+ * @param config - Router configuration.
+ * @returns Curried handler function: `(func) => (model) => [Model, Cmd]`.
+ */
+export const modifyRouteUrlNoReloadHandler =
+  <Route, PageModel, Context, PageMsg = Msg<Route>>(
+    config: Config<Route, PageModel, Context, PageMsg>,
+  ) =>
+  (func: (currentRoute: Route) => Route) =>
+  (model: Model<Route, PageModel>): [Model<Route, PageModel>, Cmd<PageMsg>] => {
+    const newRoute = func(model.route)
+    return changeRouteUrlNoReloadHandler(config)(newRoute)(model)
+  }
+
+/**
+ * Direct message handler to refresh the current route with forceRefresh enabled (`Refresh`).
+ *
+ * @param config - Router configuration.
+ * @param context - Shared application context.
+ * @returns Curried handler function: `(model) => [Model, Cmd]`.
+ */
+export const refreshHandler =
+  <Route, PageModel, Context, PageMsg = Msg<Route>>(
+    config: Config<Route, PageModel, Context, PageMsg>,
+    context: Context,
+  ) =>
+  (model: Model<Route, PageModel>): [Model<Route, PageModel>, Cmd<PageMsg>] => {
+    return changeRouteHandler(config, context)(model.route, true, true)(model)
+  }
+
+/**
  * Direct message handler for browser location change events (`UrlChange`).
  * If the change was triggered internally, resets `isInternal` and skips re-navigation;
  * otherwise parses the URL and navigates to the target route.
@@ -245,6 +320,22 @@ export const update =
 
       case 'ChangeRouteUrlNoReload':
         return changeRouteUrlNoReloadHandler(config)(msg.route)(model)
+
+      case 'ModifyRoute':
+        return modifyRouteHandler(config, context)(
+          msg.func,
+          msg.forceRefresh ?? false,
+          true,
+        )(model)
+
+      case 'ModifyRouteNoReload':
+        return modifyRouteNoReloadHandler(config)(msg.func)(model)
+
+      case 'ModifyRouteUrlNoReload':
+        return modifyRouteUrlNoReloadHandler(config)(msg.func)(model)
+
+      case 'Refresh':
+        return refreshHandler(config, context)(model)
     }
   }
 

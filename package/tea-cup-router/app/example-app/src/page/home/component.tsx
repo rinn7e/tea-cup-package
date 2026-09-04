@@ -105,10 +105,10 @@ export const view = ({ model, dispatch }: Props) => {
           <button
             type='button'
             data-testid='btn-home-force-refresh'
-            onClick={() => dispatch({ _tag: 'ForceRefresh' })}
+            onClick={() => dispatch({ _tag: 'ForceRefreshViaChangeRoute' })}
             className='px-3 py-1 text-sm bg-rose-600 hover:bg-rose-700 text-white rounded font-medium'
           >
-            Force Refresh (Reset State)
+            Force Refresh via ChangeRoute (Reset State)
           </button>
         </div>
 
@@ -126,6 +126,47 @@ export const view = ({ model, dispatch }: Props) => {
             placeholder='Type something here...'
             className='w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500'
           />
+        </div>
+      </div>
+
+      {/* TeaRouter Navigation Primitives Demo */}
+      <div className='p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3'>
+        <h3 className='text-sm font-semibold text-slate-700 uppercase tracking-wider'>
+          TeaRouter Built-in Action Primitives Demo
+        </h3>
+        <div className='flex flex-wrap items-center gap-2'>
+          <button
+            type='button'
+            data-testid='btn-modify-route-page'
+            onClick={() => dispatch({ _tag: 'ModifyPageViaRouter' })}
+            className='px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded font-medium shadow-sm transition-colors'
+          >
+            Modify Route (Next Page)
+          </button>
+          <button
+            type='button'
+            data-testid='btn-modify-route-no-reload-tab'
+            onClick={() => dispatch({ _tag: 'ModifyTabNoReloadViaRouter' })}
+            className='px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded font-medium shadow-sm transition-colors'
+          >
+            Modify Route NoReload (Toggle Tag)
+          </button>
+          <button
+            type='button'
+            data-testid='btn-modify-route-url-only'
+            onClick={() => dispatch({ _tag: 'ModifyUrlNoReloadViaRouter' })}
+            className='px-3 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded font-medium shadow-sm transition-colors'
+          >
+            Modify Route URL Only
+          </button>
+          <button
+            type='button'
+            data-testid='btn-router-refresh'
+            onClick={() => dispatch({ _tag: 'RefreshViaRouter' })}
+            className='px-3 py-1.5 text-xs bg-cyan-600 hover:bg-cyan-700 text-white rounded font-medium shadow-sm transition-colors'
+          >
+            Router Refresh
+          </button>
         </div>
       </div>
 

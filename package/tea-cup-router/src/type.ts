@@ -144,6 +144,13 @@ export const mkModelEq = <Route, PageModel>(
   })
 
 /**
+ * No-operation message.
+ */
+export type NoOpMsg = {
+  readonly _tag: 'NoOp'
+}
+
+/**
  * Triggered on browser URL changes (e.g. popstate, back/forward button).
  */
 export type UrlChangeMsg = {
@@ -177,13 +184,47 @@ export type ChangeRouteUrlNoReloadMsg<Route> = {
 }
 
 /**
+ * Modifies the current route via a transformation function with full page model re-initialization.
+ */
+export type ModifyRouteMsg<Route> = {
+  readonly _tag: 'ModifyRoute'
+  readonly func: (currentRoute: Route) => Route
+  readonly forceRefresh?: boolean
+}
+
+/**
+ * Modifies the current route without re-initializing the page model.
+ */
+export type ModifyRouteNoReloadMsg<Route> = {
+  readonly _tag: 'ModifyRouteNoReload'
+  readonly func: (currentRoute: Route) => Route
+}
+
+/**
+ * Modifies the browser URL without modifying active route or page model.
+ */
+export type ModifyRouteUrlNoReloadMsg<Route> = {
+  readonly _tag: 'ModifyRouteUrlNoReload'
+  readonly func: (currentRoute: Route) => Route
+}
+
+/**
+ * Re-initializes the current route page model with forceRefresh enabled.
+ */
+export type RefreshMsg = {
+  readonly _tag: 'Refresh'
+}
+
+/**
  * Router messages for the TEA architecture.
  */
 export type Msg<Route> =
+  | NoOpMsg
   | UrlChangeMsg
   | ChangeRouteMsg<Route>
   | ChangeRouteNoReloadMsg<Route>
   | ChangeRouteUrlNoReloadMsg<Route>
-  | {
-      readonly _tag: 'NoOp'
-    }
+  | ModifyRouteMsg<Route>
+  | ModifyRouteNoReloadMsg<Route>
+  | ModifyRouteUrlNoReloadMsg<Route>
+  | RefreshMsg

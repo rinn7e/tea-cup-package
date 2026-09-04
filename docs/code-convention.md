@@ -147,3 +147,26 @@
         )
       }
       ```
+
+11. **No Legacy Backward Compatibility, Redundant Aliases, or Defensive Fallbacks (Clean-Slate Development)**:
+    - **Why**: This project follows strict **Clean-Slate Development**. Never write defensive shims, redundant aliases, dual backward-compatible exports, redundant boilerplate constructor wrappers, or fallback chains anticipating obsolete naming or deprecated APIs. When renaming functions, message types, or models, always refactor all call sites directly across the library packages, example apps, and test suites to enforce the single canonical standard.
+    - **No Redundant Alias or Boilerplate Constructor Wrappers**:
+      - Never export dual names for backward compatibility.
+      - Do not write trivial boilerplate constructor wrappers (`changeRouteMsg`, `noOpMsg`, etc.) when callers can directly instantiate type-safe tagged object literals (`{ _tag: 'ChangeRoute', route }`, `{ _tag: 'Refresh' }`, `{ _tag: 'ModifyRoute', func }`).
+    - **Direct Refactoring Across All Layers**:
+      - When updating an API signature or naming convention, update all consumers, example apps, and test suites directly rather than keeping obsolete shims.
+    - **Example**:
+      ```typescript
+      // Good: Instantiate tagged message objects directly
+      routerMsgHandler(
+        {
+          _tag: 'ModifyRoute',
+          func: (r) => ({ ...r, page: r.page + 1 }),
+        },
+        model,
+      )
+
+      // Bad: Redundant boilerplate constructors or legacy alias wrappers
+      export const modifyRouteMsg = (func) => ({ _tag: 'ModifyRoute', func })
+      export const modifyRoute = modifyRouteMsg // Redundant alias
+      ```

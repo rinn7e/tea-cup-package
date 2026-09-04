@@ -193,12 +193,20 @@ const homePageMsgHandler = (
         if (subMsg._tag === 'ChangePage') {
           return interceptChangePageFromHomePage(subMsg.page)(m)
         }
-        if (subMsg._tag === 'ForceRefresh') {
-          const currentRoute = TeaRouter.getRoute(m.router)
-          return routerMsgHandler(
-            { _tag: 'ChangeRoute', route: currentRoute, forceRefresh: true },
-            m,
-          )
+        if (subMsg._tag === 'ForceRefreshViaChangeRoute') {
+          return interceptForceRefreshViaChangeRouteFromHomePage(m)
+        }
+        if (subMsg._tag === 'ModifyPageViaRouter') {
+          return interceptModifyPageFromHomePage(m)
+        }
+        if (subMsg._tag === 'ModifyTabNoReloadViaRouter') {
+          return interceptModifyTabNoReloadFromHomePage(m)
+        }
+        if (subMsg._tag === 'ModifyUrlNoReloadViaRouter') {
+          return interceptModifyUrlNoReloadFromHomePage(m)
+        }
+        if (subMsg._tag === 'RefreshViaRouter') {
+          return interceptRefreshFromHomePage(m)
         }
         return [m, Cmd.none()]
       }),
@@ -486,6 +494,55 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
 
 // Child Msg Interception Handlers
 // -------------------------------------------------------------
+
+const interceptForceRefreshViaChangeRouteFromHomePage = (
+  m: Model,
+): [Model, Cmd<Msg>] => {
+  const currentRoute = TeaRouter.getRoute(m.router)
+  return routerMsgHandler(
+    { _tag: 'ChangeRoute', route: currentRoute, forceRefresh: true },
+    m,
+  )
+}
+
+const interceptModifyPageFromHomePage = (m: Model): [Model, Cmd<Msg>] =>
+  routerMsgHandler(
+    {
+      _tag: 'ModifyRoute',
+      func: (r) => (r._tag === 'HomePage' ? { ...r, page: r.page + 1 } : r),
+    },
+    m,
+  )
+
+const interceptModifyTabNoReloadFromHomePage = (m: Model): [Model, Cmd<Msg>] =>
+  routerMsgHandler(
+    {
+      _tag: 'ModifyRouteNoReload',
+      func: (r) => {
+        if (r._tag !== 'HomePage') {
+          return r
+        }
+        const nextTab: HomeTab = r.tab === 'tag' ? 'global' : 'tag'
+        return {
+          ...r,
+          tab: nextTab,
+        }
+      },
+    },
+    m,
+  )
+
+const interceptModifyUrlNoReloadFromHomePage = (m: Model): [Model, Cmd<Msg>] =>
+  routerMsgHandler(
+    {
+      _tag: 'ModifyRouteUrlNoReload',
+      func: (r) => (r._tag === 'HomePage' ? { ...r, page: 99 } : r),
+    },
+    m,
+  )
+
+const interceptRefreshFromHomePage = (m: Model): [Model, Cmd<Msg>] =>
+  routerMsgHandler({ _tag: 'Refresh' }, m)
 
 const interceptChangeTabFromHomePage =
   (tab: HomeTab) =>
