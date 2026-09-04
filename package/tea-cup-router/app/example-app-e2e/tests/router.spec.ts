@@ -603,4 +603,23 @@ test.describe('TeaCup Router Example App', () => {
       timeout: 2000,
     })
   })
+
+  test('19. should cleanly initialize page model and execute initial commands when landing directly on a guarded URL that redirects', async ({
+    page,
+  }) => {
+    // Unauthenticated landing directly on protected /settings -> should redirect to /login and fully initialize LoginPage
+    await page.goto('/settings')
+    await expect(page).toHaveURL('/login')
+    await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible()
+    await expect(page.getByTestId('current-url')).toHaveText('/login')
+    await expect(page.getByTestId('route-tag')).toHaveText('LoginPage')
+    await expect(page.getByTestId('login-email')).toBeVisible()
+    await expect(page.getByTestId('login-password')).toBeVisible()
+
+    // Unauthenticated landing directly on protected /?tab=feed -> should redirect to /login
+    await page.goto('/?tab=feed')
+    await expect(page).toHaveURL('/login')
+    await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible()
+    await expect(page.getByTestId('current-url')).toHaveText('/login')
+  })
 })

@@ -282,6 +282,31 @@ export const urlChangeHandler =
   }
 
 /**
+ * Resolves any redirects from the route guard for a given route.
+ *
+ * @param config - Router configuration.
+ * @param route - Target route to check.
+ * @param context - Shared context.
+ * @param isInternal - Whether this navigation is internal.
+ * @returns The final guarded route.
+ */
+export const resolveGuard = <Route, PageModel, Context, PageMsg = Msg<Route>>(
+  config: Config<Route, PageModel, Context, PageMsg>,
+  route: Route,
+  context: Context,
+  isInternal: boolean = false,
+): Route => {
+  if (!config.guard) {
+    return route
+  }
+  const guardRes = config.guard(route, context, isInternal)
+  if (guardRes._tag === 'Redirect') {
+    return resolveGuard(config, guardRes.to, context, true)
+  }
+  return route
+}
+
+/**
  * Initializes the navigation model and initial page model from the initial browser `Location`.
  *
  * @param config - Router configuration.
@@ -295,21 +320,21 @@ export const init = <Route, PageModel, Context, PageMsg = Msg<Route>>(
   context: Context,
 ): [Model<Route, PageModel>, Cmd<PageMsg>] => {
   const parsedRoute = config.parseUrl(location)
+  const guardedRoute = resolveGuard(config, parsedRoute, context, false)
   const [initialPageModel, initialPageCmd] = config.initPageModel(
-    parsedRoute,
+    guardedRoute,
     context,
   )
+  const isRedirected = !config.routeEq.equals(parsedRoute, guardedRoute)
+  const urlCmd = isRedirected
+    ? changeUrlCmd<Route>(config.toUrl(guardedRoute)).map(config.toMsg)
+    : Cmd.none<PageMsg>()
   const initialModel: Model<Route, PageModel> = {
-    route: parsedRoute,
+    route: guardedRoute,
     pageModel: initialPageModel,
     isInternal: false,
   }
-  return navigateTo(config, context)(
-    parsedRoute,
-    false,
-    initialModel,
-    initialPageCmd,
-  )
+  return [initialModel, Cmd.batch([urlCmd, initialPageCmd])]
 }
 
 /**
