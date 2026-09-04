@@ -74,6 +74,34 @@ export const setPageModel = <Route, PageModel>(
 })
 
 /**
+ * Resolves the target route that a router message would navigate to, if applicable.
+ * Useful for intercepting navigation, evaluating pre-navigation guards, or running side effects before dispatching.
+ *
+ * @param config - Router configuration providing `parseUrl`.
+ * @returns Curried function: `(msg, currentRoute) => targetRoute | null`.
+ */
+export const getTargetRoute =
+  <Route>(config: { readonly parseUrl: (location: Location) => Route }) =>
+  (msg: Msg<Route>, currentRoute: Route): Route | null => {
+    switch (msg._tag) {
+      case 'ChangeRoute':
+      case 'ChangeRouteNoReload':
+      case 'ChangeRouteUrlNoReload':
+        return msg.route
+      case 'ModifyRoute':
+      case 'ModifyRouteNoReload':
+      case 'ModifyRouteUrlNoReload':
+        return msg.func(currentRoute)
+      case 'UrlChange':
+        return config.parseUrl(msg.location)
+      case 'Refresh':
+        return currentRoute
+      case 'NoOp':
+        return null
+    }
+  }
+
+/**
  * Direct message handler for full route changes (`ChangeRoute`).
  * Evaluates route guards, initializes the new page model, updates the browser URL,
  * and sets `isInternal: true` to suppress popstate re-entry.
