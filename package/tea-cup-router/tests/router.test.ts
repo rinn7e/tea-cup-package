@@ -466,10 +466,9 @@ describe('@rinn7e/tea-cup-router', () => {
         search: '',
       } as Location
 
-      const [nextModel, cmd] = urlChangeHandler(
-        config,
-        context,
-      )(location)(initialModel)
+      const [nextModel, cmd] = urlChangeHandler(config, context)(location)(
+        initialModel,
+      )
 
       // Internal flag reset, route NOT updated
       expect(nextModel.isInternal).toBe(false)
@@ -500,10 +499,9 @@ describe('@rinn7e/tea-cup-router', () => {
         search: '',
       } as Location
 
-      const [nextModel] = urlChangeHandler(
-        config,
-        context,
-      )(location)(initialModel)
+      const [nextModel] = urlChangeHandler(config, context)(location)(
+        initialModel,
+      )
 
       expect(nextModel.route).toEqual({ _tag: 'Login' })
       expect(nextModel.pageModel.fetchCount).toBe(2)
@@ -529,7 +527,10 @@ describe('@rinn7e/tea-cup-router', () => {
       }
 
       // NoOp
-      const [noOpModel] = update(config, context)({ _tag: 'NoOp' }, initialModel)
+      const [noOpModel] = update(config, context)(
+        { _tag: 'NoOp' },
+        initialModel,
+      )
       expect(noOpModel).toEqual(initialModel)
 
       // ChangeRoute
@@ -585,10 +586,7 @@ describe('@rinn7e/tea-cup-router', () => {
       )
       expect(target2).toEqual({ _tag: 'Login' })
 
-      const target3 = getTargetRoute(config)(
-        { _tag: 'Refresh' },
-        model.route,
-      )
+      const target3 = getTargetRoute(config)({ _tag: 'Refresh' }, model.route)
       expect(target3).toEqual({ _tag: 'Home' })
     })
   })

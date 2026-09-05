@@ -462,7 +462,7 @@ body {
 /* Hard break (newline) visual marker so you know what is what! */
 .rte-main br::after,
 .editor-body br::after {
-  content: "↵";
+  content: '↵';
   display: inline-block;
   color: var(--text-muted);
   font-size: 0.85em;
@@ -471,7 +471,6 @@ body {
   pointer-events: none;
   font-family: system-ui, sans-serif;
 }
-
 
 /* Modals */
 .modal-overlay {

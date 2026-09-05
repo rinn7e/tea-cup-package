@@ -28,8 +28,8 @@ import type { EditorChange } from './internal/event'
 import type { KeyboardEvent } from './internal/event'
 import {
   childNodesPlaceholder,
-  isChildNodesPlaceholder,
   editorBlockNodeToHtmlNode,
+  isChildNodesPlaceholder,
 } from './internal/html-node'
 import * as KeyDown from './internal/key-down'
 import { preventDefaultOn as preventDefaultOnKeyDown } from './internal/key-down'

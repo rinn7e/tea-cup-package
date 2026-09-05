@@ -360,11 +360,16 @@ export const editorComponentView = ({
 
         {/* Styles */}
         <div className='toolbar-group'>
-          {model.styles.includes('Bold') && renderStyleButton('Bold', 'Bold', <BoldIcon />)}
-          {model.styles.includes('Italic') && renderStyleButton('Italic', 'Italic', <ItalicIcon />)}
-          {model.styles.includes('Code') && renderStyleButton('Code', 'Code', <CodeIcon />)}
-          {model.styles.includes('Underline') && renderStyleButton('Underline', 'Underline', <UnderlineIcon />)}
-          {model.styles.includes('Strikethrough') && renderStyleButton('Strikethrough', 'Strikethrough', <StrikeIcon />)}
+          {model.styles.includes('Bold') &&
+            renderStyleButton('Bold', 'Bold', <BoldIcon />)}
+          {model.styles.includes('Italic') &&
+            renderStyleButton('Italic', 'Italic', <ItalicIcon />)}
+          {model.styles.includes('Code') &&
+            renderStyleButton('Code', 'Code', <CodeIcon />)}
+          {model.styles.includes('Underline') &&
+            renderStyleButton('Underline', 'Underline', <UnderlineIcon />)}
+          {model.styles.includes('Strikethrough') &&
+            renderStyleButton('Strikethrough', 'Strikethrough', <StrikeIcon />)}
         </div>
 
         {/* Links and Images */}

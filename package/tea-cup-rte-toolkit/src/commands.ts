@@ -20,9 +20,9 @@ import {
   shift,
   short,
 } from './config/keys'
+import { hardBreak } from './definitions'
 import { Element, element } from './model/element'
 import * as InlineElement from './model/inline-element'
-import { hardBreak } from './definitions'
 import {
   Add,
   Mark,
@@ -114,7 +114,12 @@ cmdMap = set(
 )
 cmdMap = set(
   [inputEvent('insertLineBreak'), key([shift, enter]), key([shift, returnKey])],
-  [['insertLineBreak', { _tag: 'TransformCommand', transform: insertLineBreak }]],
+  [
+    [
+      'insertLineBreak',
+      { _tag: 'TransformCommand', transform: insertLineBreak },
+    ],
+  ],
   cmdMap,
 )
 cmdMap = set(

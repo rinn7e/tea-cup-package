@@ -36,11 +36,7 @@ export const appView = ({ model, dispatch }: Props): React.ReactElement => {
           className='logo-section'
           onClick={(e) => navigateTo({ page: homePage() }, e)}
         >
-          <img
-            src='/logo.png'
-            alt='Logo'
-            className='logo-icon'
-          />
+          <img src='/logo.png' alt='Logo' className='logo-icon' />
           <span className='logo-text'>Tea Cup RTE</span>
         </a>
         <nav>
