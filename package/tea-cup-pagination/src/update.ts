@@ -73,6 +73,7 @@ export const update =
             {
               ...model,
               page: msg.page,
+              items: RD.pending,
             },
             Cmd.batch([
               fetchCmd(config, msg.page),

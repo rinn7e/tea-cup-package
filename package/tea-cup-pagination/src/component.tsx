@@ -36,9 +36,9 @@ export const PaginationComponent = <Item, ItemMsg, Err>({
         dispatch({ _tag: 'ItemMsg', item, msg })
       })}
 
-      {config.renderPagination(page, pageAmount, (p) =>
-        dispatch({ _tag: 'ChangePage', page: p }),
-      )}
+      {config.renderPagination(page, pageAmount, (p) => {
+        dispatch({ _tag: 'ChangePage', page: p })
+      })}
     </>
   )
 }
