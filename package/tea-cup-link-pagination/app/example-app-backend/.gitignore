@@ -1,0 +1,10 @@
+.stack-work/
+dist/
+dist-newstyle/
+*.cabal
+*.o
+*.hi
+
+.envrc
+.envrc.local
+!.envrc.sample

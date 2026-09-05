@@ -1,0 +1,12 @@
+export DB_CONN=${DB_CONN:="host=localhost dbname=tea_cup_link_pagination_example_app user=postgres password=postgres port=5432"}
+export PGHOST=${PGHOST:="localhost"}
+export PGPORT=${PGPORT:="5432"}
+export PGUSER=${PGUSER:="postgres"}
+export PGPASS=${PGPASS:="postgres"}
+export PGDATABASE=${PGDATABASE:="tea_cup_link_pagination_example_app"}
+export PORT=${PORT:="3011"}
+export ALLOW_CORS=${ALLOW_CORS:="true"}
+
+# Export env variable pointing to built frontend
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export FRONTEND_DIR="$PROJECT_ROOT/example-app/dist"

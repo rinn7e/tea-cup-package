@@ -1,0 +1,85 @@
+name: example-app-backend
+version: 0.1.0.0
+author: Antigravity
+synopsis: Tea-Cup Link-Pagination Example App Backend API
+description: Servant API backend with Persistent PostgreSQL for link-pagination example chat & room application.
+
+dependencies:
+  - base >= 4.14 && < 5
+  - aeson
+  - bytestring
+  - containers
+  - directory
+  - filepath
+  - monad-logger
+  - persistent
+  - persistent-postgresql
+  - persistent-template
+  - resource-pool
+  - servant-server
+  - text
+  - time
+  - transformers
+  - unliftio
+  - wai
+  - wai-cors
+  - warp
+  - http-types
+
+default-extensions:
+  - BlockArguments
+  - DataKinds
+  - DeriveAnyClass
+  - DeriveGeneric
+  - DerivingStrategies
+  - EmptyDataDecls
+  - FlexibleContexts
+  - FlexibleInstances
+  - GADTs
+  - GeneralizedNewtypeDeriving
+  - ImportQualifiedPost
+  - LambdaCase
+  - MultiParamTypeClasses
+  - OverloadedStrings
+  - QuasiQuotes
+  - RankNTypes
+  - ScopedTypeVariables
+  - StandaloneDeriving
+  - TemplateHaskell
+  - TypeFamilies
+  - TypeOperators
+  - UndecidableInstances
+  - DuplicateRecordFields
+  - OverloadedRecordDot
+  - NoFieldSelectors
+  - TypeApplications
+
+ghc-options:
+  - -Wall
+  - -Wno-name-shadowing
+
+library:
+  source-dirs: src
+
+executables:
+  example-app-backend-exe:
+    main: Main.hs
+    source-dirs: app/server
+    dependencies:
+      - example-app-backend
+
+  migrate-exe:
+    main: Main.hs
+    source-dirs: app/migrate
+    dependencies:
+      - example-app-backend
+
+tests:
+  example-app-backend-test:
+    main: Spec.hs
+    source-dirs: test
+    dependencies:
+      - example-app-backend
+      - hspec
+      - hspec-wai
+      - hspec-wai-json

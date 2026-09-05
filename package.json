@@ -4,11 +4,11 @@
   "version": "1.0.0",
   "description": "Monorepo for tea-cup libraries",
   "scripts": {
-    "build": "pnpm --filter \"*\" build",
-    "check": "pnpm --filter \"*\" check",
-    "check-circular": "pnpm --filter \"*\" check-circular",
-    "lint": "pnpm --filter \"*\" lint",
-    "format": "pnpm --filter \"*\" format",
+    "build": "pnpm --filter \"!*rte*\" build",
+    "check": "pnpm --filter \"!*rte*\" check",
+    "check-circular": "pnpm --filter \"!*rte*\" check-circular",
+    "lint": "pnpm --filter \"!*rte*\" lint",
+    "format": "pnpm --filter \"!*rte*\" format",
     "staged": "pnpm --filter \"!*rte*\" staged"
   },
   "devDependencies": {

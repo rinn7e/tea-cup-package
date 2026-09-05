@@ -3,6 +3,12 @@ packages:
   - 'package/*'
   # example apps
   - 'package/*/app/*'
+  - '!package/*/app/*-backend'
+  - '!package/*/app/*backend'
 allowBuilds:
   esbuild: true
   "@rinn7e/tea-cup-prelude": true
+  fp-ts-routing: true
+  '@rinn7e/fp-ts-routing': true
+  'fp-ts-routing@https://codeload.github.com/rinn7e/fp-ts-routing/tar.gz/0d9ec901639572171d6ada5b75aeee6ff945dc43': true
+  'fp-ts-routing@https://codeload.github.com/rinn7e/fp-ts-routing/tar.gz/0d9ec901639572171d6ada5b75aeee6ff945dc43(fp-ts@2.16.11)(io-ts@2.2.22(fp-ts@2.16.11))': true
