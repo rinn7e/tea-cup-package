@@ -345,7 +345,7 @@ test.describe('TEA Routing & LinkPagination E2E Suite', () => {
     await expect(messageLocator).not.toBeVisible({ timeout: 10_000 })
   })
 
-  test('13. [Bug #123 Reproduction] Target Re-point Swallowed by Cache Leg', async ({
+  test('13. [Bug #123 Fix Verification] Target Re-point Settles Viewport to Latest Messages', async ({
     page,
   }) => {
     // 1. Visit /rooms/room-general to populate local cache with messages
@@ -357,7 +357,7 @@ test.describe('TEA Routing & LinkPagination E2E Suite', () => {
       timeout: 10_000,
     })
 
-    // 2. Click "Reproduce DES-752 Bug" in DebugPanel
+    // 2. Click "Reproduce Bug #123" in DebugPanel
     const reproBtn = page.getByTestId('reproduce-des752-btn')
     await expect(reproBtn).toBeVisible()
     await reproBtn.click()
@@ -366,16 +366,11 @@ test.describe('TEA Routing & LinkPagination E2E Suite', () => {
     await expect(page).toHaveURL(/message-1002-repoint/)
     await expect(page.getByTestId('repoint-repro-banner')).toBeVisible()
 
-    // Wait for the API leg to complete after simulated delay
-    await page.waitForTimeout(1000)
-
-    // On unpatched LinkPagination:
-    // The cache leg immediately scrolled to message-1002 (older message near the top).
-    // When the API leg completed with selectedKey: null (latest message),
-    // getInitialDataFromApiResponseHandler saw cacheExist === true and SKIPPED scrolling!
-    // Therefore, message-1002 remains visible in view, demonstrating that the viewport was stuck.
-    const message1002 = page.getByTestId('chat-item-message-1002')
-    await expect(message1002).toBeVisible()
+    // When the API leg settles with selectedKey: null (latest message),
+    // LinkPagination updates selectedKey and executes scrollToCurrentHandler,
+    // bringing the latest message (message-1045) smoothly into view at the bottom.
+    const message1045 = page.getByTestId('chat-item-message-1045')
+    await expect(message1045).toBeVisible({ timeout: 10_000 })
   })
 
   test('14. Unread Indicator Divider renders above first unread message', async ({

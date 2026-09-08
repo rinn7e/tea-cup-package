@@ -137,6 +137,10 @@ export const getInitialDataFromApiResponseHandler = <A, B, amsg, Route>(
             ...m.mode,
             initialData: RD.success(newOverallData),
             nextIsMax: result.right.nextIsMax,
+            selectedKey:
+              result.right.selectedKey === undefined
+                ? m.mode.selectedKey
+                : result.right.selectedKey,
             overallData: pipe(
               newOverallData,
               SUA.fromArray(config.eqWithKey, config.ord),
@@ -146,12 +150,16 @@ export const getInitialDataFromApiResponseHandler = <A, B, amsg, Route>(
       } else return m
     })()
 
+    const shouldScroll =
+      result._tag === 'Right'
+        ? result.right.selectedKey !== undefined || !cacheExist
+        : !cacheExist
+
     return pipe(
       newModel,
-      // If cache already exists, don't do the scrolling
-      cacheExist
-        ? (m) => [m, Cmd.none()]
-        : scrollToCurrentHandler(config, { isGraceful: false }),
+      shouldScroll
+        ? scrollToCurrentHandler(config, { isGraceful: false })
+        : (m) => [m, Cmd.none()],
     )
   } else return [m, Cmd.none()]
 }

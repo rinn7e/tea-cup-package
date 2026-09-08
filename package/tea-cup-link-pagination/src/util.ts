@@ -237,19 +237,21 @@ export const getChangeEvent = <A>(
   ord: Ord.Ord<A>,
   isReversed: boolean,
 ): ContainerChangeEvent => {
-  const latest = prevArr.value[0]
-  if (!latest) return { _tag: 'NoChange' } as ContainerChangeEvent
+  const head = prevArr.value[0]
+  if (!head) return { _tag: 'NoChange' } as ContainerChangeEvent
 
-  const isNewer = Ord.gt(ord)(data, latest)
+  // Sorts before the current head => rendered at DOM index 0 of the
+  // (possibly reversed) list.
+  const insertsAtSortHead = Ord.lt(ord)(data, head)
 
   if (isReversed) {
-    // Chat mode: History (older) is Top, Newer is Bottom
-    return isNewer
+    // Chat mode: the sort head is rendered at the BOTTOM.
+    return insertsAtSortHead
       ? ({ _tag: 'ElementModifyOnBottom' } as ContainerChangeEvent)
       : ({ _tag: 'ElementModifyOnTop' } as ContainerChangeEvent)
   } else {
-    // Standard mode: Newer is Top, History (older) is Bottom
-    return isNewer
+    // Standard mode: the sort head is rendered at the TOP.
+    return insertsAtSortHead
       ? ({ _tag: 'ElementModifyOnTop' } as ContainerChangeEvent)
       : ({ _tag: 'ElementModifyOnBottom' } as ContainerChangeEvent)
   }

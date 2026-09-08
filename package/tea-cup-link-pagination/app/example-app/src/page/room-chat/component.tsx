@@ -22,6 +22,7 @@ import {
   type ChatItemMsg,
   type Msg,
   type ParentContext,
+  ParentContextEq,
   type Props,
   PropsEq,
 } from './type'
@@ -255,7 +256,7 @@ export const RoomChatPageComponent = (props: Props): JSX.Element => {
       <div className='relative min-h-0 flex-1 overflow-hidden bg-slate-50/30'>
         <LinkPaginationMemo<Chat, ParentContext, Msg, ChatItemMsg, AppRoute>
           aEq={ChatEq}
-          bEq={{ equals: () => true }}
+          bEq={ParentContextEq}
           b={{
             currentUserId: 'user-master',
             highlightedChatId: model.highlightedChatId,

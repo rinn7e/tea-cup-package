@@ -124,6 +124,22 @@ export const fetchInitialChats = (params: {
   if (targetChatId) {
     const isRepointScenario = targetChatId.includes('repoint')
     const actualTargetId = targetChatId.replace('-repoint', '')
+
+    if (isRepointScenario) {
+      // In the reproduction scenario, the server re-points the provisional target to the latest messages at the end
+      return pipe(
+        getChats({ roomId, pageSize }),
+        TE.map((res) => {
+          setCachedChats(roomId, res.data)
+          return {
+            dataF: () => res.data,
+            nextIsMax: true,
+            selectedKey: null,
+          }
+        }),
+      )
+    }
+
     return pipe(
       getChatCurrentPrevNext(roomId, actualTargetId, pageSize),
       TE.map((result) => {
@@ -142,8 +158,7 @@ export const fetchInitialChats = (params: {
         return {
           dataF: () => all,
           nextIsMax: nextPage.data.length === 0,
-          // In the reproduction scenario, the server re-points the provisional target to the latest message (null)
-          selectedKey: isRepointScenario ? null : actualTargetId,
+          selectedKey: actualTargetId,
         }
       }),
     )
