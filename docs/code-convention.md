@@ -30,7 +30,7 @@
 
 4. **Writing Documentation or Guides Without Scanning the Target Codebase First**:
    - **Why**: Do not write documentation, specifications, or porting guides conceptually based on assumptions. Always search and inspect the target repository codebase first using code search tools to reference real file locations, exact types, and verified architectural structures.
-   - **Example**: Before writing a porting guide for `target-application`, search the repository to locate the exact target files (`category-setting-dialog` and `tea-cup-range-input`).
+   - **Example**: Before writing a porting guide for a target application, search the repository to locate the exact target files (`category-setting-dialog` and `tea-cup-range-input`).
 
 5. **Attempting to Use a Library Sub-Component Directly Without Checking How the Library is Properly Integrated in the Codebase**:
    - **Why**: Always check how a library or framework is designed to be integrated at the top level before consuming its individual parts. Do not attach sub-component states directly to feature component models when the library provides a unified parent engine.

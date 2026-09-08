@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test.describe('Full-Featured TEA Routing & LinkPagination E2E Suite', () => {
+test.describe('TEA Routing & LinkPagination E2E Suite', () => {
   test('1. Home Page & Popular Rooms Quick Launcher', async ({ page }) => {
     await page.goto('/')
     await expect(page.getByText('Welcome to Tea-Cup Chat')).toBeVisible({

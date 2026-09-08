@@ -1,6 +1,6 @@
 name: example-app-backend
 version: 0.1.0.0
-author: Antigravity
+author: Moremi Vannak
 synopsis: Tea-Cup Link-Pagination Example App Backend API
 description: Servant API backend with Persistent PostgreSQL for link-pagination example chat & room application.
 
