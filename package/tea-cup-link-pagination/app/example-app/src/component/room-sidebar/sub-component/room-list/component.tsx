@@ -6,35 +6,39 @@ import { type AppRoute } from '../../../../common/route/type'
 import {
   type Msg,
   type ParentContext,
+  ParentContextEq,
   type Props,
+  PropsEq,
   type RoomItemMsg,
 } from './type'
-import { mkRoomListLogicConfig, mkRoomListUiConfig } from './util'
+import { dispatch, logicConfig, mkRoomListUiConfig, noRoomView } from './util'
 
-export const RoomListComponent = (props: Props): JSX.Element => {
-  const { model, activeRoomId, dispatch } = props
-  const logicConfig = mkRoomListLogicConfig(model.refs)
-  const uiConfig = mkRoomListUiConfig(model.refs)
+const RoomListInner = (props: Props<any>): JSX.Element => {
+  const { model, activeRoomId } = props
+  const uiConfig = mkRoomListUiConfig(props)
+  const config = { logic: logicConfig, ui: uiConfig }
+  const paginOverallLength = model.linkPagin.mode.overallData.value.length
 
   return (
-    <div data-component='RoomListComponent' className='flex-1 overflow-hidden'>
+    <div
+      data-component='RoomListComponent'
+      className='flex flex-1 flex-col overflow-hidden'
+    >
+      {model.linkPagin.mode.initialData._tag === 'RemoteSuccess' &&
+      paginOverallLength === 0
+        ? noRoomView()
+        : null}
+
       <LinkPaginationMemo<Room, ParentContext, Msg, RoomItemMsg, AppRoute>
         aEq={RoomEq}
-        bEq={{
-          equals: (a, b) =>
-            a.activeRoomId === b.activeRoomId &&
-            a.expandedRoomIds === b.expandedRoomIds,
-        }}
+        bEq={ParentContextEq}
         b={{
           activeRoomId,
           expandedRoomIds: model.expandedRoomIds,
-          dispatch,
+          dispatch: (msg) => dispatch(props)(msg),
         }}
-        config={{
-          logic: logicConfig,
-          ui: uiConfig,
-        }}
-        dispatchP={(msg) => dispatch(msg)}
+        config={config}
+        dispatchP={(msg) => dispatch(props)(msg)}
         mkPmsg={(subMsg) => ({ _tag: 'LinkPaginMsg', subMsg })}
         model={model.linkPagin}
       />
@@ -42,4 +46,11 @@ export const RoomListComponent = (props: Props): JSX.Element => {
   )
 }
 
-export const RoomListMemo = memo(RoomListComponent)
+const RoomListInnerMemo = memo(RoomListInner, (prev, next) =>
+  PropsEq<any>().equals(prev, next),
+)
+
+export const RoomListComponent = RoomListInner
+export const RoomListMemo = <pmsg,>(props: Props<pmsg>): JSX.Element => (
+  <RoomListInnerMemo {...props} />
+)

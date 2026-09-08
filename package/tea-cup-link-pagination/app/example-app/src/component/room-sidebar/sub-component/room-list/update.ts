@@ -16,7 +16,7 @@ import {
   type ParentContext,
   type RoomItemMsg,
 } from './type'
-import { mkRoomListLogicConfig } from './util'
+import { logicConfig } from './util'
 
 export const mkRoomListLinkPaginationMode = (
   activeRoomId: string | null,
@@ -99,7 +99,6 @@ export const init = (
   latencyMs = 80,
   networkOnline = true,
 ): [Model, Cmd<Msg>] => {
-  const refs = LinkPagination.mkRefs()
   const mode = mkRoomListLinkPaginationMode(
     activeRoomId,
     latencyMs,
@@ -113,13 +112,33 @@ export const init = (
 
   const model: Model = {
     linkPagin,
-    refs,
     expandedRoomIds: new Set<string>(),
   }
 
   return [
     model,
     linkPaginCmd.map((subMsg): Msg => ({ _tag: 'LinkPaginMsg', subMsg })),
+  ]
+}
+
+export const reInit = (
+  activeRoomId: string | undefined,
+  oldModel: Model,
+  _latencyMs = 80,
+  _networkOnline = true,
+): [Model, Cmd<Msg>] => {
+  return [
+    {
+      ...oldModel,
+      linkPagin: {
+        ...oldModel.linkPagin,
+        mode: {
+          ...oldModel.linkPagin.mode,
+          selectedKey: activeRoomId ?? null,
+        },
+      },
+    },
+    Cmd.none(),
   ]
 }
 
@@ -148,7 +167,6 @@ const linkPaginMsgHandler = (
   model: Model,
   networkOnline: boolean,
 ): [Model, Cmd<Msg>] => {
-  const logicConfig = mkRoomListLogicConfig(model.refs)
   const parentSt: ParentContext = {
     activeRoomId: undefined,
     expandedRoomIds: model.expandedRoomIds,

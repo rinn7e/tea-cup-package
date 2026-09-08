@@ -23,11 +23,12 @@ import {
   type Msg,
   type ParentContext,
   type Props,
+  PropsEq,
 } from './type'
-import { mkLogicConfig, mkUiConfig } from './util'
+import { logicConfig, mkUiConfig } from './util'
 
 export const RoomChatPageComponent = (props: Props): JSX.Element => {
-  const { model, room, refs, dispatch, totalUnreadCount = 0 } = props
+  const { model, room, dispatch, totalUnreadCount = 0 } = props
   const setGlobalMsg = useContext(SetGlobalMsgContext)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
 
@@ -42,8 +43,8 @@ export const RoomChatPageComponent = (props: Props): JSX.Element => {
   const roomTopic = room ? room.topic : 'General discussions and updates'
   const isPrivate = room?.isPrivate ?? false
 
-  const logicConfig = mkLogicConfig(model, refs)
-  const uiConfig = mkUiConfig()
+  const uiConfig = mkUiConfig(props)
+  const config = { logic: logicConfig, ui: uiConfig }
 
   return (
     <div
@@ -237,10 +238,7 @@ export const RoomChatPageComponent = (props: Props): JSX.Element => {
             room,
             dispatch,
           }}
-          config={{
-            logic: logicConfig,
-            ui: uiConfig,
-          }}
+          config={config}
           dispatchP={dispatch}
           mkPmsg={(subMsg) => ({
             _tag: 'LinkPaginMsg',
@@ -263,17 +261,6 @@ export const RoomChatPageComponent = (props: Props): JSX.Element => {
             </button>
           </div>
         )}
-
-        {/* Floating Action: Scroll to Bottom Button */}
-        <button
-          type='button'
-          data-testid='scroll-to-bottom-btn'
-          onClick={() => dispatch({ _tag: 'ScrollToBottom' })}
-          className='absolute right-4 bottom-4 z-20 flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition-all hover:bg-slate-50 hover:text-indigo-600 hover:shadow-lg'
-          title='Scroll to latest message'
-        >
-          <ArrowDown className='size-4' />
-        </button>
       </div>
 
       {/* 3. Message Composer Area */}
@@ -321,4 +308,5 @@ export const RoomChatPageComponent = (props: Props): JSX.Element => {
   )
 }
 
-export const RoomChatPage = memo(RoomChatPageComponent)
+export const RoomChatPage = memo(RoomChatPageComponent, PropsEq.equals)
+export const RoomChatMemo = RoomChatPage

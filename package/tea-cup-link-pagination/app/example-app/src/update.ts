@@ -364,12 +364,8 @@ const applyIncomingChat = (
   const currentChatModel = currentPageModel.roomChatPageDict.get(roomId)
 
   if (currentChatModel) {
-    const logicConfig = RoomChatPage.mkLogicConfig(
-      currentChatModel,
-      model.shared.refs,
-    )
     const newLinkPagin = LinkPagination.addOrUpdateDataHandler(
-      logicConfig,
+      RoomChatPage.logicConfig,
       currentChatModel.linkPagin,
       {
         dataSourceId: currentChatModel.linkPagin.mode.dataSourceId,

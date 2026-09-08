@@ -2,13 +2,25 @@ import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 import { Cmd } from 'tea-cup-fp'
 
 import * as Api from '../../../../api'
+import { type AppRoute } from '../../../../common/route/type'
 import { RoomItemComponent } from '../room-item'
-import { type ParentContext, type RoomItemMsg } from './type'
+import {
+  type Msg,
+  type ParentContext,
+  type Props,
+  type RoomItemMsg,
+} from './type'
 
-export const mkRoomListLogicConfig = (
-  refs: LinkPagination.Refs,
-): LinkPagination.LogicConfig<Api.Room, ParentContext, RoomItemMsg> => ({
-  refs,
+// ---------------------------------------------------------------
+// Static Canonical Logic Config (CF Pattern)
+// ---------------------------------------------------------------
+
+export const logicConfig: LinkPagination.LogicConfig<
+  Api.Room,
+  ParentContext,
+  RoomItemMsg
+> = {
+  refs: LinkPagination.mkRefs(),
   mode: LinkPagination.defaultMode<Api.Room>(),
   isReversed: false, // Sidebar room list is top-to-bottom
   eqWithKey: Api.RoomEq,
@@ -29,12 +41,50 @@ export const mkRoomListLogicConfig = (
         ]
     }
   },
+}
+
+// ---------------------------------------------------------------
+// Dispatch Helpers
+// ---------------------------------------------------------------
+
+export const dispatch =
+  <pmsg,>(props: { dispatchP: (p: pmsg) => void; mkPmsg: (m: Msg) => pmsg }) =>
+  (subMsg: Msg): void =>
+    props.dispatchP(props.mkPmsg(subMsg))
+
+export const fromLinkPaginMsg = (
+  linkPaginMsg: LinkPagination.Msg<Api.Room, RoomItemMsg, AppRoute>,
+): Msg => ({
+  _tag: 'LinkPaginMsg',
+  subMsg: linkPaginMsg,
 })
 
-export const mkRoomListUiConfig = (
-  refs: LinkPagination.Refs,
+export const paginDispatch =
+  <pmsg,>(props: Props<pmsg>) =>
+  (msg: LinkPagination.Msg<Api.Room, RoomItemMsg, AppRoute>) => {
+    dispatch(props)(fromLinkPaginMsg(msg))
+  }
+
+// ---------------------------------------------------------------
+// Empty View
+// ---------------------------------------------------------------
+
+export const noRoomView = () => (
+  <div className='flex w-full flex-col items-center justify-center p-6 text-center text-xs text-slate-400'>
+    <p className='font-medium text-slate-600'>No rooms yet</p>
+    <p className='mt-1 text-[11px]'>
+      There are no rooms available in this list.
+    </p>
+  </div>
+)
+
+// ---------------------------------------------------------------
+// UI Config
+// ---------------------------------------------------------------
+
+export const mkRoomListUiConfig = <pmsg,>(
+  props: Props<pmsg>,
 ): LinkPagination.UiConfig<Api.Room, ParentContext> => {
-  const logicConfig = mkRoomListLogicConfig(refs)
   return {
     customItemUi: ({
       withPrevNextA,
@@ -50,13 +100,10 @@ export const mkRoomListUiConfig = (
           room={room}
           isActive={isActive}
           dispatch={(itemMsg) => {
-            b.dispatch({
-              _tag: 'LinkPaginMsg',
-              subMsg: {
-                _tag: 'ChildMsg',
-                childId: logicConfig.uniqueKeyField(room),
-                subMsg: itemMsg,
-              },
+            paginDispatch(props)({
+              _tag: 'ChildMsg',
+              childId: logicConfig.uniqueKeyField(room),
+              subMsg: itemMsg,
             })
           }}
         />

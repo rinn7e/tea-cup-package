@@ -1,9 +1,11 @@
 import * as RD from '@devexperts/remote-data-ts'
 import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
-import { attemptTE, cmdSucceed } from '@rinn7e/tea-cup-prelude'
+import { attemptTE } from '@rinn7e/tea-cup-prelude'
+import { type AppRouteUpdater } from '@rinn7e/tea-cup-prelude/type/app-route-updater'
 import { mkHttpError } from '@rinn7e/tea-cup-prelude/type/http-error'
 import { size } from '@rinn7e/tea-cup-prelude/type/size'
 import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
+import * as O from 'fp-ts/lib/Option'
 import * as TE from 'fp-ts/lib/TaskEither'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd, type Sub } from 'tea-cup-fp'
@@ -16,7 +18,7 @@ import {
   type Msg,
   type ParentContext,
 } from './type'
-import { mkLogicConfig } from './util'
+import { logicConfig } from './util'
 
 export const mkLinkPaginationMode = (
   roomId: string,
@@ -94,6 +96,38 @@ export const mkLinkPaginationMode = (
   }
 }
 
+export const customScrollToNewestHandler = (
+  model: LinkPagination.Model<Api.Chat>,
+): [
+  LinkPagination.Model<Api.Chat>,
+  Cmd<LinkPagination.Msg<Api.Chat, ChatItemMsg, AppRoute>>,
+  AppRouteUpdater<AppRoute>,
+] => {
+  if (model.mode.nextIsMax) {
+    const [m, c] = LinkPagination.scrollToNewestHandler<
+      Api.Chat,
+      ChatItemMsg,
+      AppRoute
+    >(logicConfig.refs, logicConfig.isReversed, model)
+    return [m, c, null]
+  } else {
+    return [
+      model,
+      Cmd.none(),
+      (route) => ({
+        ...route,
+        page:
+          route.page._tag === 'RoomChatPage'
+            ? {
+                ...route.page,
+                targetChatId: O.none,
+              }
+            : route.page,
+      }),
+    ]
+  }
+}
+
 export const init = (
   roomId: string,
   targetChatId: string | null = null,
@@ -139,7 +173,7 @@ export const reInit = (
   roomId: string,
   targetChatId: string | null,
   oldModel: Model,
-  refs: LinkPagination.Refs,
+  _refs: LinkPagination.Refs,
   latencyMs = 80,
   networkOnline = true,
   forceRefresh = false,
@@ -151,7 +185,6 @@ export const reInit = (
       latencyMs,
       networkOnline,
     )
-    const logicConfig = mkLogicConfig(oldModel, refs)
     const parentContext: ParentContext = {
       currentUserId: 'user-master',
       highlightedChatId: targetChatId,
@@ -192,37 +225,35 @@ export const reInit = (
     ]
   }
 
-  // Restore scroll position using scrollStateMap, or scroll to bottom (newest)
-  const scrollCmd: Cmd<Msg> = cmdSucceed(() => {
-    requestAnimationFrame(() => {
-      if (refs.containerRef.current) {
-        const container = refs.containerRef.current
-        const restoredPos = oldModel.scrollStateMap.get(roomId)
-        if (restoredPos !== undefined) {
-          container.scrollTo({ top: restoredPos })
-        } else {
-          const targetScroll = container.scrollHeight
-          refs.currentScrollPosRef.current = targetScroll
-          container.scrollTo({ top: targetScroll })
-        }
-      }
-    })
-  }).map((): Msg => ({ _tag: 'NoOp' }))
+  // Restore scroll position using LinkPagination.forceScrollToHandler (CF Pattern)
+  const [updatedLinkPagin, linkPaginCmd] =
+    oldModel.linkPagin.savedScrollPos !== null
+      ? LinkPagination.forceScrollToHandler<Api.Chat, ChatItemMsg, AppRoute>(
+          logicConfig.refs,
+          oldModel.linkPagin,
+          {
+            top: oldModel.linkPagin.savedScrollPos,
+          },
+        )
+      : [
+          oldModel.linkPagin,
+          Cmd.none<LinkPagination.Msg<Api.Chat, ChatItemMsg, AppRoute>>(),
+        ]
 
   return [
     {
       ...oldModel,
       roomId,
       linkPagin: {
-        ...oldModel.linkPagin,
+        ...updatedLinkPagin,
         mode: {
-          ...oldModel.linkPagin.mode,
+          ...updatedLinkPagin.mode,
           nextIsMax: false,
           prevIsMax: false,
         },
       },
     },
-    scrollCmd,
+    linkPaginCmd.map((subMsg): Msg => ({ _tag: 'LinkPaginMsg', subMsg })),
   ]
 }
 
@@ -242,11 +273,11 @@ export const update = (
     case 'SendChat':
       return sendChatHandler(model, networkOnline)
     case 'SendChatSuccess':
-      return sendChatSuccessHandler(msg.chat, model, refs)
+      return sendChatSuccessHandler(msg.chat, model)
     case 'UpdateChatSuccess':
-      return updateChatSuccessHandler(msg.chat, model, refs)
+      return updateChatSuccessHandler(msg.chat, model)
     case 'DeleteChatSuccess':
-      return deleteChatSuccessHandler(msg.chatId, model, refs)
+      return deleteChatSuccessHandler(msg.chatId, model)
     case 'SetSearchQuery':
       return setSearchQueryHandler(msg.query, model, networkOnline)
     case 'SearchResponse':
@@ -269,14 +300,23 @@ export const update = (
 const linkPaginMsgHandler = (
   subMsg: Extract<Msg, { _tag: 'LinkPaginMsg' }>['subMsg'],
   model: Model,
-  refs: LinkPagination.Refs,
+  _refs: LinkPagination.Refs,
   networkOnline: boolean,
 ): [Model, Cmd<Msg>] => {
   if (subMsg._tag === 'ChildMsg' && subMsg.subMsg._tag === 'DeleteChat') {
-    return deleteChatSuccessHandler(subMsg.childId, model, refs)
+    return deleteChatSuccessHandler(subMsg.childId, model)
   }
 
-  const logicConfig = mkLogicConfig(model, refs)
+  if (subMsg._tag === 'ScrollToNewest') {
+    const [linkPaginModel, linkPaginCmd] = customScrollToNewestHandler(
+      model.linkPagin,
+    )
+    return [
+      { ...model, linkPagin: linkPaginModel },
+      linkPaginCmd.map((m): Msg => ({ _tag: 'LinkPaginMsg', subMsg: m })),
+    ]
+  }
+
   const parentContext: ParentContext = {
     currentUserId: 'user-master',
     highlightedChatId: model.highlightedChatId,
@@ -330,9 +370,7 @@ const sendChatHandler = (
 const sendChatSuccessHandler = (
   chat: Api.Chat,
   model: Model,
-  refs: LinkPagination.Refs,
 ): [Model, Cmd<Msg>] => {
-  const logicConfig = mkLogicConfig(model, refs)
   const parentContext: ParentContext = {
     currentUserId: 'user-master',
     highlightedChatId: model.highlightedChatId,
@@ -359,7 +397,7 @@ const sendChatSuccessHandler = (
     Api.Chat,
     ChatItemMsg,
     AppRoute
-  >(refs, true, newLinkPagin)
+  >(logicConfig.refs, true, newLinkPagin)
 
   return [
     {
@@ -376,9 +414,7 @@ const sendChatSuccessHandler = (
 const updateChatSuccessHandler = (
   chat: Api.Chat,
   model: Model,
-  refs: LinkPagination.Refs,
 ): [Model, Cmd<Msg>] => {
-  const logicConfig = mkLogicConfig(model, refs)
   const parentContext: ParentContext = {
     currentUserId: 'user-master',
     highlightedChatId: model.highlightedChatId,
@@ -410,9 +446,7 @@ const updateChatSuccessHandler = (
 const deleteChatSuccessHandler = (
   chatId: string,
   model: Model,
-  refs: LinkPagination.Refs,
 ): [Model, Cmd<Msg>] => {
-  const logicConfig = mkLogicConfig(model, refs)
   const parentContext: ParentContext = {
     currentUserId: 'user-master',
     highlightedChatId: model.highlightedChatId,

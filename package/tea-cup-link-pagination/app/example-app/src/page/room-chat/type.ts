@@ -1,6 +1,12 @@
 import type * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
+import { ModelEq as LinkPaginModelEq } from '@rinn7e/tea-cup-link-pagination'
+import { NullableEq, UndefinableEq } from '@rinn7e/tea-cup-prelude'
+import * as A from 'fp-ts/lib/Array'
+import * as EqClass from 'fp-ts/lib/Eq'
+import * as B from 'fp-ts/lib/boolean'
+import * as S from 'fp-ts/lib/string'
 
-import { type Chat, type Room } from '../../api'
+import { type Chat, ChatEq, type Room, RoomEq } from '../../api'
 import { type AppRoute } from '../../common/route/type'
 
 export type ChatItemMsg =
@@ -16,6 +22,13 @@ export type ParentContext = {
   readonly dispatch: (msg: Msg) => void
 }
 
+export const ParentContextEq: EqClass.Eq<ParentContext> = EqClass.struct({
+  currentUserId: S.Eq,
+  highlightedChatId: NullableEq(S.Eq),
+  room: UndefinableEq(RoomEq),
+  dispatch: { equals: () => true },
+})
+
 export type Model = {
   readonly roomId: string
   readonly linkPagin: LinkPagination.Model<Chat>
@@ -26,6 +39,17 @@ export type Model = {
   readonly searchResults: Chat[]
   readonly isSearchDropdownOpen: boolean
 }
+
+export const ModelEq: EqClass.Eq<Model> = EqClass.struct({
+  roomId: S.Eq,
+  linkPagin: LinkPaginModelEq(ChatEq),
+  scrollStateMap: { equals: () => true },
+  highlightedChatId: NullableEq(S.Eq),
+  inputDraft: S.Eq,
+  searchQuery: S.Eq,
+  searchResults: A.getEq(ChatEq),
+  isSearchDropdownOpen: B.Eq,
+})
 
 export type Msg =
   | {
@@ -52,4 +76,13 @@ export type Props = {
   readonly dispatch: (msg: Msg) => void
   readonly onMarkAsRead?: () => void
   readonly totalUnreadCount?: number
+}
+
+export const PropsEq: EqClass.Eq<Props> = {
+  equals: (a, b) =>
+    ModelEq.equals(a.model, b.model) &&
+    UndefinableEq(RoomEq).equals(a.room, b.room) &&
+    (a.onMarkAsRead === b.onMarkAsRead ||
+      (a.onMarkAsRead !== undefined && b.onMarkAsRead !== undefined)) &&
+    (a.totalUnreadCount ?? 0) === (b.totalUnreadCount ?? 0),
 }

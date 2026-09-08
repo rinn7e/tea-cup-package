@@ -4,7 +4,8 @@ import { type JSX, memo, useContext } from 'react'
 import { SetGlobalMsgContext } from '../../common/global-context'
 import { redirectToHomepage } from '../../common/util/route'
 import { RoomListMemo } from './sub-component/room-list'
-import { type Props } from './type'
+import type * as RoomList from './sub-component/room-list/type'
+import { type Msg, type Props } from './type'
 
 export const RoomSidebarComponent = ({
   model,
@@ -42,7 +43,11 @@ export const RoomSidebarComponent = ({
       <RoomListMemo
         model={model.roomList}
         activeRoomId={activeRoomId}
-        dispatch={(subMsg) => dispatch({ _tag: 'RoomListMsg', subMsg })}
+        dispatchP={dispatch}
+        mkPmsg={(subMsg: RoomList.Msg): Msg => ({
+          _tag: 'RoomListMsg',
+          subMsg,
+        })}
       />
     </aside>
   )
