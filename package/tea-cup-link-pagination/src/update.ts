@@ -74,6 +74,7 @@ export function init<A, amsg, Route>(
     invisWhileScrolling: false,
     isScrolling: false,
     savedScrollPos: null,
+    initialScrollDone: false,
   } satisfies Model<A>
 
   return getInitialDataHandler(

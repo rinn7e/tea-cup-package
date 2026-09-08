@@ -68,6 +68,7 @@ export const getInitialDataHandler =
   <A, amsg, Route>(model: Model<A>): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
     const newModel = {
       ...model,
+      initialScrollDone: false,
       mode: {
         ...model.mode,
         initialData: RD.pending,
@@ -88,26 +89,35 @@ export const getInitialDataFromCacheResponseHandler = <A, B, amsg, Route>(
   m: Model<A>,
 ): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
   if (m.mode.dataSourceId === dataSourceId) {
-    const newModel =
+    const hasCacheData =
       cache._tag === 'RemoteSuccess' && cache.value.length !== 0
-        ? pipe({
-            ...m,
-            mode: {
-              ...m.mode,
-              initialData: RD.success(cache.value),
-              overallData: pipe(
-                cache.value,
-                SUA.fromArray(config.eqWithKey, config.ord),
-              ),
-            },
-          } satisfies Model<A>)
-        : m
+    const newModel = hasCacheData
+      ? pipe({
+          ...m,
+          mode: {
+            ...m.mode,
+            initialData: RD.success(cache.value),
+            overallData: pipe(
+              cache.value,
+              SUA.fromArray(config.eqWithKey, config.ord),
+            ),
+          },
+        } satisfies Model<A>)
+      : m
+
+    // Fast path: the cache leg may scroll only to a target the API leg cannot overturn
+    // (no selectedKey: opening at newest page / end of list)
+    const shouldScroll =
+      !newModel.initialScrollDone &&
+      hasCacheData &&
+      newModel.mode.selectedKey === null
+
     return pipe(
-      [newModel, getInitialDataFromApiCmd(networkStatus, newModel)] satisfies [
-        Model<A>,
-        Cmd<Msg<A, amsg, Route>>,
-      ],
-      cache._tag === 'RemoteSuccess' && cache.value.length !== 0
+      [
+        shouldScroll ? { ...newModel, initialScrollDone: true } : newModel,
+        getInitialDataFromApiCmd(networkStatus, newModel),
+      ] satisfies [Model<A>, Cmd<Msg<A, amsg, Route>>],
+      shouldScroll
         ? updateAndCmd(scrollToCurrentHandler(config, { isGraceful: false }))
         : identity,
     )
@@ -126,6 +136,15 @@ export const getInitialDataFromApiResponseHandler = <A, B, amsg, Route>(
     const cacheExist = m.mode.overallData.value.length > 0
 
     const newModel = (() => {
+      if (result._tag === 'Left') {
+        return cacheExist
+          ? { ...m, initialScrollDone: true }
+          : ({
+              ...m,
+              initialScrollDone: true,
+              mode: { ...m.mode, initialData: RD.failure(result.left) },
+            } satisfies Model<A>)
+      }
       if (result._tag === 'Right') {
         // We pass current overall data to ensure that, transformation func
         // in the config has access to latest overall data (which is populated
@@ -133,6 +152,7 @@ export const getInitialDataFromApiResponseHandler = <A, B, amsg, Route>(
         const newOverallData = result.right.dataF(m.mode.overallData.value)
         return pipe({
           ...m,
+          initialScrollDone: true,
           mode: {
             ...m.mode,
             initialData: RD.success(newOverallData),
@@ -150,10 +170,8 @@ export const getInitialDataFromApiResponseHandler = <A, B, amsg, Route>(
       } else return m
     })()
 
-    const shouldScroll =
-      result._tag === 'Right'
-        ? result.right.selectedKey !== undefined || !cacheExist
-        : !cacheExist
+    // Discharge the scroll obligation if it has not already been done by the cache leg
+    const shouldScroll = !m.initialScrollDone
 
     return pipe(
       newModel,

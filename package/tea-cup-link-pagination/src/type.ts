@@ -366,6 +366,7 @@ export type Model<A> = {
   invisWhileScrolling: boolean
   isScrolling: boolean
   savedScrollPos: number | null
+  initialScrollDone: boolean
 }
 
 export function ModelEq<A>(eqA: EqClass.Eq<A>) {
@@ -378,6 +379,7 @@ export function ModelEq<A>(eqA: EqClass.Eq<A>) {
     invisWhileScrolling: B.Eq,
     isScrolling: B.Eq,
     savedScrollPos: NullableEq(EqClass.eqNumber),
+    initialScrollDone: B.Eq,
   })
 }
 
