@@ -88,6 +88,7 @@ export type EndpointHandler<A> = (
 export type InitialEndpointResponse<A> = {
   dataF: (currentOverall: A[]) => A[]
   nextIsMax: boolean
+  selectedKey?: string | null
 }
 
 // Endpoint type for initial handler

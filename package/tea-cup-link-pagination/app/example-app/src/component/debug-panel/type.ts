@@ -19,4 +19,5 @@ export type Props = {
   readonly onSimulateSseOtherRoom: () => void
   readonly onClearCacheAndReset: () => void
   readonly onHardReload: () => void
+  readonly onSimulateRepointBug?: () => void
 }

@@ -165,6 +165,9 @@ export const App = ({
             onHardReload={() =>
               dispatch({ _tag: 'ReloadActiveRoomGlobalEvent' })
             }
+            onSimulateRepointBug={() =>
+              dispatch({ _tag: 'SimulateRepointBugGlobalEvent' })
+            }
           />
 
           {/* Popover Modal: Room Details / Members */}

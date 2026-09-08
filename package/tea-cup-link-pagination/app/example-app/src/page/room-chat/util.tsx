@@ -227,16 +227,11 @@ export const mkUiConfig = (
       selectedA,
     }: LinkPagination.CustomUiParam<Chat, ParentContext>) => {
       const chat = withPrevNextA.a
-      const prevChat = withPrevNextA.prevA
       const isSelected =
         b.highlightedChatId === chat.id ||
         (selectedA._tag === 'Some' && selectedA.value.id === chat.id)
       const isFirstUnread = Boolean(
-        chat.isUnread &&
-        (prevChat
-          ? !prevChat.isUnread
-          : b.room?.firstUnreadChatId === chat.id ||
-            (b.room?.unreadCount ?? 0) > 0),
+        b.room?.firstUnreadChatId && b.room.firstUnreadChatId === chat.id,
       )
       return (
         <ChatBubble

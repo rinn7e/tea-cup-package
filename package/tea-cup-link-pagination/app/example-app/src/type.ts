@@ -57,6 +57,7 @@ export type Msg =
     }
   | { readonly _tag: 'ClearCacheAndResetGlobalEvent' }
   | { readonly _tag: 'ReloadActiveRoomGlobalEvent' }
+  | { readonly _tag: 'SimulateRepointBugGlobalEvent' }
   | { readonly _tag: 'SetNetworkLatencyGlobalEvent'; readonly ms: number }
   | { readonly _tag: 'ToggleNetworkOnlineGlobalEvent' }
   | { readonly _tag: 'NoOp' }

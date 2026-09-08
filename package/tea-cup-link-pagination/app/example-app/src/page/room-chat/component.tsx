@@ -227,6 +227,30 @@ export const RoomChatPageComponent = (props: Props): JSX.Element => {
         </div>
       </div>
 
+      {/* 1.1 Reproduction Info Banner for Bug #123 */}
+      {model.highlightedChatId?.includes('repoint') && (
+        <div
+          data-testid='repoint-repro-banner'
+          className='flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900'
+        >
+          <span className='flex items-center gap-1.5 font-medium'>
+            <span className='font-bold text-amber-700'>
+              🐛 Bug #123 Repro:
+            </span>
+            <span>
+              Provisional target was <code>message-1002</code>, API settled to{' '}
+              <code>latest (null)</code>.
+            </span>
+          </span>
+          <span
+            data-testid='repro-status-badge'
+            className='rounded bg-amber-200/80 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-900'
+          >
+            Target Re-point Repro
+          </span>
+        </div>
+      )}
+
       {/* 2. Chat Timeline (LinkPagination Container) */}
       <div className='relative min-h-0 flex-1 overflow-hidden bg-slate-50/30'>
         <LinkPaginationMemo<Chat, ParentContext, Msg, ChatItemMsg, AppRoute>

@@ -6,7 +6,7 @@ import * as TE from 'fp-ts/lib/TaskEither'
 import { Cmd, type Result, Sub } from 'tea-cup-fp'
 
 import * as Api from './api'
-import { type AppRoute } from './common/route/type'
+import { type AppRoute, roomChatRoute } from './common/route/type'
 import {
   type PageModel,
   upsertRoomChatPageDict,
@@ -108,6 +108,9 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
 
     case 'ReloadActiveRoomGlobalEvent':
       return reloadActiveRoomGlobalEventHandler(model)
+
+    case 'SimulateRepointBugGlobalEvent':
+      return simulateRepointBugGlobalEventHandler(model)
 
     case 'SetNetworkLatencyGlobalEvent':
       return setNetworkLatencyGlobalEventHandler(msg.ms, model)
@@ -519,6 +522,19 @@ const reloadActiveRoomGlobalEventHandler = (
   return teaRouterMsgHandler(
     { _tag: 'ChangeRoute', route: currentRoute },
     model,
+  )
+}
+
+const simulateRepointBugGlobalEventHandler = (
+  model: Model,
+): [Model, Cmd<Msg>] => {
+  const newDebugPanel = { ...model.debugPanel, networkLatencyMs: 400 }
+  const newShared = { ...model.shared, latencyMs: 400 }
+  const targetRoute = roomChatRoute('room-general', 'message-1002-repoint')
+
+  return teaRouterMsgHandler(
+    { _tag: 'ChangeRoute', route: targetRoute },
+    { ...model, debugPanel: newDebugPanel, shared: newShared },
   )
 }
 

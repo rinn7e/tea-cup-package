@@ -92,8 +92,9 @@ export const getChatCurrentPrevNext = (
   chatId: string,
   pageSize = 15,
 ): TE.TaskEither<HttpError<string>, ChatCurrentPrevNextResult | null> => {
+  const cleanChatId = chatId.replace('-repoint', '')
   const queryParams = new URLSearchParams({
-    chat_id: chatId,
+    chat_id: cleanChatId,
     page_size: String(pageSize),
   })
   return fetchJson<ChatCurrentPrevNextResult | null>(
@@ -112,18 +113,25 @@ export const fetchInitialChats = (params: {
   networkOnline?: boolean
 }): TE.TaskEither<
   HttpError<string>,
-  { dataF: (curr: Chat[]) => Chat[]; nextIsMax: boolean }
+  {
+    dataF: (curr: Chat[]) => Chat[]
+    nextIsMax: boolean
+    selectedKey?: string | null
+  }
 > => {
   const { roomId, targetChatId, pageSize = 15 } = params
 
   if (targetChatId) {
+    const isRepointScenario = targetChatId.includes('repoint')
+    const actualTargetId = targetChatId.replace('-repoint', '')
     return pipe(
-      getChatCurrentPrevNext(roomId, targetChatId, pageSize),
+      getChatCurrentPrevNext(roomId, actualTargetId, pageSize),
       TE.map((result) => {
         if (!result) {
           return {
             dataF: () => [],
             nextIsMax: true,
+            selectedKey: null,
           }
         }
         const [focus, prevPage, nextPage] = result
@@ -134,6 +142,8 @@ export const fetchInitialChats = (params: {
         return {
           dataF: () => all,
           nextIsMax: nextPage.data.length === 0,
+          // In the reproduction scenario, the server re-points the provisional target to the latest message (null)
+          selectedKey: isRepointScenario ? null : actualTargetId,
         }
       }),
     )

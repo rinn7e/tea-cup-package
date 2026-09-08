@@ -27,6 +27,7 @@ export const DebugPanelComponent = ({
   onSimulateSseOtherRoom,
   onClearCacheAndReset,
   onHardReload,
+  onSimulateRepointBug,
 }: Props): JSX.Element => {
   return (
     <aside
@@ -171,6 +172,19 @@ export const DebugPanelComponent = ({
                 : 'Hard Reload'}
             </span>
           </button>
+
+          {onSimulateRepointBug && (
+            <button
+              type='button'
+              data-testid='reproduce-des752-btn'
+              onClick={onSimulateRepointBug}
+              className='flex w-full items-center justify-center gap-2 rounded-xl border border-amber-800/80 bg-amber-950/60 py-1.5 text-xs font-bold text-amber-300 shadow-2xs transition-all hover:border-amber-700 hover:bg-amber-900/60'
+              title='Bug #123: Simulates opening cached room with provisional target message-1002 where the API resolves to latest messages'
+            >
+              <RotateCcw className='size-3.5 text-amber-400' />
+              <span>Reproduce Bug #123 🐛</span>
+            </button>
+          )}
         </div>
       </div>
 

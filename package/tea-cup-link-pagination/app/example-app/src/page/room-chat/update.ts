@@ -49,7 +49,7 @@ export const mkLinkPaginationMode = (
         ),
     }),
     initialData: RD.initial,
-    selectedKey: targetChatId,
+    selectedKey: targetChatId ? targetChatId.replace('-repoint', '') : null,
     retriggerCurrentData: 'done',
     animationEnd: false,
 

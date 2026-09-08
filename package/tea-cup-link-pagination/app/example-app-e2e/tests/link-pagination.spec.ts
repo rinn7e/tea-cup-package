@@ -344,4 +344,62 @@ test.describe('TEA Routing & LinkPagination E2E Suite', () => {
     // Verify message disappears from UI
     await expect(messageLocator).not.toBeVisible({ timeout: 10_000 })
   })
+
+  test('13. [Bug #123 Reproduction] Target Re-point Swallowed by Cache Leg', async ({
+    page,
+  }) => {
+    // 1. Visit /rooms/room-general to populate local cache with messages
+    await page.goto('/rooms/room-general')
+    await expect(page.getByTestId('room-chat-page')).toBeVisible({
+      timeout: 10_000,
+    })
+    await expect(page.locator('.custom-ui-wrapper').first()).toBeVisible({
+      timeout: 10_000,
+    })
+
+    // 2. Click "Reproduce DES-752 Bug" in DebugPanel
+    const reproBtn = page.getByTestId('reproduce-des752-btn')
+    await expect(reproBtn).toBeVisible()
+    await reproBtn.click()
+
+    // URL becomes /rooms/room-general/chats/message-1002-repoint
+    await expect(page).toHaveURL(/message-1002-repoint/)
+    await expect(page.getByTestId('repoint-repro-banner')).toBeVisible()
+
+    // Wait for the API leg to complete after simulated delay
+    await page.waitForTimeout(1000)
+
+    // On unpatched LinkPagination:
+    // The cache leg immediately scrolled to message-1002 (older message near the top).
+    // When the API leg completed with selectedKey: null (latest message),
+    // getInitialDataFromApiResponseHandler saw cacheExist === true and SKIPPED scrolling!
+    // Therefore, message-1002 remains visible in view, demonstrating that the viewport was stuck.
+    const message1002 = page.getByTestId('chat-item-message-1002')
+    await expect(message1002).toBeVisible()
+  })
+
+  test('14. Unread Indicator Divider renders above first unread message', async ({
+    page,
+  }) => {
+    await page.goto('/rooms/room-general')
+    await expect(page.getByTestId('room-chat-page')).toBeVisible({
+      timeout: 10_000,
+    })
+    await expect(page.locator('.custom-ui-wrapper').first()).toBeVisible({
+      timeout: 10_000,
+    })
+
+    // Verify "New Messages" unread divider is rendered
+    const unreadDivider = page.getByTestId('new-messages-divider')
+    await expect(unreadDivider).toBeVisible()
+    await expect(unreadDivider).toHaveText(/New Messages/)
+
+    // Verify it is attached right above message-1042
+    const message1042Container = page.locator(
+      'div[data-component="ChatBubbleComponent"]:has([data-testid="chat-item-message-1042"])',
+    )
+    await expect(
+      message1042Container.locator('[data-testid="new-messages-divider"]'),
+    ).toBeVisible()
+  })
 })
