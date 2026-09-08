@@ -14,7 +14,14 @@ export const fetchJson = <T>(
         const text = await res.text()
         return E.left(mkHttpError(res.status, text || res.statusText))
       }
-      const data: T = await res.json()
+      if (res.status === 204) {
+        return E.right(undefined as unknown as T)
+      }
+      const text = await res.text()
+      if (!text || text.trim() === '') {
+        return E.right(undefined as unknown as T)
+      }
+      const data: T = JSON.parse(text)
       return E.right(data)
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err)

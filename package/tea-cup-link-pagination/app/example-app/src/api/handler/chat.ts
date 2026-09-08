@@ -271,6 +271,33 @@ export const toggleChatStar = (params: {
 }
 
 /**
+ * Endpoint: DELETE /api/rooms/:roomId/chats/:chatId
+ */
+export const deleteChat = (params: {
+  roomId: string
+  chatId: string
+  latencyMs?: number
+  networkOnline?: boolean
+}): TE.TaskEither<HttpError<string>, void> => {
+  const { roomId, chatId } = params
+
+  return pipe(
+    fetchJson<void>(
+      `/api/rooms/${encodeURIComponent(roomId)}/chats/${encodeURIComponent(chatId)}`,
+      {
+        method: 'DELETE',
+      },
+    ),
+    TE.map(() => {
+      const cached = LOCAL_CACHE[roomId]
+      if (cached) {
+        LOCAL_CACHE[roomId] = cached.filter((c) => c.id !== chatId)
+      }
+    }),
+  )
+}
+
+/**
  * Endpoint: POST /api/sse/simulate (simulate incoming real-time message)
  */
 export const simulateIncomingChat = (params: {

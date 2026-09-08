@@ -212,6 +212,8 @@ export const update = (
       return sendChatSuccessHandler(msg.chat, model, refs)
     case 'UpdateChatSuccess':
       return updateChatSuccessHandler(msg.chat, model)
+    case 'DeleteChatSuccess':
+      return deleteChatSuccessHandler(msg.chatId, model)
     case 'SetSearchQuery':
       return setSearchQueryHandler(msg.query, model)
     case 'SearchResponse':
@@ -339,6 +341,18 @@ const updateChatSuccessHandler = (
   const newLinkPagin = LinkPagination.updateItem(chat.id, chat, {
     _tag: 'ElementModifyInPlace',
   })(model.linkPagin)
+
+  return [{ ...model, linkPagin: newLinkPagin }, Cmd.none()]
+}
+
+const deleteChatSuccessHandler = (
+  chatId: string,
+  model: Model,
+): [Model, Cmd<Msg>] => {
+  const newLinkPagin = LinkPagination.replaceFuncHandler(model.linkPagin, {
+    func: LinkPagination.SUA.filter((c) => c.id !== chatId),
+    containerChangeEvent: { _tag: 'ElementModifyInPlace' },
+  })
 
   return [{ ...model, linkPagin: newLinkPagin }, Cmd.none()]
 }
@@ -523,6 +537,25 @@ const chatItemMsgHandler =
         return [
           { ...model, inputDraft: replyDraft },
           Cmd.none(),
+          { _tag: 'NoChange' },
+        ]
+      }
+
+      case 'DeleteChat': {
+        return [
+          model,
+          attemptTE(
+            Api.deleteChat({
+              roomId: item.roomId,
+              chatId: item.id,
+            }),
+            (result): Msg => {
+              if (result.tag === 'Ok') {
+                return { _tag: 'DeleteChatSuccess', chatId: item.id }
+              }
+              return { _tag: 'NoOp' }
+            },
+          ),
           { _tag: 'NoChange' },
         ]
       }

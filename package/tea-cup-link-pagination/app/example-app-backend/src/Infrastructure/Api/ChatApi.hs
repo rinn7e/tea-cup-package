@@ -44,6 +44,7 @@ type ChatApi =
   :<|> "api" :> "rooms" :> Capture "roomId" Text :> "chats" :> ReqBody '[JSON] SendChatPayload :> Post '[JSON] ChatDTO
   :<|> "api" :> "rooms" :> Capture "roomId" Text :> "chats" :> Capture "chatId" Text :> "reactions" :> ReqBody '[JSON] ToggleReactionPayload :> Post '[JSON] ChatDTO
   :<|> "api" :> "rooms" :> Capture "roomId" Text :> "chats" :> Capture "chatId" Text :> "star" :> Post '[JSON] ChatDTO
+  :<|> "api" :> "rooms" :> Capture "roomId" Text :> "chats" :> Capture "chatId" Text :> Delete '[JSON] NoContent
   :<|> "api" :> "chats" :> "search" :> QueryParam' '[Required, Strict] "query" Text :> QueryParam "room_id" Text :> Get '[JSON] [ChatDTO]
 
 chatServer :: ConnectionPool -> Server ChatApi
@@ -54,6 +55,7 @@ chatServer pool =
   :<|> sendChatHandler pool
   :<|> toggleReactionHandler pool
   :<|> toggleStarHandler pool
+  :<|> deleteChatHandler pool
   :<|> searchChatsHandler pool
 
 toChatDTO :: Entity Chat -> SqlPersistT IO ChatDTO
@@ -191,6 +193,14 @@ toggleStarHandler pool _rId cId = do
   case mbChat of
     Just c -> pure c
     Nothing -> throwError err404 { errBody = "Chat not found" }
+
+deleteChatHandler :: ConnectionPool -> Text -> Text -> Handler NoContent
+deleteChatHandler pool _rId cId = do
+  liftIO $ runSqlPool (do
+    deleteWhere [ChatReactionChatSlug ==. cId]
+    delete (ChatKey cId)
+    ) pool
+  pure NoContent
 
 searchChatsHandler :: ConnectionPool -> Text -> Maybe Text -> Handler [ChatDTO]
 searchChatsHandler pool query mbRoomId = liftIO $ runSqlPool (do

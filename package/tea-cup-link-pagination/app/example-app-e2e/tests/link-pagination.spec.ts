@@ -307,4 +307,36 @@ test.describe('Full-Featured TEA Routing & LinkPagination E2E Suite', () => {
     // App resets to clean state
     await expect(page.getByTestId('room-header-title')).toHaveText('general')
   })
+
+  test('12. Delete Message: Send message and delete via top-right hover action button', async ({
+    page,
+  }) => {
+    await page.goto('/rooms/room-general')
+    await expect(page.getByTestId('room-chat-page')).toBeVisible({
+      timeout: 10_000,
+    })
+
+    const textarea = page.getByTestId('chat-composer-textarea')
+    const deleteTestContent = `Temporary msg to delete ${Date.now()}`
+    await textarea.fill(deleteTestContent)
+    await textarea.press('Enter')
+
+    // Message is displayed
+    const messageLocator = page.getByText(deleteTestContent)
+    await expect(messageLocator).toBeVisible({ timeout: 10_000 })
+
+    // Hover over the message row to expose action bar
+    const messageRow = messageLocator.locator(
+      'xpath=ancestor::div[@data-component="ChatBubbleComponent"]',
+    )
+    await messageRow.hover()
+
+    // Click delete button
+    const deleteBtn = messageRow.locator('button[data-testid^="delete-btn-"]')
+    await expect(deleteBtn).toBeVisible()
+    await deleteBtn.click()
+
+    // Verify message disappears from UI
+    await expect(messageLocator).not.toBeVisible({ timeout: 10_000 })
+  })
 })

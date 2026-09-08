@@ -6,6 +6,7 @@ export type ChatItemMsg =
   | { readonly _tag: 'ToggleReaction'; readonly emoji: string }
   | { readonly _tag: 'ToggleStar' }
   | { readonly _tag: 'Reply' }
+  | { readonly _tag: 'DeleteChat' }
 
 export type Model = {
   readonly roomId: string
@@ -26,6 +27,7 @@ export type Msg =
   | { readonly _tag: 'SendChat' }
   | { readonly _tag: 'SendChatSuccess'; readonly chat: Chat }
   | { readonly _tag: 'UpdateChatSuccess'; readonly chat: Chat }
+  | { readonly _tag: 'DeleteChatSuccess'; readonly chatId: string }
   | { readonly _tag: 'SetSearchQuery'; readonly query: string }
   | { readonly _tag: 'SearchResponse'; readonly results: Chat[] }
   | { readonly _tag: 'CloseSearchDropdown' }

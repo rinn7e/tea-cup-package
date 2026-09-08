@@ -1,5 +1,5 @@
 import { cn } from '@rinn7e/tea-cup-prelude'
-import { Bookmark, MessageSquare, Smile, Star } from 'lucide-react'
+import { Bookmark, MessageSquare, Smile, Star, Trash2 } from 'lucide-react'
 import { type JSX, memo, useState } from 'react'
 
 import { type Props } from './type'
@@ -173,6 +173,16 @@ export const ChatBubbleComponent = ({
             title='Reply in thread'
           >
             <MessageSquare className='size-4' />
+          </button>
+
+          <button
+            type='button'
+            data-testid={`delete-btn-${chat.id}`}
+            onClick={() => dispatch({ _tag: 'DeleteChat' })}
+            className='rounded p-1.5 text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600'
+            title='Delete Message'
+          >
+            <Trash2 className='size-4' />
           </button>
         </div>
       </div>
