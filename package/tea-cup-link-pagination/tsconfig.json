@@ -6,8 +6,12 @@
     "outDir": "lib",
     "strict": true,
     "jsx": "react-jsx",
-    "moduleResolution": "node",
-    "esModuleInterop": true
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "include": ["src"]
 }

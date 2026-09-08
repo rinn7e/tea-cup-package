@@ -1,12 +1,21 @@
 import * as RD from '@devexperts/remote-data-ts'
 import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
-import { attemptTE, cmdSucceed, updateAndCmd } from '@rinn7e/tea-cup-prelude'
+import { attemptTE, cmdSucceed } from '@rinn7e/tea-cup-prelude'
+import { mkHttpError } from '@rinn7e/tea-cup-prelude/type/http-error'
+import { size } from '@rinn7e/tea-cup-prelude/type/size'
+import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import * as TE from 'fp-ts/lib/TaskEither'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd, type Sub } from 'tea-cup-fp'
 
 import * as Api from '../../api'
-import { type ChatItemMsg, type Model, type Msg } from './type'
+import { type AppRoute } from '../../common/route/type'
+import {
+  type ChatItemMsg,
+  type Model,
+  type Msg,
+  type ParentContext,
+} from './type'
 import { mkLogicConfig } from './util'
 
 export const mkLinkPaginationMode = (
@@ -17,9 +26,9 @@ export const mkLinkPaginationMode = (
 ): LinkPagination.Mode<Api.Chat> => {
   return {
     dataSourceId: roomId,
-    overallData: LinkPagination.SUA.empty(),
+    overallData: SUA.empty(),
     prevData: RD.initial,
-    prevSize: LinkPagination.size(15),
+    prevSize: size(15),
     prevIsMax: false,
     allowRetryPrev: false,
 
@@ -34,7 +43,7 @@ export const mkLinkPaginationMode = (
             latencyMs,
             networkOnline,
           }),
-          TE.mapLeft((httpErr) => httpErr.actualErr),
+          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
         ),
     }),
     initialData: RD.initial,
@@ -57,7 +66,7 @@ export const mkLinkPaginationMode = (
             latencyMs,
             networkOnline,
           }),
-          TE.mapLeft((httpErr) => httpErr.actualErr),
+          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
         )
       },
     }),
@@ -75,12 +84,12 @@ export const mkLinkPaginationMode = (
             latencyMs,
             networkOnline,
           }),
-          TE.mapLeft((httpErr) => httpErr.actualErr),
+          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
         )
       },
     }),
     nextData: RD.initial,
-    nextSize: LinkPagination.size(15),
+    nextSize: size(15),
     nextIsMax: false,
   }
 }
@@ -97,14 +106,22 @@ export const init = (
     latencyMs,
     networkOnline,
   )
-  const [linkPagin, linkPaginCmd] = LinkPagination.init<Api.Chat, ChatItemMsg>(
+  const scrollStateMap = LinkPagination.mkScrollStateMap()
+  const [linkPagin, linkPaginCmd] = LinkPagination.init<
+    Api.Chat,
+    ChatItemMsg,
+    AppRoute
+  >(
     networkOnline,
     initialMode,
+    LinkPagination.storeScrollState(scrollStateMap),
+    LinkPagination.mkShouldRestoreScrollState(roomId, scrollStateMap),
   )
 
   const model: Model = {
     roomId,
     linkPagin,
+    scrollStateMap,
     highlightedChatId: targetChatId,
     inputDraft: '',
     searchQuery: '',
@@ -135,15 +152,31 @@ export const reInit = (
       networkOnline,
     )
     const logicConfig = mkLogicConfig(oldModel, refs)
+    const parentContext: ParentContext = {
+      currentUserId: 'user-master',
+      highlightedChatId: targetChatId,
+      room: undefined,
+      dispatch: () => {},
+    }
     const [newLinkPagin, linkPaginCmd] = LinkPagination.update<
       Api.Chat,
-      ChatItemMsg
+      ParentContext,
+      ChatItemMsg,
+      AppRoute
     >(networkOnline, logicConfig)(
+      parentContext,
       {
         _tag: 'SetModeAndAddUpdateData',
         mode: newMode,
         data: null,
         shouldReload: true,
+        onContainerScroll: LinkPagination.storeScrollState(
+          oldModel.scrollStateMap,
+        ),
+        shouldRestoreScrollState: LinkPagination.mkShouldRestoreScrollState(
+          roomId,
+          oldModel.scrollStateMap,
+        ),
       },
       oldModel.linkPagin,
     )
@@ -159,15 +192,15 @@ export const reInit = (
     ]
   }
 
-  // Restore scroll position using anchor-based scrollStateMap, or scroll to bottom (newest)
+  // Restore scroll position using scrollStateMap, or scroll to bottom (newest)
   const scrollCmd: Cmd<Msg> = cmdSucceed(() => {
     requestAnimationFrame(() => {
       if (refs.containerRef.current) {
         const container = refs.containerRef.current
-        const restored = LinkPagination.restoreScrollState(
-          oldModel.linkPagin.scrollStateMap,
-        )(roomId, container)
-        if (!restored) {
+        const restoredPos = oldModel.scrollStateMap.get(roomId)
+        if (restoredPos !== undefined) {
+          container.scrollTo({ top: restoredPos })
+        } else {
           const targetScroll = container.scrollHeight
           refs.currentScrollPosRef.current = targetScroll
           container.scrollTo({ top: targetScroll })
@@ -211,11 +244,11 @@ export const update = (
     case 'SendChatSuccess':
       return sendChatSuccessHandler(msg.chat, model, refs)
     case 'UpdateChatSuccess':
-      return updateChatSuccessHandler(msg.chat, model)
+      return updateChatSuccessHandler(msg.chat, model, refs)
     case 'DeleteChatSuccess':
-      return deleteChatSuccessHandler(msg.chatId, model)
+      return deleteChatSuccessHandler(msg.chatId, model, refs)
     case 'SetSearchQuery':
-      return setSearchQueryHandler(msg.query, model)
+      return setSearchQueryHandler(msg.query, model, networkOnline)
     case 'SearchResponse':
       return searchResponseHandler(msg.results, model)
     case 'CloseSearchDropdown':
@@ -239,42 +272,28 @@ const linkPaginMsgHandler = (
   refs: LinkPagination.Refs,
   networkOnline: boolean,
 ): [Model, Cmd<Msg>] => {
+  if (subMsg._tag === 'ChildMsg' && subMsg.subMsg._tag === 'DeleteChat') {
+    return deleteChatSuccessHandler(subMsg.childId, model, refs)
+  }
+
   const logicConfig = mkLogicConfig(model, refs)
+  const parentContext: ParentContext = {
+    currentUserId: 'user-master',
+    highlightedChatId: model.highlightedChatId,
+    room: undefined,
+    dispatch: () => {},
+  }
   const [newLinkPagin, linkPaginCmd] = LinkPagination.update<
     Api.Chat,
-    ChatItemMsg
-  >(networkOnline, logicConfig)(subMsg, model.linkPagin)
+    ParentContext,
+    ChatItemMsg,
+    AppRoute
+  >(networkOnline, logicConfig)(parentContext, subMsg, model.linkPagin)
 
-  return pipe(
-    [
-      { ...model, linkPagin: newLinkPagin },
-      linkPaginCmd.map(
-        (m): Msg => ({
-          _tag: 'LinkPaginMsg',
-          subMsg: m,
-        }),
-      ),
-    ] satisfies [Model, Cmd<Msg>],
-    updateAndCmd((m) => {
-      if (subMsg._tag === 'ItemMsg') {
-        const [updatedModel, cmd, containerChangeEvent] = chatItemMsgHandler(
-          subMsg.item,
-          subMsg.msg,
-        )(m)
-        return [
-          {
-            ...updatedModel,
-            linkPagin: {
-              ...updatedModel.linkPagin,
-              containerChangeEvent,
-            },
-          },
-          cmd,
-        ]
-      }
-      return [m, Cmd.none()]
-    }),
-  )
+  return [
+    { ...model, linkPagin: newLinkPagin },
+    linkPaginCmd.map((m): Msg => ({ _tag: 'LinkPaginMsg', subMsg: m })),
+  ]
 }
 
 const updateInputDraftHandler = (
@@ -314,15 +333,32 @@ const sendChatSuccessHandler = (
   refs: LinkPagination.Refs,
 ): [Model, Cmd<Msg>] => {
   const logicConfig = mkLogicConfig(model, refs)
-  const newLinkPagin = LinkPagination.addOrUpdateDataHandler(
-    logicConfig,
+  const parentContext: ParentContext = {
+    currentUserId: 'user-master',
+    highlightedChatId: model.highlightedChatId,
+    room: undefined,
+    dispatch: () => {},
+  }
+  const [newLinkPagin, addCmd] = LinkPagination.update<
+    Api.Chat,
+    ParentContext,
+    ChatItemMsg,
+    AppRoute
+  >(true, logicConfig)(
+    parentContext,
+    {
+      _tag: 'AddOrUpdateData',
+      dataSourceId: model.roomId,
+      value: [{ data: chat, previousId: null }],
+      compareId: (a, id) => a.id === id,
+    },
     model.linkPagin,
-    chat,
   )
 
   const [finalLinkPagin, scrollCmd] = LinkPagination.scrollToNewestHandler<
     Api.Chat,
-    ChatItemMsg
+    ChatItemMsg,
+    AppRoute
   >(refs, true, newLinkPagin)
 
   return [
@@ -330,36 +366,87 @@ const sendChatSuccessHandler = (
       ...model,
       linkPagin: finalLinkPagin,
     },
-    scrollCmd.map((subMsg): Msg => ({ _tag: 'LinkPaginMsg', subMsg })),
+    Cmd.batch([
+      addCmd.map((subMsg): Msg => ({ _tag: 'LinkPaginMsg', subMsg })),
+      scrollCmd.map((subMsg): Msg => ({ _tag: 'LinkPaginMsg', subMsg })),
+    ]),
   ]
 }
 
 const updateChatSuccessHandler = (
   chat: Api.Chat,
   model: Model,
+  refs: LinkPagination.Refs,
 ): [Model, Cmd<Msg>] => {
-  const newLinkPagin = LinkPagination.updateItem(chat.id, chat, {
-    _tag: 'ElementModifyInPlace',
-  })(model.linkPagin)
+  const logicConfig = mkLogicConfig(model, refs)
+  const parentContext: ParentContext = {
+    currentUserId: 'user-master',
+    highlightedChatId: model.highlightedChatId,
+    room: undefined,
+    dispatch: () => {},
+  }
+  const [newLinkPagin, cmd] = LinkPagination.update<
+    Api.Chat,
+    ParentContext,
+    ChatItemMsg,
+    AppRoute
+  >(true, logicConfig)(
+    parentContext,
+    {
+      _tag: 'AddOrUpdateData',
+      dataSourceId: model.roomId,
+      value: [{ data: chat, previousId: null }],
+      compareId: (a, id) => a.id === id,
+    },
+    model.linkPagin,
+  )
 
-  return [{ ...model, linkPagin: newLinkPagin }, Cmd.none()]
+  return [
+    { ...model, linkPagin: newLinkPagin },
+    cmd.map((subMsg): Msg => ({ _tag: 'LinkPaginMsg', subMsg })),
+  ]
 }
 
 const deleteChatSuccessHandler = (
   chatId: string,
   model: Model,
+  refs: LinkPagination.Refs,
 ): [Model, Cmd<Msg>] => {
-  const newLinkPagin = LinkPagination.replaceFuncHandler(model.linkPagin, {
-    func: LinkPagination.SUA.filter((c) => c.id !== chatId),
-    containerChangeEvent: { _tag: 'ElementModifyInPlace' },
-  })
+  const logicConfig = mkLogicConfig(model, refs)
+  const parentContext: ParentContext = {
+    currentUserId: 'user-master',
+    highlightedChatId: model.highlightedChatId,
+    room: undefined,
+    dispatch: () => {},
+  }
+  const [newLinkPagin, cmd] = LinkPagination.update<
+    Api.Chat,
+    ParentContext,
+    ChatItemMsg,
+    AppRoute
+  >(true, logicConfig)(
+    parentContext,
+    {
+      _tag: 'ReplaceFunc',
+      func: (overallData) => [
+        SUA.filter((c: Api.Chat) => c.id !== chatId)(overallData),
+        null,
+      ],
+      containerChangeEvent: { _tag: 'ElementModifyInPlace' },
+    },
+    model.linkPagin,
+  )
 
-  return [{ ...model, linkPagin: newLinkPagin }, Cmd.none()]
+  return [
+    { ...model, linkPagin: newLinkPagin },
+    cmd.map((subMsg): Msg => ({ _tag: 'LinkPaginMsg', subMsg })),
+  ]
 }
 
 const setSearchQueryHandler = (
   query: string,
   model: Model,
+  networkOnline: boolean = true,
 ): [Model, Cmd<Msg>] => {
   if (!query.trim()) {
     return [
@@ -381,7 +468,7 @@ const setSearchQueryHandler = (
     },
     attemptTE(
       pipe(
-        Api.searchChats({ query, roomId: model.roomId }),
+        Api.searchChats({ query, roomId: model.roomId, networkOnline }),
         TE.mapLeft((httpErr) => httpErr.actualErr),
       ),
       (result): Msg => {
@@ -417,10 +504,10 @@ const jumpToChatHandler = (
   refs: LinkPagination.Refs,
 ): [Model, Cmd<Msg>] => {
   const targetChat = model.searchResults.find((m) => m.id === chatId)
-
   const [newLinkPagin, scrollCmd] = LinkPagination.scrollToKeyHandler<
     Api.Chat,
-    ChatItemMsg
+    ChatItemMsg,
+    AppRoute
   >(refs, model.linkPagin, chatId)
 
   return [
@@ -448,7 +535,8 @@ const jumpToUnreadHandler = (
 
   const [newLinkPagin, scrollCmd] = LinkPagination.scrollToKeyHandler<
     Api.Chat,
-    ChatItemMsg
+    ChatItemMsg,
+    AppRoute
   >(refs, model.linkPagin, firstUnread.id)
 
   return [
@@ -467,103 +555,20 @@ const scrollToBottomHandler = (
 ): [Model, Cmd<Msg>] => {
   const [newLinkPagin, scrollCmd] = LinkPagination.scrollToNewestHandler<
     Api.Chat,
-    ChatItemMsg
+    ChatItemMsg,
+    AppRoute
   >(refs, true, model.linkPagin)
 
-  const directScrollCmd: Cmd<Msg> = Cmd.batch([
+  return [
+    { ...model, linkPagin: newLinkPagin },
     scrollCmd.map((subMsg): Msg => ({ _tag: 'LinkPaginMsg', subMsg })),
-    attemptTE(
-      TE.rightIO(() => {
-        if (refs.containerRef.current) {
-          refs.containerRef.current.scrollTop =
-            refs.containerRef.current.scrollHeight
-        }
-      }),
-      (): Msg => ({ _tag: 'NoOp' }),
-    ),
-  ])
-
-  return [{ ...model, linkPagin: newLinkPagin }, directScrollCmd]
+  ]
 }
 
-const chatItemMsgHandler =
-  (item: Api.Chat, msg: ChatItemMsg) =>
-  (model: Model): [Model, Cmd<Msg>, LinkPagination.ContainerChangeEvent] => {
-    switch (msg._tag) {
-      case 'ToggleReaction': {
-        const emoji = msg.emoji
-        const myUserId = 'user-master'
-        return [
-          model,
-          attemptTE(
-            Api.toggleChatReaction({
-              roomId: item.roomId,
-              chatId: item.id,
-              emoji,
-              userId: myUserId,
-            }),
-            (result): Msg => {
-              if (result.tag === 'Ok') {
-                return { _tag: 'UpdateChatSuccess', chat: result.value }
-              }
-              return { _tag: 'NoOp' }
-            },
-          ),
-          { _tag: 'ElementModifyInPlace' },
-        ]
-      }
-
-      case 'ToggleStar': {
-        return [
-          model,
-          attemptTE(
-            Api.toggleChatStar({
-              roomId: item.roomId,
-              chatId: item.id,
-            }),
-            (result): Msg => {
-              if (result.tag === 'Ok') {
-                return { _tag: 'UpdateChatSuccess', chat: result.value }
-              }
-              return { _tag: 'NoOp' }
-            },
-          ),
-          { _tag: 'ElementModifyInPlace' },
-        ]
-      }
-
-      case 'Reply': {
-        const replyDraft = `@${item.author.name} `
-        return [
-          { ...model, inputDraft: replyDraft },
-          Cmd.none(),
-          { _tag: 'NoChange' },
-        ]
-      }
-
-      case 'DeleteChat': {
-        return [
-          model,
-          attemptTE(
-            Api.deleteChat({
-              roomId: item.roomId,
-              chatId: item.id,
-            }),
-            (result): Msg => {
-              if (result.tag === 'Ok') {
-                return { _tag: 'DeleteChatSuccess', chatId: item.id }
-              }
-              return { _tag: 'NoOp' }
-            },
-          ),
-          { _tag: 'NoChange' },
-        ]
-      }
-    }
-  }
-
 export const subscriptions = (model: Model): Sub<Msg> =>
-  LinkPagination.subscriptions<Api.Chat, ChatItemMsg>(model.linkPagin).map(
+  LinkPagination.subscriptions<Api.Chat, ChatItemMsg, AppRoute>(
+    model.linkPagin,
+  ).map(
     (subMsg): Msg => ({
       _tag: 'LinkPaginMsg',
       subMsg,

@@ -2,6 +2,7 @@ import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 import { Cmd, type Sub } from 'tea-cup-fp'
 
 import type * as Api from '../../api'
+import { type AppRoute } from '../../common/route/type'
 import * as RoomList from './sub-component/room-list'
 import { type RoomItemMsg } from './sub-component/room-list/type'
 import { type Model, type Msg } from './type'
@@ -81,7 +82,7 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
 }
 
 export const subscriptions = (model: Model): Sub<Msg> =>
-  LinkPagination.subscriptions<Api.Room, RoomItemMsg>(
+  LinkPagination.subscriptions<Api.Room, RoomItemMsg, AppRoute>(
     model.roomList.linkPagin,
   ).map(
     (subMsg): Msg => ({

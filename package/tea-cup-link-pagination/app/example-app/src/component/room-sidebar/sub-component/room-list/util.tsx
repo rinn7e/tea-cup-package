@@ -1,48 +1,71 @@
-import type * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
+import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
+import { Cmd } from 'tea-cup-fp'
 
 import * as Api from '../../../../api'
 import { RoomItemComponent } from '../room-item'
-import { type Model, type Props, type RoomItemMsg } from './type'
+import { type ParentContext, type RoomItemMsg } from './type'
 
 export const mkRoomListLogicConfig = (
-  model: Model,
-): LinkPagination.LogicConfig<Api.Room> => ({
-  refs: model.refs,
-  mode: model.linkPagin.mode,
+  refs: LinkPagination.Refs,
+): LinkPagination.LogicConfig<Api.Room, ParentContext, RoomItemMsg> => ({
+  refs,
+  mode: LinkPagination.defaultMode<Api.Room>(),
   isReversed: false, // Sidebar room list is top-to-bottom
   eqWithKey: Api.RoomEq,
   ord: Api.RoomOrd,
   uniqueKeyField: (r: Api.Room) => r.id,
   visibleStrategy: { _tag: 'HalfInView' },
-  scrollStateMap: model.linkPagin.scrollStateMap,
+  update: (_parentSt, msg, room) => {
+    switch (msg._tag) {
+      case 'SelectRoom':
+      case 'MarkAsRead':
+      case 'ToggleExpand':
+        return [room, Cmd.none(), { _tag: 'NoChange' }]
+      case 'ToggleFavorite':
+        return [
+          { ...room, isPrivate: !room.isPrivate },
+          Cmd.none(),
+          { _tag: 'ElementModifyInPlace' },
+        ]
+    }
+  },
 })
 
 export const mkRoomListUiConfig = (
-  props: Props,
-): LinkPagination.UiConfig<Api.Room, RoomItemMsg> => {
-  const { model, activeRoomId } = props
-
+  refs: LinkPagination.Refs,
+): LinkPagination.UiConfig<Api.Room, ParentContext> => {
+  const logicConfig = mkRoomListLogicConfig(refs)
   return {
     customItemUi: ({
       withPrevNextA,
-      dispatch: itemDispatch,
-    }: {
-      withPrevNextA: { a: Api.Room }
-      dispatch: (msg: RoomItemMsg) => void
-    }) => {
+      b,
+    }: LinkPagination.CustomUiParam<Api.Room, ParentContext>) => {
       const room = withPrevNextA.a
-      const isActive = room.id === activeRoomId
+      const isActive = room.id === b.activeRoomId
 
       return (
         <RoomItemComponent
           key={room.id}
-          model={{ isExpand: model.expandedRoomIds.has(room.id) }}
+          model={{ isExpand: b.expandedRoomIds.has(room.id) }}
           room={room}
           isActive={isActive}
-          dispatch={itemDispatch}
+          dispatch={(itemMsg) => {
+            b.dispatch({
+              _tag: 'LinkPaginMsg',
+              subMsg: {
+                _tag: 'ChildMsg',
+                childId: logicConfig.uniqueKeyField(room),
+                subMsg: itemMsg,
+              },
+            })
+          }}
         />
       )
     },
+    disableScrolling: false,
+    titleView: null,
+    scrollToLatestCustomUi: null,
+    loadingView: null,
     scrollbarClass: 'h-full overflow-y-auto chat-scrollbar px-1 py-1',
     prevIsMaxCustomView: () => null,
     nextIsMaxCustomView: () => null,

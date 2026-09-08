@@ -1,6 +1,7 @@
 import type * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 
 import { type Room } from '../../../../api'
+import { type AppRoute } from '../../../../common/route/type'
 import { type RoomItemMsg } from '../room-item/type'
 
 export type { RoomItemMsg }
@@ -14,11 +15,17 @@ export type Model = {
 export type Msg =
   | {
       readonly _tag: 'LinkPaginMsg'
-      readonly subMsg: LinkPagination.Msg<Room, RoomItemMsg>
+      readonly subMsg: LinkPagination.Msg<Room, RoomItemMsg, AppRoute>
     }
   | { readonly _tag: 'SelectRoom'; readonly roomId: string }
   | { readonly _tag: 'UpdateRoomSuccess'; readonly room: Room }
   | { readonly _tag: 'NoOp' }
+
+export type ParentContext = {
+  readonly activeRoomId: string | undefined
+  readonly expandedRoomIds: Set<string>
+  readonly dispatch: (msg: Msg) => void
+}
 
 export type Props = {
   readonly model: Model

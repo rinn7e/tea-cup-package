@@ -1,5 +1,6 @@
 import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 import { attemptTE } from '@rinn7e/tea-cup-prelude'
+import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import * as TeaRouter from '@rinn7e/tea-cup-router'
 import * as TE from 'fp-ts/lib/TaskEither'
 import { Cmd, type Result, Sub } from 'tea-cup-fp'
@@ -299,10 +300,19 @@ const markRoomAsReadResponseGlobalEventHandler = (
 
   const room = result.value
   const currentPageModel = TeaRouter.getPageModel(model.router)
-  const updatedLinkPagin = LinkPagination.updateItem<Api.Room>(
-    room.id,
-    room,
-  )(currentPageModel.roomSidebar.roomList.linkPagin)
+  const [updatedLinkPagin] = LinkPagination.replaceFuncHandler(
+    currentPageModel.roomSidebar.roomList.linkPagin,
+    {
+      func: (overallData) => [
+        SUA.fromArray(
+          Api.RoomEq,
+          Api.RoomOrd,
+        )(overallData.value.map((r) => (r.id === room.id ? room : r))),
+        null,
+      ],
+      containerChangeEvent: { _tag: 'ElementModifyInPlace' },
+    },
+  )
 
   const updatedRoomSidebar = {
     ...currentPageModel.roomSidebar,
@@ -361,7 +371,11 @@ const applyIncomingChat = (
     const newLinkPagin = LinkPagination.addOrUpdateDataHandler(
       logicConfig,
       currentChatModel.linkPagin,
-      incomingChat,
+      {
+        dataSourceId: currentChatModel.linkPagin.mode.dataSourceId,
+        value: [{ data: incomingChat, previousId: null }],
+        compareId: (a, b) => a.id === b,
+      },
     )
 
     const updatedChatModel: RoomChatPage.Model = {
@@ -431,10 +445,23 @@ const simulateIncomingChatOtherRoomResponseGlobalEventHandler = (
 
   const { chat: incomingChat, room: updatedRoom } = result.value
   const currentPageModel = TeaRouter.getPageModel(model.router)
-  const updatedLinkPagin = LinkPagination.updateItem<Api.Room>(
-    updatedRoom.id,
-    updatedRoom,
-  )(currentPageModel.roomSidebar.roomList.linkPagin)
+  const [updatedLinkPagin] = LinkPagination.replaceFuncHandler(
+    currentPageModel.roomSidebar.roomList.linkPagin,
+    {
+      func: (overallData) => [
+        SUA.fromArray(
+          Api.RoomEq,
+          Api.RoomOrd,
+        )(
+          overallData.value.map((r) =>
+            r.id === updatedRoom.id ? updatedRoom : r,
+          ),
+        ),
+        null,
+      ],
+      containerChangeEvent: { _tag: 'ElementModifyInPlace' },
+    },
+  )
 
   const updatedRoomSidebar = {
     ...currentPageModel.roomSidebar,

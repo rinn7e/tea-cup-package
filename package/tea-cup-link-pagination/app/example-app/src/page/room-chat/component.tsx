@@ -16,8 +16,14 @@ import { type JSX, memo, useContext, useRef } from 'react'
 
 import { type Chat, ChatEq } from '../../api'
 import { SetGlobalMsgContext } from '../../common/global-context'
+import { type AppRoute } from '../../common/route/type'
 import { navigateToDrafts } from '../../common/util/route'
-import { type ChatItemMsg, type Props } from './type'
+import {
+  type ChatItemMsg,
+  type Msg,
+  type ParentContext,
+  type Props,
+} from './type'
 import { mkLogicConfig, mkUiConfig } from './util'
 
 export const RoomChatPageComponent = (props: Props): JSX.Element => {
@@ -37,7 +43,7 @@ export const RoomChatPageComponent = (props: Props): JSX.Element => {
   const isPrivate = room?.isPrivate ?? false
 
   const logicConfig = mkLogicConfig(model, refs)
-  const uiConfig = mkUiConfig(props)
+  const uiConfig = mkUiConfig()
 
   return (
     <div
@@ -222,18 +228,24 @@ export const RoomChatPageComponent = (props: Props): JSX.Element => {
 
       {/* 2. Chat Timeline (LinkPagination Container) */}
       <div className='relative min-h-0 flex-1 overflow-hidden bg-slate-50/30'>
-        <LinkPaginationMemo<Chat, ChatItemMsg>
+        <LinkPaginationMemo<Chat, ParentContext, Msg, ChatItemMsg, AppRoute>
           aEq={ChatEq}
+          bEq={{ equals: () => true }}
+          b={{
+            currentUserId: 'user-master',
+            highlightedChatId: model.highlightedChatId,
+            room,
+            dispatch,
+          }}
           config={{
             logic: logicConfig,
             ui: uiConfig,
           }}
-          dispatch={(lpMsg) =>
-            dispatch({
-              _tag: 'LinkPaginMsg',
-              subMsg: lpMsg,
-            })
-          }
+          dispatchP={dispatch}
+          mkPmsg={(subMsg) => ({
+            _tag: 'LinkPaginMsg',
+            subMsg,
+          })}
           model={model.linkPagin}
         />
 

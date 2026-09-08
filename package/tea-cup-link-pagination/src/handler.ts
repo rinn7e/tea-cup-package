@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 Rinn7e <https://rinn7e.io>
+//
+// SPDX-License-Identifier: MIT
 import * as RD from '@devexperts/remote-data-ts'
 import {
   attemptTE,
@@ -8,6 +11,15 @@ import {
   filterUnique,
   updateAndCmd,
 } from '@rinn7e/tea-cup-prelude'
+import { type AppRouteUpdater } from '@rinn7e/tea-cup-prelude/type/app-route-updater'
+import type * as CacheData from '@rinn7e/tea-cup-prelude/type/cache-data'
+import {
+  type HttpErrorString,
+  mkHttpError,
+} from '@rinn7e/tea-cup-prelude/type/http-error'
+import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
+import { type SortedUniqueArray } from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
+import * as A from 'fp-ts/lib/Array'
 import * as E from 'fp-ts/lib/Either'
 import { identity, pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
@@ -22,22 +34,20 @@ import {
   type Msg,
   type Refs,
   type ScrollToCurrentParam,
+  type ShouldRestoreScrollStateArg,
 } from './type'
-import type * as CacheData from './type/cache-data'
-import { restoreScrollState, storeScrollState } from './type/scroll-state'
-import * as SUA from './type/sorted-unique-array'
-import { type SortedUniqueArray } from './type/sorted-unique-array'
 import {
   addOrUpdateData,
   isAEqual,
   removeElFromArray,
   replaceFuncActionHandler,
+  replaceFuncActionHandlerAsync,
   revertPrevIsMax,
 } from './util'
 
 export const getInitialDataHandler =
   (networkStatus: boolean, dataSourceId: string) =>
-  <A, ItemMsg = never>(model: Model<A>): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+  <A, amsg, Route>(model: Model<A>): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
     const newModel = {
       ...model,
       mode: {
@@ -47,21 +57,18 @@ export const getInitialDataHandler =
     } satisfies Model<A>
     return [
       newModel,
-      getInitialDataFromCacheCmd<A, ItemMsg>(
-        networkStatus,
-        dataSourceId,
-        newModel,
-      ),
+      getInitialDataFromCacheCmd(networkStatus, dataSourceId, newModel),
     ]
   }
 
-export const getInitialDataFromCacheResponseHandler = <A, ItemMsg>(
+// Handle cache response and call real api
+export const getInitialDataFromCacheResponseHandler = <A, B, amsg, Route>(
   networkStatus: boolean,
-  config: LogicConfig<A>,
+  config: LogicConfig<A, B, amsg>,
   dataSourceId: string,
-  cache: RD.RemoteData<string, A[]>,
+  cache: RD.RemoteData<HttpErrorString, A[]>,
   m: Model<A>,
-): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
   if (m.mode.dataSourceId === dataSourceId) {
     const newModel =
       cache._tag === 'RemoteSuccess' && cache.value.length !== 0
@@ -80,29 +87,31 @@ export const getInitialDataFromCacheResponseHandler = <A, ItemMsg>(
     return pipe(
       [newModel, getInitialDataFromApiCmd(networkStatus, newModel)] satisfies [
         Model<A>,
-        Cmd<Msg<A, ItemMsg>>,
+        Cmd<Msg<A, amsg, Route>>,
       ],
       cache._tag === 'RemoteSuccess' && cache.value.length !== 0
         ? updateAndCmd(scrollToCurrentHandler(config, { isGraceful: false }))
         : identity,
     )
-  } else {
-    return [m, Cmd.none()]
-  }
+  } else return [m, Cmd.none()]
 }
 
-export const getInitialDataFromApiResponseHandler = <A, ItemMsg>(
-  config: LogicConfig<A>,
+// Handle api resposne
+export const getInitialDataFromApiResponseHandler = <A, B, amsg, Route>(
+  config: LogicConfig<A, B, amsg>,
   dataSourceId: string,
-  result: E.Either<string, InitialEndpointResponse<A>>,
+  result: E.Either<HttpErrorString, InitialEndpointResponse<A>>,
   m: Model<A>,
-): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
   if (m.mode.dataSourceId === dataSourceId) {
     // Cache is saved to overallData, so we can just check that
     const cacheExist = m.mode.overallData.value.length > 0
 
     const newModel = (() => {
       if (result._tag === 'Right') {
+        // We pass current overall data to ensure that, transformation func
+        // in the config has access to latest overall data (which is populated
+        // by cache initiall)
         const newOverallData = result.right.dataF(m.mode.overallData.value)
         return pipe({
           ...m,
@@ -116,27 +125,22 @@ export const getInitialDataFromApiResponseHandler = <A, ItemMsg>(
             ),
           },
         } satisfies Model<A>)
-      } else {
-        return m
-      }
+      } else return m
     })()
 
     return pipe(
       newModel,
-      // If cache already exists, maintain existing reading position
+      // If cache already exists, don't do the scrolling
       cacheExist
-        ? (model) =>
-            [model, Cmd.none()] satisfies [Model<A>, Cmd<Msg<A, ItemMsg>>]
+        ? (m) => [m, Cmd.none()]
         : scrollToCurrentHandler(config, { isGraceful: false }),
     )
-  } else {
-    return [m, Cmd.none()]
-  }
+  } else return [m, Cmd.none()]
 }
 
-export const setNewSelectedKeyHandler = <A, ItemMsg>(
+export const setNewSelectedKeyHandler = <A, B, amsg, Route>(
   networkStatus: boolean,
-  config: LogicConfig<A>,
+  config: LogicConfig<A, B, amsg>,
   model: Model<A>,
   msg: {
     dataSourceId: string
@@ -144,7 +148,7 @@ export const setNewSelectedKeyHandler = <A, ItemMsg>(
     triggerScrollToCurrent?: ScrollToCurrentParam
     shouldReload?: true
   },
-): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
   if (msg.dataSourceId === model.mode.dataSourceId) {
     const newModel = {
       ...model,
@@ -158,28 +162,28 @@ export const setNewSelectedKeyHandler = <A, ItemMsg>(
       newModel,
       msg.shouldReload
         ? getInitialDataHandler(networkStatus, msg.dataSourceId)
-        : (m) => [m, Cmd.none()] satisfies [Model<A>, Cmd<Msg<A, ItemMsg>>],
+        : (m) => [m, Cmd.none()] satisfies [Model<A>, Cmd<Msg<A, amsg, Route>>],
       msg.triggerScrollToCurrent
         ? updateAndCmd(
             scrollToCurrentHandler(config, msg.triggerScrollToCurrent),
           )
-        : identity<[Model<A>, Cmd<Msg<A, ItemMsg>>]>,
+        : identity<[Model<A>, Cmd<Msg<A, amsg, Route>>]>,
     )
-  } else {
-    return [model, Cmd.none()]
-  }
+  } else return [model, Cmd.none()]
 }
 
-export const setModeAndAddUpdateDataHandler = <A, ItemMsg>(
+export const setModeAndAddUpdateDataHandler = <A, B, amsg, Route>(
   networkStatus: boolean,
-  config: LogicConfig<A>,
+  config: LogicConfig<A, B, amsg>,
   model: Model<A>,
   msg: {
     mode: Mode<A>
-    data: A | null
+    data: A | null // new data to be added right after changing the mode (mainly used by SSE)
     shouldReload?: true
+    onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => void
+    shouldRestoreScrollState?: ShouldRestoreScrollStateArg
   },
-): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
   const [resultState, containerChangeEvent] = pipe(
     {
       ...model,
@@ -195,22 +199,24 @@ export const setModeAndAddUpdateDataHandler = <A, ItemMsg>(
       {
         ...resultState,
         containerChangeEvent,
+        onContainerScroll: msg.onContainerScroll,
+        shouldRestoreScrollState: msg.shouldRestoreScrollState,
       },
       Cmd.none(),
-    ] satisfies [Model<A>, Cmd<Msg<A, ItemMsg>>],
+    ] satisfies [Model<A>, Cmd<Msg<A, amsg, Route>>],
     msg.shouldReload
-      ? updateAndCmd<Msg<A, ItemMsg>, Model<A>>(
+      ? updateAndCmd<Msg<A, amsg, Route>, Model<A>>(
           getInitialDataHandler(networkStatus, msg.mode.dataSourceId),
         )
       : identity,
   )
 }
 
-export const scrollToNewestHandler = <A, ItemMsg>(
+export const scrollToNewestHandler = <A, amsg, Route>(
   refs: Refs,
   isReversed: boolean,
   model: Model<A>,
-): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
   return [
     model,
     cmdSucceed(() => {
@@ -224,31 +230,53 @@ export const scrollToNewestHandler = <A, ItemMsg>(
   ]
 }
 
-export const scrollToKeyHandler = <A, ItemMsg>(
+export const scrollToKeyHandler = <A, amsg, Route>(
   refs: Refs,
   model: Model<A>,
-  key: string,
-): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+  itemKey: string,
+): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
   return [
     model,
     cmdSucceed(() => {
-      const element = refs.itemRefs.current[key]
+      const element = refs.itemRefs.current[itemKey]
+
       if (!element) {
-        return
+        return console.warn(
+          'ScrollToKey: Unable to find element with id',
+          itemKey,
+        )
       }
+      element.classList.remove('bg-fade-out')
       requestAnimationFrame(() => {
-        if (!refs.containerRef.current) return
-        element.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        if (!refs.containerRef.current)
+          return console.warn('ScrollToMessage: Unable to find container')
+
+        const container = refs.containerRef.current
+        const elementRect = element.getBoundingClientRect()
+        const containerRect = container.getBoundingClientRect()
+
+        // compute element's top relative to container
+        const elementTop = elementRect.top - containerRect.top
+
+        // adjust for searchbar height
+        const offsetTop = container.scrollTop + elementTop - 95
+
+        container.scrollTo({
+          top: offsetTop,
+          behavior: 'smooth',
+        })
+
+        element.classList.add('bg-fade-out')
       })
     }),
   ]
 }
 
-export const forceScrollToHandler = <A, ItemMsg>(
+export const forceScrollToHandler = <A, amsg, Route>(
   refs: Refs,
   model: Model<A>,
   msg: { top: number },
-): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
   return [
     { ...model, invisWhileScrolling: true },
     cmdSucceedWithMsg(
@@ -266,37 +294,43 @@ export const forceScrollToHandler = <A, ItemMsg>(
           _tag: 'SetInvisWhileScrolling',
           dataSourceId: model.mode.dataSourceId,
           value: false,
-        }) satisfies Msg<A, ItemMsg>,
+        }) satisfies Msg<A, amsg, Route>,
     ),
   ]
 }
 
-export const replaceFuncHandler = <A>(
+export const replaceFuncHandler = <A, Route>(
   model: Model<A>,
   msg: {
-    func: (a: SortedUniqueArray<A>) => SortedUniqueArray<A>
+    func: (
+      a: SortedUniqueArray<A>,
+    ) => [SortedUniqueArray<A>, AppRouteUpdater<Route>]
     containerChangeEvent?: ContainerChangeEvent
   },
-): Model<A> => {
-  const newModel = replaceFuncActionHandler(model, msg.func)
-  return {
-    ...newModel,
-    containerChangeEvent:
-      msg.containerChangeEvent ?? model.containerChangeEvent,
-  }
+): [Model<A>, AppRouteUpdater<Route>] => {
+  const [newModel, routeUpdater] = replaceFuncActionHandler(model, msg.func)
+  return [
+    {
+      ...newModel,
+      containerChangeEvent:
+        msg.containerChangeEvent ?? model.containerChangeEvent,
+    },
+    routeUpdater,
+  ]
 }
 
-export const mapFuncHandler = <A>(
-  config: LogicConfig<A>,
+export const mapFuncHandler = <A, B, amsg>(
+  config: LogicConfig<A, B, amsg>,
   model: Model<A>,
   msg: {
     func: (a: A) => A
     containerChangeEvent?: ContainerChangeEvent
   },
 ): Model<A> => {
-  const newModel = replaceFuncActionHandler(model, (as) =>
+  const [newModel, _r] = replaceFuncActionHandler(model, (as) => [
     SUA.map(config.eqWithKey, config.ord)(msg.func)(as),
-  )
+    null,
+  ])
   return {
     ...newModel,
     containerChangeEvent:
@@ -304,60 +338,110 @@ export const mapFuncHandler = <A>(
   }
 }
 
-export const addOrUpdateDataHandler = <A>(
-  config: LogicConfig<A>,
+export const addOrUpdateDataHandler = <A, B, amsg>(
+  config: LogicConfig<A, B, amsg>,
   model: Model<A>,
-  data: A,
-  previousId: string | null = null,
-  compareId: (a: A, b: string) => boolean = () => false,
+  msg: {
+    dataSourceId: string
+    value: { data: A; previousId: string | null }[]
+    compareId: (a: A, b: string) => boolean
+  },
 ): Model<A> => {
-  const [resultState, elementChange] = addOrUpdateData(
-    config,
-    data,
-    previousId,
-    compareId,
-  )(model)
+  if (msg.dataSourceId === model.mode.dataSourceId) {
+    // console.log(
+    //   '[MSG_STATE][reducer] AddOrUpdateData msg received:',
+    //   msg.value,
+    // )
 
-  return revertPrevIsMax({
-    ...resultState,
-    containerChangeEvent: elementChange,
-  })
+    const [resultState, resultCurrentTopElementChange] = pipe(
+      msg.value,
+      A.reduce([model, 0] as [Model<A>, number], (acc, el) => {
+        const [currentState, currentTopElementChange] = acc
+        const [newState, elementChange] = addOrUpdateData(
+          config,
+          el.data,
+          el.previousId,
+          msg.compareId,
+        )(currentState)
+        const newCurrentTopElementChange = (() => {
+          switch (elementChange._tag) {
+            case 'ElementModifyOnTop':
+              return currentTopElementChange + 1
+            default:
+              return currentTopElementChange
+          }
+        })()
+
+        // console.log('[MSG_STATE][reducer] processing element:', el, {
+        //   elementChange,
+        //   newCurrentTopElementChange,
+        // })
+
+        return [newState, newCurrentTopElementChange]
+      }),
+    )
+
+    const containerChangeEvent = ((): ContainerChangeEvent => {
+      if (resultCurrentTopElementChange > 0)
+        return { _tag: 'ElementModifyOnTop' }
+      else if (resultCurrentTopElementChange < 0) return { _tag: 'NoChange' }
+      else return { _tag: 'ElementModifyInPlace' }
+    })()
+
+    // console.log(
+    //   '[MSG_STATE][reducer] final containerChangeEvent:',
+    //   containerChangeEvent,
+    // )
+
+    return revertPrevIsMax({
+      ...resultState,
+      containerChangeEvent,
+    })
+  } else return model
 }
 
 // -------------------------------------------------------------
 // Cmd
 // -------------------------------------------------------------
 
-export const getInitialDataFromCacheCmd = <A, ItemMsg>(
+export const getInitialDataFromCacheCmd = <A, amsg, Route>(
   networkStatus: boolean,
   dataSourceId: string,
   model: Model<A>,
-): Cmd<Msg<A, ItemMsg>> => {
+): Cmd<Msg<A, amsg, Route>> => {
   return cmdFromPromise(
     async () => {
       const { cache } = model.mode.initialHandler()
+
       const cacheResult = (await cache(networkStatus)).data
-      return cacheResult
+      return pipe(cacheResult, RD.mapLeft(mkHttpError))
     },
     (r) => {
-      if (r.tag === 'Ok') {
+      if (r.tag === 'Ok')
         return {
           _tag: 'GetInitialDataFromCacheResponse',
           dataSourceId,
           cache: r.value,
-        } satisfies Msg<A, ItemMsg>
-      } else {
+        } satisfies Msg<A, amsg, Route>
+      else {
+        console.warn(
+          'Error from func: getInitialDataFromCacheCmd: ' +
+            errorToString(r.err),
+        )
         return { _tag: 'NoOp' }
       }
     },
   )
 }
 
-export const getInitialDataFromApiCmd = <A, ItemMsg>(
+export const getInitialDataFromApiCmd = <A, amsg, Route>(
   networkStatus: boolean,
   model: Model<A>,
-): Cmd<Msg<A, ItemMsg>> => {
+): Cmd<Msg<A, amsg, Route>> => {
   const { endpoint } = model.mode.initialHandler()
+
+  // We can access cache via current overallData since it is
+  // populated with the cache value anyway.
   const cacheData = model.mode.overallData.value
 
   return attemptTE(endpoint(networkStatus, cacheData), (r) => {
@@ -367,45 +451,86 @@ export const getInitialDataFromApiCmd = <A, ItemMsg>(
           _tag: 'GetInitialDataFromApiResponse',
           dataSourceId: model.mode.dataSourceId,
           result: E.right(r.value),
-        } satisfies Msg<A, ItemMsg>
-      case 'Err':
-        return {
-          _tag: 'GetInitialDataFromApiResponse',
-          dataSourceId: model.mode.dataSourceId,
-          result: E.left(errorToString(r.err)),
-        } satisfies Msg<A, ItemMsg>
+        } satisfies Msg<A, amsg, Route>
+      case 'Err': {
+        console.warn(
+          'Error from func: getInitialDataFromCacheCmd: ' +
+            errorToString(r.err),
+        )
+        return { _tag: 'NoOp' }
+      }
     }
   })
 }
 
+export const replaceFuncAsyncCmd = <A, amsg, Route>(
+  model: Model<A>,
+  msg: {
+    func: (
+      a: SortedUniqueArray<A>,
+    ) => Promise<[SortedUniqueArray<A>, AppRouteUpdater<Route>]>
+    containerChangeEvent?: ContainerChangeEvent
+  },
+): Cmd<Msg<A, amsg, Route>> => {
+  return cmdFromPromise(
+    async () => {
+      const newState = await replaceFuncActionHandlerAsync(model, msg.func)
+      return newState
+    },
+    (r) => {
+      if (r.tag === 'Ok')
+        return {
+          _tag: 'SetState',
+          value: {
+            ...r.value[0],
+            containerChangeEvent:
+              msg.containerChangeEvent ?? model.containerChangeEvent,
+          },
+          routeUpdater: r.value[1],
+        }
+      else {
+        console.warn(
+          'Error from func: getBundleFromCacheCmd: ' + errorToString(r.err),
+        )
+        return { _tag: 'NoOp' }
+      }
+    },
+  )
+}
+
 export const scrollToCurrentHandler =
-  <A, ItemMsg>(logicConfig: LogicConfig<A>, param: ScrollToCurrentParam) =>
-  (model: Model<A>): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+  <A, B, amsg, Route>(
+    logicConfig: LogicConfig<A, B, amsg>,
+    param: ScrollToCurrentParam,
+  ) =>
+  (model: Model<A>): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
     const containerRef = logicConfig.refs.containerRef
 
     if (param.isSearching) {
       return checkVisibleAndScrollToCurrent({ logicConfig, model, param })
     }
 
-    if (logicConfig.scrollStateMap && containerRef.current) {
+    if (model.shouldRestoreScrollState && containerRef.current) {
       const containerRefCurrent = containerRef.current
-      const restored = restoreScrollState(logicConfig.scrollStateMap)(
-        model.mode.dataSourceId,
-        containerRefCurrent,
-      )
-      if (restored) {
-        return [
-          {
-            ...model,
-            invisWhileScrolling: false,
-            isScrolling: false,
-          },
-          cmdSucceed(() => ({
-            _tag: 'ScrollToCurrentDone' as const,
-            param,
-            dataSourceId: model.mode.dataSourceId,
-          })),
-        ]
+      const { checkShouldRestore, restore } = model.shouldRestoreScrollState
+
+      const shouldRestore = checkShouldRestore()
+
+      if (shouldRestore._tag === 'ScrollState') {
+        return checkVisibleAndScrollToCurrent({
+          logicConfig,
+          model,
+          param,
+          customScrollToCurrent: () =>
+            restore(model.mode.dataSourceId, containerRefCurrent),
+        })
+      } else if (shouldRestore._tag === 'TargetKey') {
+        return checkVisibleAndScrollToCurrent({
+          logicConfig,
+          model,
+          param,
+          elementId: shouldRestore.key,
+        })
       }
     }
 
@@ -416,36 +541,40 @@ const waitForImagesLoadUpToCertainElement = async (
   items: [string, HTMLElement | null][],
   key: string,
 ) => {
-  const targetIndex = items.findIndex(([i]) => i === key)
-  const itemsUpToKey =
-    targetIndex >= 0 ? items.slice(0, targetIndex + 1) : items
-  const promises: Promise<void>[] = itemsUpToKey.flatMap(([, element]) => {
-    const imgs = [...(element?.querySelectorAll('img') ?? [])]
-    return imgs
-      .filter((img) => !img.complete)
-      .map(
-        (img) =>
-          new Promise<void>((resolve) => {
-            const onDone = () => {
-              img.removeEventListener('load', onDone)
-              img.removeEventListener('error', onDone)
-              resolve()
-            }
-            img.addEventListener('load', onDone)
-            img.addEventListener('error', onDone)
-          }),
-      )
-  })
+  const promises: Promise<void>[] = items
+    .splice(
+      0,
+      items.findIndex(([i]) => i === key),
+    )
+    .flatMap(([, element]) => {
+      const imgs = [...(element?.querySelectorAll('img') ?? [])]
+      return imgs
+        .filter((img) => !img.complete)
+        .map(
+          (img) =>
+            new Promise<void>((resolve) => {
+              const onDone = () => {
+                img.removeEventListener('load', onDone)
+                img.removeEventListener('error', onDone)
+                resolve()
+              }
+              img.addEventListener('load', onDone)
+              img.addEventListener('error', onDone)
+            }),
+        )
+    })
+  // wait for image to load metadata
   await Promise.all(promises)
 }
 
-export const checkVisibleAndScrollToCurrent = <A, ItemMsg>(args: {
-  logicConfig: LogicConfig<A>
+export const checkVisibleAndScrollToCurrent = <A, B, amsg, Route>(args: {
+  logicConfig: LogicConfig<A, B, amsg>
   model: Model<A>
   param: ScrollToCurrentParam
   elementId?: string
-}): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
-  const { logicConfig, model, param, elementId } = args
+  customScrollToCurrent?: () => void
+}): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
+  const { logicConfig, model, param, elementId, customScrollToCurrent } = args
 
   const containerRef = logicConfig.refs.containerRef
   const itemRefs = logicConfig.refs.itemRefs
@@ -455,11 +584,10 @@ export const checkVisibleAndScrollToCurrent = <A, ItemMsg>(args: {
   const isVisible = (domElement: Element): Promise<boolean> => {
     return new Promise((resolve) => {
       const o = new IntersectionObserver(([entry]) => {
-        if (logicConfig.visibleStrategy._tag === 'HalfInView') {
+        if (logicConfig.visibleStrategy._tag === 'HalfInView')
           resolve(entry.intersectionRatio > 0.2)
-        } else {
-          resolve(entry.intersectionRatio === 1)
-        }
+        else resolve(entry.intersectionRatio === 1)
+
         o.disconnect()
       })
       o.observe(domElement)
@@ -468,9 +596,9 @@ export const checkVisibleAndScrollToCurrent = <A, ItemMsg>(args: {
 
   const scrollToCurrent = async () => {
     const refToScrollTo = (() => {
-      if (elementId && itemRefs.current[elementId]) {
+      if (elementId && itemRefs.current[elementId])
         return itemRefs.current[elementId]
-      } else if (
+      else if (
         !model.mode.selectedKey &&
         model.mode.overallData.value.length > 0
       ) {
@@ -480,8 +608,9 @@ export const checkVisibleAndScrollToCurrent = <A, ItemMsg>(args: {
       } else if (model.mode.selectedKey) {
         return itemRefs.current[model.mode.selectedKey]
       }
-      return null
     })()
+
+    // console.log('SetScrollToCurrentEvent visible', currentRef.current)
 
     if (refToScrollTo) {
       await waitForImagesLoadUpToCertainElement(
@@ -491,20 +620,29 @@ export const checkVisibleAndScrollToCurrent = <A, ItemMsg>(args: {
 
       const inView = await isVisible(refToScrollTo)
 
+      console.log('oldest', refToScrollTo.id)
+      // Scroll to currentRef
+      console.log('inView', inView)
+
       if (param.isSearching && containerRef.current) {
+        // TODO: debugging purpose
+        // const elementTop = refToScrollTo.offsetTop
+
+        // const offsetTop = elementTop - 95 // searchbar height
+
         return requestAnimationFrame(() => {
           if (!containerRef.current) return
-          refToScrollTo.scrollIntoView({ block: 'nearest' })
+          containerRef.current.scrollTo()
         })
       }
 
       if (!inView && containerRef.current) {
-        if (logicConfig.visibleStrategy._tag === 'HalfInView') {
+        if (logicConfig.visibleStrategy._tag === 'HalfInView')
           refToScrollTo.scrollIntoView({
             block: 'nearest',
             inline: 'nearest',
           })
-        } else {
+        else {
           refToScrollTo.scrollIntoView()
         }
       }
@@ -514,40 +652,50 @@ export const checkVisibleAndScrollToCurrent = <A, ItemMsg>(args: {
   return [
     {
       ...model,
+      // If the scroll is from graceful msg, no need to turn invis
       invisWhileScrolling:
         param.isGraceful === false ? true : model.invisWhileScrolling,
+
+      // Set is scroll to true if it is not already in scrolling
       isScrolling: model.isScrolling === false ? true : model.isScrolling,
     },
     cmdFromPromise(
       async () => {
-        await scrollToCurrent()
+        // This needed when we try to run `restore` func from scroll state map
+        if (customScrollToCurrent) customScrollToCurrent()
+        else await scrollToCurrent()
 
+        // Record scroll pos and height
+        // Note: we have to use `setTimeout` since the `containerRef.current.scrollTop`
+        // is smaller than the actual scrollTop for some reason.
+        // Discussion: http://github.com/rinn7e/tea-cup-package/ssi/rinn7e/example-app/-/merge_requests/293#note_16198
         setTimeout(() => {
           if (containerRef.current) {
             currentScrollPosRef.current = containerRef.current.scrollTop
             currentScrollHeightRef.current = containerRef.current.scrollHeight
 
-            if (logicConfig.scrollStateMap) {
-              storeScrollState(logicConfig.scrollStateMap)(
+            // Record the new scroll state into scroll_state map
+            if (model.onContainerScroll)
+              model.onContainerScroll(
                 model.mode.dataSourceId,
                 containerRef.current,
               )
-            }
           }
-        }, 300)
+        }, 500)
       },
-      () =>
-        ({
-          _tag: 'ScrollToCurrentDone',
-          param,
-          dataSourceId: model.mode.dataSourceId,
-        }) satisfies Msg<A, ItemMsg>,
+
+      () => ({
+        _tag: 'ScrollToCurrentDone',
+        param,
+        dataSourceId: model.mode.dataSourceId,
+      }),
+      // () => ({ _tag: 'None' })
     ),
   ]
 }
 
-export const addToPrevOverallDataHandler = <A>(
-  config: LogicConfig<A>,
+export const addToPrevOverallDataHandler = <A, B, amsg>(
+  config: LogicConfig<A, B, amsg>,
   model: Model<A>,
   value: A[],
 ): Model<A> => {
@@ -575,8 +723,8 @@ export const addToPrevOverallDataHandler = <A>(
   } satisfies Model<A>
 }
 
-export const addToNextOverallDataHandler = <A>(
-  config: LogicConfig<A>,
+export const addToNextOverallDataHandler = <A, B, amsg>(
+  config: LogicConfig<A, B, amsg>,
   model: Model<A>,
   value: A[],
 ): Model<A> => {
@@ -613,16 +761,15 @@ export const addToNextOverallDataHandler = <A>(
   } satisfies Model<A>
 }
 
-export const getMorePrevDataHandler = <A, ItemMsg>(
+export const getMorePrevDataHandler = <A, amsg, Route>(
   networkStatus: boolean,
   model: Model<A>,
-): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
   if (
     (model.mode.prevData._tag === 'RemoteSuccess' ||
       model.mode.prevData._tag === 'RemoteInitial') &&
     model.mode.initialData._tag === 'RemoteSuccess' &&
-    model.mode.overallData.value.length !== 0 &&
-    !model.mode.prevIsMax
+    model.mode.overallData.value.length !== 0
   ) {
     const newModel = {
       ...model,
@@ -636,7 +783,7 @@ export const getMorePrevDataHandler = <A, ItemMsg>(
     )(model.mode.prevSize)
     return [
       newModel,
-      getMorePrevDataFromCacheCmd<A, ItemMsg>(
+      getMorePrevDataFromCacheCmd<A, amsg, Route>(
         networkStatus,
         model.mode.dataSourceId,
         cache,
@@ -649,24 +796,22 @@ export const getMorePrevDataHandler = <A, ItemMsg>(
   }
 }
 
-export const getMorePrevDataFromCacheResponseHandler = <A, ItemMsg>(
+export const getMorePrevDataFromCacheResponseHandler = <A, B, amsg, Route>(
   networkStatus: boolean,
-  config: LogicConfig<A>,
+  config: LogicConfig<A, B, amsg>,
   dataSourceId: string,
-  cache: RD.RemoteData<string, A[]>,
+  endpoint: EndpointHandler<A>,
+  cache: RD.RemoteData<HttpErrorString, A[]>,
   m: Model<A>,
-): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
   if (m.mode.dataSourceId === dataSourceId) {
     const newModel =
       cache._tag === 'RemoteSuccess' && cache.value.length !== 0
-        ? addToPrevOverallDataHandler<A>(config, m, cache.value)
+        ? addToPrevOverallDataHandler<A, B, amsg>(config, m, cache.value)
         : m
-    const { endpoint } = m.mode.prevHandler(m.mode.overallData.value)(
-      m.mode.prevSize,
-    )
     return [
       newModel,
-      getMorePrevDataFromApiCmd<A, ItemMsg>(
+      getMorePrevDataFromApiCmd<A, amsg, Route>(
         networkStatus,
         dataSourceId,
         endpoint,
@@ -675,17 +820,16 @@ export const getMorePrevDataFromCacheResponseHandler = <A, ItemMsg>(
         newModel,
       ),
     ]
-  } else {
-    return [m, Cmd.none()]
-  }
+  } else return [m, Cmd.none()]
 }
 
-export const getMorePrevDataFromApiResponseHandler = <A, ItemMsg>(
-  config: LogicConfig<A>,
+export const getMorePrevDataFromApiResponseHandler = <A, B, amsg, Route>(
+  config: LogicConfig<A, B, amsg>,
   dataSourceId: string,
-  result: E.Either<string, A[]>,
+  overallDataBeforeCache: A[],
+  result: E.Either<HttpErrorString, A[]>,
   m: Model<A>,
-): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
   if (m.mode.dataSourceId === dataSourceId) {
     if (result._tag === 'Left') {
       return [
@@ -700,9 +844,20 @@ export const getMorePrevDataFromApiResponseHandler = <A, ItemMsg>(
       ]
     } else {
       const incomingData = result.right
-      const newModel = addToPrevOverallDataHandler<A>(config, m, incomingData)
+      const newModel = addToPrevOverallDataHandler<A, B, amsg>(
+        config,
+        m,
+        incomingData,
+      )
 
-      const isMax = incomingData.length < m.mode.prevSize.value
+      const uniqueIncomingData = pipe(
+        incomingData,
+        A.filter(
+          (el) => !pipe(overallDataBeforeCache, A.elem(config.eqWithKey)(el)),
+        ),
+      )
+
+      const isMax = uniqueIncomingData.length === 0
 
       return [
         {
@@ -716,21 +871,18 @@ export const getMorePrevDataFromApiResponseHandler = <A, ItemMsg>(
         Cmd.none(),
       ]
     }
-  } else {
-    return [m, Cmd.none()]
-  }
+  } else return [m, Cmd.none()]
 }
 
-export const getMoreNextDataHandler = <A, ItemMsg>(
+export const getMoreNextDataHandler = <A, amsg, Route>(
   networkStatus: boolean,
   model: Model<A>,
-): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
   if (
     (model.mode.nextData._tag === 'RemoteSuccess' ||
       model.mode.nextData._tag === 'RemoteInitial') &&
     model.mode.initialData._tag === 'RemoteSuccess' &&
-    model.mode.overallData.value.length !== 0 &&
-    !model.mode.nextIsMax
+    model.mode.overallData.value.length !== 0
   ) {
     const newModel = {
       ...model,
@@ -744,7 +896,7 @@ export const getMoreNextDataHandler = <A, ItemMsg>(
     )(model.mode.nextSize)
     return [
       newModel,
-      getMoreNextDataFromCacheCmd<A, ItemMsg>(
+      getMoreNextDataFromCacheCmd<A, amsg, Route>(
         networkStatus,
         model.mode.dataSourceId,
         cache,
@@ -757,24 +909,22 @@ export const getMoreNextDataHandler = <A, ItemMsg>(
   }
 }
 
-export const getMoreNextDataFromCacheResponseHandler = <A, ItemMsg>(
+export const getMoreNextDataFromCacheResponseHandler = <A, B, amsg, Route>(
   networkStatus: boolean,
-  config: LogicConfig<A>,
+  config: LogicConfig<A, B, amsg>,
   dataSourceId: string,
-  cache: RD.RemoteData<string, A[]>,
+  endpoint: EndpointHandler<A>,
+  cache: RD.RemoteData<HttpErrorString, A[]>,
   m: Model<A>,
-): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
   if (m.mode.dataSourceId === dataSourceId) {
     const newModel =
       cache._tag === 'RemoteSuccess' && cache.value.length !== 0
-        ? addToNextOverallDataHandler<A>(config, m, cache.value)
+        ? addToNextOverallDataHandler<A, B, amsg>(config, m, cache.value)
         : m
-    const { endpoint } = m.mode.nextHandler(m.mode.overallData.value)(
-      m.mode.nextSize,
-    )
     return [
       newModel,
-      getMoreNextDataFromApiCmd<A, ItemMsg>(
+      getMoreNextDataFromApiCmd<A, amsg, Route>(
         networkStatus,
         dataSourceId,
         endpoint,
@@ -783,17 +933,16 @@ export const getMoreNextDataFromCacheResponseHandler = <A, ItemMsg>(
         newModel,
       ),
     ]
-  } else {
-    return [m, Cmd.none()]
-  }
+  } else return [m, Cmd.none()]
 }
 
-export const getMoreNextDataFromApiResponseHandler = <A, ItemMsg>(
-  config: LogicConfig<A>,
+export const getMoreNextDataFromApiResponseHandler = <A, B, amsg, Route>(
+  config: LogicConfig<A, B, amsg>,
   dataSourceId: string,
-  result: E.Either<string, A[]>,
+  overallDataBeforeCache: A[],
+  result: E.Either<HttpErrorString, A[]>,
   m: Model<A>,
-): [Model<A>, Cmd<Msg<A, ItemMsg>>] => {
+): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
   if (m.mode.dataSourceId === dataSourceId) {
     if (result._tag === 'Left') {
       return [
@@ -808,9 +957,27 @@ export const getMoreNextDataFromApiResponseHandler = <A, ItemMsg>(
       ]
     } else {
       const incomingData = result.right
-      const newModel = addToNextOverallDataHandler<A>(config, m, incomingData)
+      const newModel = addToNextOverallDataHandler<A, B, amsg>(
+        config,
+        m,
+        incomingData,
+      )
 
-      const isMax = incomingData.length < m.mode.nextSize.value
+      const currentSelectedKey = m.mode.selectedKey
+
+      const incomingNext = pipe(
+        incomingData,
+        A.filter((el) => config.uniqueKeyField(el) !== currentSelectedKey),
+      )
+
+      const uniqueIncomingData = pipe(
+        incomingNext,
+        A.filter(
+          (el) => !pipe(overallDataBeforeCache, A.elem(config.eqWithKey)(el)),
+        ),
+      )
+
+      const isMax = uniqueIncomingData.length === 0
 
       return [
         {
@@ -824,45 +991,44 @@ export const getMoreNextDataFromApiResponseHandler = <A, ItemMsg>(
         Cmd.none(),
       ]
     }
-  } else {
-    return [m, Cmd.none()]
-  }
+  } else return [m, Cmd.none()]
 }
 
-export const getMorePrevDataFromCacheCmd = <A, ItemMsg>(
+export const getMorePrevDataFromCacheCmd = <A, amsg, Route>(
   _networkStatus: boolean,
   dataSourceId: string,
   cache: () => Promise<CacheData.Type<A[]>>,
-  _endpoint: EndpointHandler<A>,
+  endpoint: EndpointHandler<A>,
   _model: Model<A>,
-): Cmd<Msg<A, ItemMsg>> => {
+): Cmd<Msg<A, amsg, Route>> => {
   return cmdFromPromise(
     async () => {
       const cacheResult = (await cache()).data
-      return cacheResult
+      return pipe(cacheResult, RD.mapLeft(mkHttpError))
     },
     (r) => {
-      if (r.tag === 'Ok') {
+      if (r.tag === 'Ok')
         return {
           _tag: 'GetMorePrevDataFromCacheResponse',
           dataSourceId,
+          endpoint,
           cache: r.value,
-        } satisfies Msg<A, ItemMsg>
-      } else {
+        } satisfies Msg<A, amsg, Route>
+      else {
         return { _tag: 'NoOp' }
       }
     },
   )
 }
 
-export const getMorePrevDataFromApiCmd = <A, ItemMsg>(
+export const getMorePrevDataFromApiCmd = <A, amsg, Route>(
   networkStatus: boolean,
   dataSourceId: string,
   endpoint: EndpointHandler<A>,
-  cacheRD: RD.RemoteData<string, A[]>,
-  _overallDataBeforeCache: A[],
+  cacheRD: RD.RemoteData<HttpErrorString, A[]>,
+  overallDataBeforeCache: A[],
   _model: Model<A>,
-): Cmd<Msg<A, ItemMsg>> => {
+): Cmd<Msg<A, amsg, Route>> => {
   const cacheData = cacheRD._tag === 'RemoteSuccess' ? cacheRD.value : []
 
   return attemptTE(endpoint(networkStatus, cacheData), (r) => {
@@ -871,52 +1037,56 @@ export const getMorePrevDataFromApiCmd = <A, ItemMsg>(
         return {
           _tag: 'GetMorePrevDataFromApiResponse',
           dataSourceId,
+          overallDataBeforeCache,
           result: E.right(r.value),
-        } satisfies Msg<A, ItemMsg>
-      case 'Err':
+        } satisfies Msg<A, amsg, Route>
+      case 'Err': {
         return {
           _tag: 'GetMorePrevDataFromApiResponse',
           dataSourceId,
-          result: E.left(errorToString(r.err)),
-        } satisfies Msg<A, ItemMsg>
+          overallDataBeforeCache,
+          result: E.left(mkHttpError(errorToString(r.err))),
+        } satisfies Msg<A, amsg, Route>
+      }
     }
   })
 }
 
-export const getMoreNextDataFromCacheCmd = <A, ItemMsg>(
+export const getMoreNextDataFromCacheCmd = <A, amsg, Route>(
   _networkStatus: boolean,
   dataSourceId: string,
   cache: () => Promise<CacheData.Type<A[]>>,
-  _endpoint: EndpointHandler<A>,
+  endpoint: EndpointHandler<A>,
   _model: Model<A>,
-): Cmd<Msg<A, ItemMsg>> => {
+): Cmd<Msg<A, amsg, Route>> => {
   return cmdFromPromise(
     async () => {
       const cacheResult = (await cache()).data
-      return cacheResult
+      return pipe(cacheResult, RD.mapLeft(mkHttpError))
     },
     (r) => {
-      if (r.tag === 'Ok') {
+      if (r.tag === 'Ok')
         return {
           _tag: 'GetMoreNextDataFromCacheResponse',
           dataSourceId,
+          endpoint,
           cache: r.value,
-        } satisfies Msg<A, ItemMsg>
-      } else {
+        } satisfies Msg<A, amsg, Route>
+      else {
         return { _tag: 'NoOp' }
       }
     },
   )
 }
 
-export const getMoreNextDataFromApiCmd = <A, ItemMsg>(
+export const getMoreNextDataFromApiCmd = <A, amsg, Route>(
   networkStatus: boolean,
   dataSourceId: string,
   endpoint: EndpointHandler<A>,
-  cacheRD: RD.RemoteData<string, A[]>,
-  _overallDataBeforeCache: A[],
+  cacheRD: RD.RemoteData<HttpErrorString, A[]>,
+  overallDataBeforeCache: A[],
   _model: Model<A>,
-): Cmd<Msg<A, ItemMsg>> => {
+): Cmd<Msg<A, amsg, Route>> => {
   const cacheData = cacheRD._tag === 'RemoteSuccess' ? cacheRD.value : []
 
   return attemptTE(endpoint(networkStatus, cacheData), (r) => {
@@ -925,14 +1095,17 @@ export const getMoreNextDataFromApiCmd = <A, ItemMsg>(
         return {
           _tag: 'GetMoreNextDataFromApiResponse',
           dataSourceId,
+          overallDataBeforeCache,
           result: E.right(r.value),
-        } satisfies Msg<A, ItemMsg>
-      case 'Err':
+        } satisfies Msg<A, amsg, Route>
+      case 'Err': {
         return {
           _tag: 'GetMoreNextDataFromApiResponse',
           dataSourceId,
-          result: E.left(errorToString(r.err)),
-        } satisfies Msg<A, ItemMsg>
+          overallDataBeforeCache,
+          result: E.left(mkHttpError(errorToString(r.err))),
+        } satisfies Msg<A, amsg, Route>
+      }
     }
   })
 }

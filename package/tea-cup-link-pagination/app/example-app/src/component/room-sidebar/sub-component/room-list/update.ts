@@ -1,12 +1,21 @@
 import * as RD from '@devexperts/remote-data-ts'
 import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
-import { attemptTE, updateAndCmd } from '@rinn7e/tea-cup-prelude'
+import { updateAndCmd } from '@rinn7e/tea-cup-prelude'
+import { mkHttpError } from '@rinn7e/tea-cup-prelude/type/http-error'
+import { size } from '@rinn7e/tea-cup-prelude/type/size'
+import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import * as TE from 'fp-ts/lib/TaskEither'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
 import * as Api from '../../../../api'
-import { type Model, type Msg, type RoomItemMsg } from './type'
+import { type AppRoute } from '../../../../common/route/type'
+import {
+  type Model,
+  type Msg,
+  type ParentContext,
+  type RoomItemMsg,
+} from './type'
 import { mkRoomListLogicConfig } from './util'
 
 export const mkRoomListLinkPaginationMode = (
@@ -16,9 +25,9 @@ export const mkRoomListLinkPaginationMode = (
 ): LinkPagination.Mode<Api.Room> => {
   return {
     dataSourceId: 'sidebar-rooms',
-    overallData: LinkPagination.SUA.empty(),
+    overallData: SUA.empty(),
     prevData: RD.initial,
-    prevSize: LinkPagination.size(15),
+    prevSize: size(15),
     prevIsMax: false,
     allowRetryPrev: false,
 
@@ -32,7 +41,7 @@ export const mkRoomListLinkPaginationMode = (
             latencyMs,
             networkOnline,
           }),
-          TE.mapLeft((httpErr) => httpErr.actualErr),
+          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
         ),
     }),
     initialData: RD.initial,
@@ -40,7 +49,7 @@ export const mkRoomListLinkPaginationMode = (
     retriggerCurrentData: 'done',
     animationEnd: false,
 
-    // prevHandler: loads older / more items below (bottom of list)
+    // prevHandler: loads older / more items below (bottom of list when non-reversed)
     prevHandler: (overallData) => (pageSize) => ({
       cache: async () => Api.getCachedRooms(),
       endpoint: () => {
@@ -55,12 +64,12 @@ export const mkRoomListLinkPaginationMode = (
             latencyMs,
             networkOnline,
           }),
-          TE.mapLeft((httpErr) => httpErr.actualErr),
+          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
         )
       },
     }),
 
-    // nextHandler: loads newer / items above (top of list)
+    // nextHandler: loads newer / items above (top of list when non-reversed)
     nextHandler: (overallData) => (pageSize) => ({
       cache: async () => Api.getCachedRooms(),
       endpoint: () => {
@@ -75,12 +84,12 @@ export const mkRoomListLinkPaginationMode = (
             latencyMs,
             networkOnline,
           }),
-          TE.mapLeft((httpErr) => httpErr.actualErr),
+          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
         )
       },
     }),
     nextData: RD.initial,
-    nextSize: LinkPagination.size(15),
+    nextSize: size(15),
     nextIsMax: true,
   }
 }
@@ -96,10 +105,11 @@ export const init = (
     latencyMs,
     networkOnline,
   )
-  const [linkPagin, linkPaginCmd] = LinkPagination.init<Api.Room, RoomItemMsg>(
-    networkOnline,
-    mode,
-  )
+  const [linkPagin, linkPaginCmd] = LinkPagination.init<
+    Api.Room,
+    RoomItemMsg,
+    AppRoute
+  >(networkOnline, mode)
 
   const model: Model = {
     linkPagin,
@@ -138,11 +148,18 @@ const linkPaginMsgHandler = (
   model: Model,
   networkOnline: boolean,
 ): [Model, Cmd<Msg>] => {
-  const logicConfig = mkRoomListLogicConfig(model)
+  const logicConfig = mkRoomListLogicConfig(model.refs)
+  const parentSt: ParentContext = {
+    activeRoomId: undefined,
+    expandedRoomIds: model.expandedRoomIds,
+    dispatch: () => {},
+  }
   const [newLinkPagin, linkPaginCmd] = LinkPagination.update<
     Api.Room,
-    RoomItemMsg
-  >(networkOnline, logicConfig)(subMsg, model.linkPagin)
+    ParentContext,
+    RoomItemMsg,
+    AppRoute
+  >(networkOnline, logicConfig)(parentSt, subMsg, model.linkPagin)
 
   return pipe(
     [
@@ -155,88 +172,34 @@ const linkPaginMsgHandler = (
       ),
     ] satisfies [Model, Cmd<Msg>],
     updateAndCmd((m) => {
-      if (subMsg._tag === 'ItemMsg') {
-        const [updatedModel, cmd, containerChangeEvent] = roomItemMsgHandler(
-          subMsg.item,
-          subMsg.msg,
-        )(m)
-        return [
-          {
-            ...updatedModel,
-            linkPagin: {
-              ...updatedModel.linkPagin,
-              containerChangeEvent,
-            },
-          },
-          cmd,
-        ]
+      if (subMsg._tag === 'ChildMsg' && subMsg.subMsg._tag === 'ToggleExpand') {
+        const nextExpanded = new Set(m.expandedRoomIds)
+        if (nextExpanded.has(subMsg.childId)) {
+          nextExpanded.delete(subMsg.childId)
+        } else {
+          nextExpanded.add(subMsg.childId)
+        }
+        return [{ ...m, expandedRoomIds: nextExpanded }, Cmd.none()]
       }
       return [m, Cmd.none()]
     }),
   )
 }
 
-const roomItemMsgHandler =
-  (item: Api.Room, msg: RoomItemMsg) =>
-  (model: Model): [Model, Cmd<Msg>, LinkPagination.ContainerChangeEvent] => {
-    switch (msg._tag) {
-      case 'SelectRoom':
-        return [model, Cmd.none(), { _tag: 'NoChange' }]
-
-      case 'MarkAsRead':
-        return [
-          model,
-          attemptTE(
-            TE.rightIO(() => {
-              window.alert('functionality not implemented yet')
-            }),
-            (): Msg => ({ _tag: 'NoOp' }),
-          ),
-          { _tag: 'NoChange' },
-        ]
-
-      case 'ToggleFavorite': {
-        const updatedRoom: Api.Room = {
-          ...item,
-          isPrivate: !item.isPrivate,
-        }
-        return [
-          {
-            ...model,
-            linkPagin: LinkPagination.updateItem<Api.Room>(
-              (r) => r.id === item.id,
-              updatedRoom,
-            )(model.linkPagin),
-          },
-          Cmd.none(),
-          { _tag: 'ElementModifyInPlace' },
-        ]
-      }
-
-      case 'ToggleExpand': {
-        const nextExpanded = new Set(model.expandedRoomIds)
-        if (nextExpanded.has(item.id)) {
-          nextExpanded.delete(item.id)
-        } else {
-          nextExpanded.add(item.id)
-        }
-        return [
-          { ...model, expandedRoomIds: nextExpanded },
-          Cmd.none(),
-          { _tag: 'ElementModifyOnBottom' },
-        ]
-      }
-    }
-  }
-
 const updateRoomSuccessHandler = (
   room: Api.Room,
   model: Model,
 ): [Model, Cmd<Msg>] => {
-  const newLinkPagin = LinkPagination.updateItem<Api.Room>(
-    (r) => r.id === room.id,
-    room,
-  )(model.linkPagin)
+  const [newLinkPagin] = LinkPagination.replaceFuncHandler(model.linkPagin, {
+    func: (overallData) => [
+      SUA.fromArray(
+        Api.RoomEq,
+        Api.RoomOrd,
+      )(overallData.value.map((r) => (r.id === room.id ? room : r))),
+      null,
+    ],
+    containerChangeEvent: { _tag: 'ElementModifyInPlace' },
+  })
 
   return [{ ...model, linkPagin: newLinkPagin }, Cmd.none()]
 }

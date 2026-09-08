@@ -15,14 +15,13 @@ export const fetchJson = <T>(
         return E.left(mkHttpError(res.status, text || res.statusText))
       }
       if (res.status === 204) {
-        return E.right(undefined as unknown as T)
+        return E.right(JSON.parse('null'))
       }
       const text = await res.text()
       if (!text || text.trim() === '') {
-        return E.right(undefined as unknown as T)
+        return E.right(JSON.parse('null'))
       }
-      const data: T = JSON.parse(text)
-      return E.right(data)
+      return E.right(JSON.parse(text))
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err)
       return E.left(mkHttpError(500, errMsg || 'Network error'))

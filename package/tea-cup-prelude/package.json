@@ -20,6 +20,25 @@
   ],
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js",
+      "require": "./lib/index.cjs"
+    },
+    "./type/*": {
+      "types": "./lib/type/*.d.ts",
+      "import": "./lib/type/*.js",
+      "require": "./lib/type/*.cjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "type/*": [
+        "./lib/type/*"
+      ]
+    }
+  },
   "scripts": {
     "clean": "rimraf lib",
     "compile": "tsup",

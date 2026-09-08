@@ -1,5 +1,5 @@
 import * as RD from '@devexperts/remote-data-ts'
-import { type CacheData } from '@rinn7e/tea-cup-link-pagination'
+import type * as CacheData from '@rinn7e/tea-cup-prelude/type/cache-data'
 import * as TE from 'fp-ts/lib/TaskEither'
 import { pipe } from 'fp-ts/lib/function'
 

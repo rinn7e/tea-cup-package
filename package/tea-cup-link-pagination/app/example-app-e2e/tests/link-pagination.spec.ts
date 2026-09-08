@@ -262,8 +262,12 @@ test.describe('Full-Featured TEA Routing & LinkPagination E2E Suite', () => {
     ).not.toBeVisible()
 
     // Scroll sidebar down to trigger LinkPagination nextHandler
+    const sidebarScrollContainer = page.locator('aside .chat-scrollbar')
+    await sidebarScrollContainer.evaluate((el) => {
+      el.scrollTop = el.scrollHeight
+    })
     const lastRoomBtn = page.getByTestId('room-btn-room-deep-learning')
-    await lastRoomBtn.scrollIntoViewIfNeeded()
+    await expect(lastRoomBtn).toBeVisible({ timeout: 10_000 })
   })
 
   test('11. Real-time Live SSE Simulation & Cache Reset (First Visit)', async ({
@@ -287,7 +291,8 @@ test.describe('Full-Featured TEA Routing & LinkPagination E2E Suite', () => {
     // Verify SSE message is attached in chat timeline and scroll to bottom
     const sseMsg = page
       .getByTestId('room-chat-page')
-      .getByText(/⚡ \[SSE Event/)
+      .getByText(/⚡ \[(SSE|Real-time) Event/)
+      .last()
     await expect(sseMsg).toBeAttached({ timeout: 10_000 })
 
     const scrollContainer = page.locator('.overflow-y-auto').first()

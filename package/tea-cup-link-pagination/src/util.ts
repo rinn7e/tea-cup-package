@@ -1,4 +1,10 @@
+// SPDX-FileCopyrightText: 2023 Rinn7e <https://rinn7e.io>
+//
+// SPDX-License-Identifier: MIT
 import { filterUnique } from '@rinn7e/tea-cup-prelude'
+import { type AppRouteUpdater } from '@rinn7e/tea-cup-prelude/type/app-route-updater'
+import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
+import { type SortedUniqueArray } from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import * as A from 'fp-ts/lib/Array'
 import type * as EqClass from 'fp-ts/lib/Eq'
 import * as O from 'fp-ts/lib/Option'
@@ -13,14 +19,17 @@ import {
   type Mode,
   type Model,
 } from './type'
-import * as SUA from './type/sorted-unique-array'
-import { type SortedUniqueArray } from './type/sorted-unique-array'
+
+// -------------------------------------------
+// Helper
+// -------------------------------------------
 
 export const isAEqual =
-  <A>(config: LogicConfig<A>) =>
+  <A, B, amsg>(config: LogicConfig<A, B, amsg>) =>
   (a1: A, a2: A): boolean =>
     config.uniqueKeyField(a1) === config.uniqueKeyField(a2)
 
+// Remove duplicated A. The array must be sorted first.
 export const removeDup =
   <A>({
     ord,
@@ -29,16 +38,18 @@ export const removeDup =
     ord: Ord.Ord<A>
     uniqueKeyField: (a: A) => string
   }) =>
-  (arr: A[]): A[] => {
+  (arr: A[]) => {
     const dataEq: EqClass.Eq<A> = {
       equals: (first, second) =>
         uniqueKeyField(first) === uniqueKeyField(second),
     }
+
     return Set.toArray(ord)(Set.fromArray(dataEq)(arr))
   }
 
-export const concatRemoveDup = <A>(
-  config: LogicConfig<A>,
+// Concat data at the end, removing duplicating if it exists
+export const concatRemoveDup = <A, B, amsg>(
+  config: LogicConfig<A, B, amsg>,
   currentData: A[],
   incomingData: A[],
 ): A[] => {
@@ -50,8 +61,9 @@ export const concatRemoveDup = <A>(
   return currentData.concat(uniqueIncomingData)
 }
 
-export const concatFrontRemoveDup = <A>(
-  config: LogicConfig<A>,
+// Concat data at the front, removing duplicating if it exists
+export const concatFrontRemoveDup = <A, B, amsg>(
+  config: LogicConfig<A, B, amsg>,
   currentData: A[],
   incomingData: A[],
 ): A[] => {
@@ -63,8 +75,9 @@ export const concatFrontRemoveDup = <A>(
   return uniqueIncomingData.concat(currentData)
 }
 
-export const concatFrontOverwriteDup = <A>(
-  config: LogicConfig<A>,
+// Concat data at the front, if the data exists, we overwrite it
+export const concatFrontOverwriteDup = <A, B, amsg>(
+  config: LogicConfig<A, B, amsg>,
   currentData: A[],
   incomingData: A[],
 ): A[] => {
@@ -76,18 +89,79 @@ export const concatFrontOverwriteDup = <A>(
   return incomingData.concat(uniqueCurrentData)
 }
 
-export const modeToArray = <A>(mode: Mode<A>): A[] => mode.overallData.value
+export const getNewCurrentData =
+  <A, B, amsg>(
+    config: LogicConfig<A, B, amsg>,
+    oldCurrentData: A,
+    oldCurrentDataIndex: number | null,
+  ) =>
+  (allData: A[]): [A[], A] => {
+    const currentIndex = allData.findIndex((a) =>
+      isAEqual(config)(a, oldCurrentData),
+    )
+    if (currentIndex >= 0) {
+      const current = allData[currentIndex]
+      return [allData, current]
+    }
+    // Sometimes `oldCurrentData` no longer exists, so we use
+    // `oldCurrentDataIndex` if it is available.
+    else if (oldCurrentDataIndex !== null && oldCurrentDataIndex >= 0) {
+      const current = allData[oldCurrentDataIndex]
+      return [allData, current]
+    }
+    // In last resort, pick the first item
+    // (happen when the link id get deleted/replaced.)
+    else {
+      console.warn('getNewCurrentData: cannot find current data index.')
+      return [allData, allData[0]]
+    }
+  }
 
-export const removeElFromArray = <A>(
-  config: LogicConfig<A>,
+// The same as `getNewCurrentData` but return O.none if current data is not found
+export const getNewCurrentDataO =
+  <A, B, amsg>(
+    config: LogicConfig<A, B, amsg>,
+    oldCurrentData: A,
+    oldCurrentDataIndex: number | null,
+  ) =>
+  (allData: A[]): [A[], Option<A>] => {
+    const currentIndex = allData.findIndex((a) =>
+      isAEqual(config)(a, oldCurrentData),
+    )
+    if (currentIndex >= 0) {
+      const current = allData[currentIndex]
+      return [allData, O.some(current)]
+    }
+    // Sometimes `oldCurrentData` no longer exists, so we use
+    // `oldCurrentDataIndex` if it is available.
+    else if (oldCurrentDataIndex) {
+      const current = allData[oldCurrentDataIndex]
+      return [allData, O.some(current)]
+    } else {
+      return [allData, O.none]
+    }
+  }
+
+export const modeToArray = <A>(mode: Mode<A>): A[] => {
+  return mode.overallData.value
+}
+
+// Remove a item out of an array
+export const removeElFromArray = <A, B, amsg>(
+  config: LogicConfig<A, B, amsg>,
   currentData: A,
   incomingData: A[],
-): A[] =>
-  pipe(
+): A[] => {
+  return pipe(
     incomingData,
     A.filter((el) => !isAEqual(config)(currentData, el)),
   )
+}
 
+// Revert prevIsMax to false if prevIsMax is true.
+// Mainly used to revert prevIsMax on syncing new bundle.
+// (Since new bundle has few Data, prevIsMax is reached right away.
+// When there are more old Data from syncing, we have to reset prevIsMax)
 export const revertPrevIsMax = <A>(model: Model<A>): Model<A> => {
   if (model.mode.prevIsMax) {
     return {
@@ -97,12 +171,15 @@ export const revertPrevIsMax = <A>(model: Model<A>): Model<A> => {
         prevIsMax: false,
       },
     }
-  }
-  return model
+  } else return model
 }
 
-export const upsertWithPrevious = <A>(
-  config: LogicConfig<A>,
+/**
+ * If the previousId is provided, in case it is found in the arr
+ * directly replace it with the new data
+ */
+export const upsertWithPrevious = <A, B, amsg>(
+  config: LogicConfig<A, B, amsg>,
   arr: SortedUniqueArray<A>,
   item: A,
   key: (a: A) => string,
@@ -111,15 +188,29 @@ export const upsertWithPrevious = <A>(
 ): SortedUniqueArray<A> => {
   if (previousId) {
     const idx = SUA.findIndex<A>((x) => comparePrevId(x, previousId))(arr)
+    // console.log('[MSG_STATE][upsert] previousId:', previousId, 'idx:', idx)
     if (idx >= 0) {
-      return SUA.updateAtOrKeep(idx, item)(arr)
+      // console.log('[MSG_STATE][upsert] replacing existing item at index', idx)
+      return SUA.mapWithIndex<A>(
+        config.eqWithKey,
+        config.ord,
+      )((i, x) => (i === idx ? item : x))(arr)
+    } else {
+      // console.log(
+      //   '[MSG_STATE][upsert] previousId not found, appending new item',
+      // )
+      return SUA.concat(config.eqWithKey, config.ord)([item])(arr)
     }
-    return SUA.concat(config.eqWithKey, config.ord)([item])(arr)
+  } else {
+    const idx = SUA.findIndex<A>((x) => key(x) === key(item))(arr)
+    // console.log('[MSG_STATE][upsert] key(item):', key(item), 'idx:', idx)
+    return idx >= 0
+      ? SUA.mapWithIndex<A>(
+          config.eqWithKey,
+          config.ord,
+        )((i, x) => (i === idx ? item : x))(arr)
+      : SUA.concat(config.eqWithKey, config.ord)([item])(arr)
   }
-  const idx = SUA.findIndex<A>((x) => key(x) === key(item))(arr)
-  return idx >= 0
-    ? SUA.updateAtOrKeep(idx, item)(arr)
-    : SUA.concat(config.eqWithKey, config.ord)([item])(arr)
 }
 
 export const getChangeEvent = <A>(
@@ -129,29 +220,39 @@ export const getChangeEvent = <A>(
   isReversed: boolean,
 ): ContainerChangeEvent => {
   const latest = prevArr.value[0]
-  if (!latest) return { _tag: 'NoChange' }
+  if (!latest) return { _tag: 'NoChange' } as ContainerChangeEvent
 
   const isNewer = Ord.gt(ord)(data, latest)
 
   if (isReversed) {
     // Chat mode: History (older) is Top, Newer is Bottom
     return isNewer
-      ? { _tag: 'ElementModifyOnBottom' }
-      : { _tag: 'ElementModifyOnTop' }
+      ? ({ _tag: 'ElementModifyOnBottom' } as ContainerChangeEvent)
+      : ({ _tag: 'ElementModifyOnTop' } as ContainerChangeEvent)
+  } else {
+    // Standard mode: Newer is Top, History (older) is Bottom
+    return isNewer
+      ? ({ _tag: 'ElementModifyOnTop' } as ContainerChangeEvent)
+      : ({ _tag: 'ElementModifyOnBottom' } as ContainerChangeEvent)
   }
-  // Standard mode: Newer is Top, History (older) is Bottom
-  return isNewer
-    ? { _tag: 'ElementModifyOnTop' }
-    : { _tag: 'ElementModifyOnBottom' }
 }
 
-export function addOrUpdateData<A>(
-  config: LogicConfig<A>,
+// Update an existing data with new value (identifier stays the same).
+// If the value does not exist, add it.
+export function addOrUpdateData<A, B, amsg>(
+  config: LogicConfig<A, B, amsg>,
   data: A,
   previousId: string | null,
   comparePreviousId: (data: A, prevId: string) => boolean = () => false,
 ) {
   return (model: Model<A>): [Model<A>, ContainerChangeEvent] => {
+    // console.log('[MSG_STATE][] start', {
+    //   previousId,
+    //   data,
+    //   overallData: model.mode.overallData,
+    //   mode: model.mode,
+    // })
+
     const overallData = upsertWithPrevious(
       config,
       model.mode.overallData,
@@ -168,6 +269,11 @@ export function addOrUpdateData<A>(
       config.isReversed,
     )
 
+    // console.log('[MSG_STATE][addOrUpdateData] result', {
+    //   overallData,
+    //   event,
+    // })
+
     return [
       {
         ...model,
@@ -177,51 +283,70 @@ export function addOrUpdateData<A>(
     ]
   }
 }
-
-export const replaceFuncActionHandler = <A>(
+// Given a function, run it against all the data
+// Sort and run reprocessStateFunc at the end
+export const replaceFuncActionHandler = <A, Route>(
   model: Model<A>,
-  func: (as: SortedUniqueArray<A>) => SortedUniqueArray<A>,
-): Model<A> => {
+  func: (
+    as: SortedUniqueArray<A>,
+  ) => [SortedUniqueArray<A>, AppRouteUpdater<Route>],
+): [Model<A>, AppRouteUpdater<Route>] => {
   const allData = model.mode.overallData
-  const newAllData = func(allData)
-  return {
-    ...model,
-    mode: {
-      ...model.mode,
-      overallData: newAllData,
+  const [newAllData, routeUpdater] = pipe(allData, (as) => func(as))
+  return [
+    {
+      ...model,
+      mode: {
+        ...model.mode,
+        overallData: newAllData,
+      } satisfies Mode<A>,
+      // ^ Note, we should use `statisfied` for every object spread update
+      // because: https://github.com/microsoft/TypeScript/issues/39998
     },
-  }
+    routeUpdater,
+  ]
 }
 
-export const getSelectedA = <A>(
-  logicConfig: LogicConfig<A>,
+// The same as `replaceFuncActionHandler` but can run async func
+// Note: There is a different such that when current data is not found, switch to latest mode
+// Consider doing this for the non-async version as well.
+export const replaceFuncActionHandlerAsync = async <A, Route>(
+  model: Model<A>,
+  func: (
+    a: SortedUniqueArray<A>,
+  ) => Promise<[SortedUniqueArray<A>, AppRouteUpdater<Route>]>,
+): Promise<[Model<A>, AppRouteUpdater<Route>]> => {
+  const allData = model.mode.overallData
+  const [newAllData, routeUpdater] = await func(allData)
+  return [
+    {
+      ...model,
+      mode: {
+        ...model.mode,
+        overallData: newAllData,
+      } satisfies Mode<A>,
+      // ^ Note, we should use `statisfied` for every object spread update
+      // because: https://github.com/microsoft/TypeScript/issues/39998
+    },
+    routeUpdater,
+  ]
+}
+
+// Get current selected data from link pagin state
+export const getSelectedA = <A, B, amsg>(
+  logicConfig: LogicConfig<A, B, amsg>,
   model: Model<A>,
 ): Option<A> => {
   const selectedI = model.mode.selectedKey
-    ? model.mode.overallData.value.findIndex(
-        (a) => logicConfig.uniqueKeyField(a) === model.mode.selectedKey,
+    ? (model.mode.overallData.value as A[]).findIndex(
+        (a: A) => logicConfig.uniqueKeyField(a) === model.mode.selectedKey,
       )
     : -1
 
-  return selectedI >= 0
-    ? O.some(model.mode.overallData.value[selectedI])
-    : O.none
-}
+  const selectedA =
+    selectedI >= 0
+      ? O.fromNullable(model.mode.overallData.value[selectedI])
+      : O.none
 
-export const isInView = (
-  element: HTMLElement,
-  options: { margin?: number } = {},
-): boolean => {
-  const rect = element.getBoundingClientRect()
-  const margin = options.margin ?? 0
-  const windowHeight =
-    window.innerHeight || document.documentElement.clientHeight
-  const windowWidth = window.innerWidth || document.documentElement.clientWidth
-
-  const vertInView =
-    rect.top + margin <= windowHeight && rect.top + rect.height - margin >= 0
-  const horInView =
-    rect.left + margin <= windowWidth && rect.left + rect.width - margin >= 0
-
-  return vertInView && horInView
+  return selectedA
 }
