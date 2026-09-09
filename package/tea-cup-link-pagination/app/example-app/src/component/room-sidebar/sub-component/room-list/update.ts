@@ -60,7 +60,7 @@ export const mkRoomListLinkPaginationMode = (
         return pipe(
           Api.fetchPrevRooms({
             beforeTimestamp,
-            limit: pageSize.value,
+            limit: pageSize,
             latencyMs,
             networkOnline,
           }),
@@ -80,7 +80,7 @@ export const mkRoomListLinkPaginationMode = (
         return pipe(
           Api.fetchNextRooms({
             afterTimestamp,
-            limit: pageSize.value,
+            limit: pageSize,
             latencyMs,
             networkOnline,
           }),

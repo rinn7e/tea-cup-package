@@ -19,16 +19,18 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-import * as EqClass from 'fp-ts/lib/Eq'
+import type * as EqClass from 'fp-ts/lib/Eq'
 import * as N from 'fp-ts/lib/number'
-import * as S from 'fp-ts/lib/string'
+import type * as OrdClass from 'fp-ts/lib/Ord'
+
+import { brandedNumber } from '../common'
 
 // Size
 // -----------------------------------------------------------------
-export type Size = { _tag: 'Size'; value: number }
-export const SizeEq: EqClass.Eq<Size> = EqClass.struct({
-  _tag: S.Eq,
-  value: N.Eq,
-})
-export const size = (value: number): Size => ({ _tag: 'Size', value })
+export type Size = number & { readonly __brand: unique symbol }
+export const SizeEq: EqClass.Eq<Size> = N.Eq as any
+export const SizeOrd: OrdClass.Ord<Size> = N.Ord as any
+export const SizeJson = brandedNumber<Size>('Size')
+export const size = (value: number): Size => value as Size
 export const defaultPageSize = 25
+

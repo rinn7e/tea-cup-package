@@ -64,7 +64,7 @@ export const mkLinkPaginationMode = (
           Api.fetchPrevChats({
             roomId,
             beforeTimestamp,
-            limit: pageSize.value,
+            limit: pageSize,
             latencyMs,
             networkOnline,
           }),
@@ -82,7 +82,7 @@ export const mkLinkPaginationMode = (
           Api.fetchNextChats({
             roomId,
             afterTimestamp,
-            limit: pageSize.value,
+            limit: pageSize,
             latencyMs,
             networkOnline,
           }),
