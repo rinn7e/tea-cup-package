@@ -341,7 +341,11 @@ export const getFirstLine = (text: string) => {
 
 // Given an html, remove its node until it is not over the limit
 // TODO: Write test for this
-export const truncateHtml = (input: string, limit: number): string => {
+export const truncateHtml = (
+  input: string,
+  limit: number,
+  truncationMarker = '...',
+): string => {
   if (input.length <= limit) return input
 
   const div = document.createElement('div')
@@ -361,7 +365,7 @@ export const truncateHtml = (input: string, limit: number): string => {
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent || ''
       if (count + text.length > limit) {
-        node.textContent = text.slice(0, limit - count) + '...'
+        node.textContent = text.slice(0, limit - count) + truncationMarker
         count = limit
         passedLimit = true
       } else {
@@ -381,24 +385,19 @@ export const truncateHtml = (input: string, limit: number): string => {
     }
   }
 
-  const children = Array.from(div.childNodes)
-  for (const child of children) {
-    if (passedLimit) {
-      if (child.parentNode) {
-        child.parentNode.removeChild(child)
-      }
-    } else {
-      traverse(child)
-    }
-  }
+  traverse(div)
 
   return div.innerHTML
 }
 
 // Given a text, slice it until it is not over the limit
-export const truncateText = (input: string, limit: number): string => {
+export const truncateText = (
+  input: string,
+  limit: number,
+  truncationMarker = '...',
+): string => {
   if (input.length <= limit) return input
-  return input.slice(0, limit) + '...'
+  return input.slice(0, limit) + truncationMarker
 }
 
 export const brandedString = <T extends string>(

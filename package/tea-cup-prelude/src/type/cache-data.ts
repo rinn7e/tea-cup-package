@@ -22,12 +22,31 @@ SOFTWARE. */
 import * as RD from '@devexperts/remote-data-ts'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
+import * as t from 'io-ts'
+import * as tt from 'io-ts-types'
+
+import { RemoteDataJson } from '../common'
 
 // Cache data type, this is meant to be used as 'import * as CacheData'.
 export type Type<A> = {
   data: RD.RemoteData<string, A>
+  // ^ TODO: instead of using RemoteData, we might consider using our own sum-type for the state
+  // which are: "NoCache", "PendingCache", "HaveCache"
+
+  // Side note: We might consider not storing "pending" all together, and use react state
+  // to track the pending status instead (Either in `App` or `Api` component).
+  // With this, we only store the cache when the status succeed.
+  // Any component needed to track the pending status, will need to access the state in that component
+  // instead.
+
   updatedAt: Date
 }
+
+export const Json = <A>(aJson: t.Type<A>): t.Type<Type<A>, unknown> =>
+  t.type({
+    data: RemoteDataJson(aJson),
+    updatedAt: tt.date,
+  })
 
 // Create cache data from RemoteData, using 'now' as updatedAt.
 export const fromRD = <A>(data: RD.RemoteData<string, A>): Type<A> => ({
