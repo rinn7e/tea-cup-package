@@ -26,6 +26,7 @@ export const logicConfig: LinkPagination.LogicConfig<
 > = {
   refs: LinkPagination.mkRefs(),
   mode: LinkPagination.defaultMode<Chat>(),
+  dataSourceIdAttribute: 'data-datasource-id',
   isReversed: true, // Chat mode: older chats at top, newer at bottom
   eqWithKey: EqClass.struct({ id: S.Eq }),
   ord: ChatOrd,

@@ -20,7 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as RD from '@devexperts/remote-data-ts'
-import { NullableEq } from '@rinn7e/tea-cup-prelude'
+import { NullableEq, UndefinableEq } from '@rinn7e/tea-cup-prelude'
 import { type AppRouteUpdater } from '@rinn7e/tea-cup-prelude/type/app-route-updater'
 import * as CacheData from '@rinn7e/tea-cup-prelude/type/cache-data'
 import {
@@ -45,11 +45,6 @@ import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
 import { type JSX } from 'react'
 import { type Cmd } from 'tea-cup-fp'
-
-// Constant
-// ----------------------------------------------
-
-export const dataSourceIdAttribute = 'data-datasource-id'
 
 // Type
 // ----------------------------------------------
@@ -238,9 +233,12 @@ export type CustomUiParam<A, B> = {
   allA: A[]
 }
 
+export const defaultDataSourceIdAttribute = 'data-link-pagin-datasource-id'
+
 export type LogicConfig<A, B, amsg> = {
   refs: Refs
   mode: Mode<A>
+  dataSourceIdAttribute?: string
 
   isReversed: boolean
   // eq instance that compare key only (should be the same as `uniqueKeyField`)
@@ -303,6 +301,7 @@ export function mkLogicConfigEq<A, B, amsg>(eqA: EqClass.Eq<A>) {
   return EqClass.struct<LogicConfig<A, B, amsg>>({
     refs: { equals: () => true },
     mode: mkModeEq(eqA),
+    dataSourceIdAttribute: UndefinableEq(S.Eq),
     isReversed: B.Eq,
     eqWithKey: { equals: () => true },
     ord: { equals: () => true },
