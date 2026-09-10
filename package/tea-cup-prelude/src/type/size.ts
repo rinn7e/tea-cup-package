@@ -28,8 +28,8 @@ import { brandedNumber } from '../common'
 // Size
 // -----------------------------------------------------------------
 export type Size = number & { readonly __brand: unique symbol }
-export const SizeEq: EqClass.Eq<Size> = N.Eq as any
-export const SizeOrd: OrdClass.Ord<Size> = N.Ord as any
+export const SizeEq: EqClass.Eq<Size> = N.Eq as unknown as EqClass.Eq<Size>
+export const SizeOrd: OrdClass.Ord<Size> = N.Ord as unknown as OrdClass.Ord<Size>
 export const SizeJson = brandedNumber<Size>('Size')
 export const size = (value: number): Size => value as Size
 export const defaultPageSize = 25

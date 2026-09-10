@@ -40,6 +40,7 @@ import {
   getMorePrevDataFromCacheResponseHandler,
   getMorePrevDataHandler,
   mapFuncHandler,
+  refreshInitialDataHandler,
   replaceFuncAsyncCmd,
   replaceFuncHandler,
   scrollToKeyHandler,
@@ -77,10 +78,7 @@ export function init<A, amsg, Route>(
     initialScrollDone: false,
   } satisfies Model<A>
 
-  return getInitialDataHandler(
-    networkStatus,
-    model.mode.dataSourceId,
-  )<A, amsg, Route>(model)
+  return getInitialDataHandler(networkStatus)<A, amsg, Route>(model)
 }
 
 //
@@ -475,10 +473,17 @@ export const update =
         ]
 
       case 'GetInitialData': {
-        const [m, cmd] = getInitialDataHandler(
-          networkStatus,
-          model.mode.dataSourceId,
-        )<A, amsg, Route>(model)
+        const [m, cmd] = getInitialDataHandler(networkStatus)<A, amsg, Route>(
+          model,
+        )
+        return [m, cmd, null]
+      }
+      case 'RefreshInitialData': {
+        const [m, cmd] = refreshInitialDataHandler(networkStatus)<
+          A,
+          amsg,
+          Route
+        >(model)
         return [m, cmd, null]
       }
       case 'GetInitialDataFromCacheResponse': {

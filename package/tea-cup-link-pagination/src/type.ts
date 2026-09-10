@@ -365,6 +365,16 @@ export type Model<A> = {
   invisWhileScrolling: boolean
   isScrolling: boolean
   savedScrollPos: number | null
+  /**
+   * Tracks whether the one-time initial scroll for the current mount has
+   * been performed.
+   *
+   * Reset to `false` only when a list is (re-)mounted, via `GetInitialData`
+   * / `init()`. It is set to `true` by whichever of the cache or API load
+   * first resolves the scroll target, and is left untouched by
+   * `RefreshInitialData` so that an in-place refresh of an already-mounted
+   * list never re-triggers a scroll.
+   */
   initialScrollDone: boolean
 }
 
@@ -574,7 +584,25 @@ export type Msg<A, amsg, Route> =
       shouldReload?: true
     }
   | {
+      /**
+       * Loads the initial page of data for a newly mounted list. Dispatched
+       * internally by `init()`. Resets the one-time scroll obligation and
+       * shows a loading state until the data arrives.
+       *
+       * Do not dispatch this for a list that is already mounted and visible
+       * — use `RefreshInitialData` instead.
+       */
       _tag: 'GetInitialData'
+    }
+  | {
+      /**
+       * Re-fetches the initial page of data for a list that is already
+       * mounted and visible, without disturbing what is currently
+       * displayed or re-triggering the one-time initial scroll. Intended
+       * for silently refreshing an open list, e.g. in response to a
+       * real-time update.
+       */
+      _tag: 'RefreshInitialData'
     }
   | {
       _tag: 'GetInitialDataFromCacheResponse'

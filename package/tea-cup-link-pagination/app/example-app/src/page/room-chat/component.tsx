@@ -235,9 +235,7 @@ export const RoomChatPageComponent = (props: Props): JSX.Element => {
           className='flex items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900'
         >
           <span className='flex items-center gap-1.5 font-medium'>
-            <span className='font-bold text-amber-700'>
-              🐛 Bug #123 Repro:
-            </span>
+            <span className='font-bold text-amber-700'>🐛 Bug #123 Repro:</span>
             <span>
               Provisional target was <code>message-1002</code>, API settled to{' '}
               <code>latest (null)</code>.

@@ -63,9 +63,24 @@ import {
   revertPrevIsMax,
 } from './util'
 
+/**
+ * Loads the initial page of data for a freshly mounted list.
+ *
+ * Backs the `GetInitialData` message and is invoked internally by `init()`.
+ * It always resets `initialScrollDone` to `false` and blanks `initialData`
+ * to `RD.pending`, since a new mount has no committed scroll position and
+ * nothing meaningful to show while the load is in flight.
+ *
+ * Do not dispatch `GetInitialData` for a list that is already mounted and
+ * visible — that discards the currently displayed data and re-arms the
+ * one-time initial scroll. To refresh an already-mounted list in place,
+ * dispatch `RefreshInitialData` (handled by {@link refreshInitialDataHandler})
+ * instead.
+ */
 export const getInitialDataHandler =
-  (networkStatus: boolean, dataSourceId: string) =>
+  (networkStatus: boolean) =>
   <A, amsg, Route>(model: Model<A>): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
+    const currentDataSourceId = model.mode.dataSourceId
     const newModel = {
       ...model,
       initialScrollDone: false,
@@ -76,11 +91,75 @@ export const getInitialDataHandler =
     } satisfies Model<A>
     return [
       newModel,
-      getInitialDataFromCacheCmd(networkStatus, dataSourceId, newModel),
+      getInitialDataFromCacheCmd(networkStatus, currentDataSourceId, newModel),
     ]
   }
 
-// Handle cache response and call real api
+/**
+ * Re-fetches the initial page of data for a list that is already mounted
+ * and visible, without disturbing what the user is currently looking at.
+ *
+ * Backs the `RefreshInitialData` message. Use this to silently update an
+ * open list — for example in response to a real-time push event — while the
+ * user keeps looking at it:
+ *
+ * - If data is already loaded (`overallData` is non-empty), `initialData`
+ *   is left untouched so the list stays visible; only the underlying data
+ *   is re-fetched in the background.
+ * - If no data is loaded yet, `initialData` is set to `RD.pending`, same as
+ *   a fresh load.
+ * - `initialScrollDone` is never modified. The one-time initial scroll for
+ *   this mount was already resolved (or intentionally was not owed), and a
+ *   background refresh must not re-trigger it.
+ *
+ * For the initial load of a newly mounted list, dispatch `GetInitialData`
+ * (handled by {@link getInitialDataHandler}) instead.
+ */
+export const refreshInitialDataHandler =
+  (networkStatus: boolean) =>
+  <A, amsg, Route>(model: Model<A>): [Model<A>, Cmd<Msg<A, amsg, Route>>] => {
+    const currentDataSourceId = model.mode.dataSourceId
+    const hasData = model.mode.overallData.value.length !== 0
+    const newModel = {
+      ...model,
+      mode: {
+        ...model.mode,
+        initialData: hasData ? model.mode.initialData : RD.pending,
+      },
+    } satisfies Model<A>
+    return [
+      newModel,
+      getInitialDataFromCacheCmd(networkStatus, currentDataSourceId, newModel),
+    ]
+  }
+
+/**
+ * Both {@link getInitialDataHandler} and {@link refreshInitialDataHandler}
+ * delegate to the same two-leg load sequence implemented by this function
+ * and {@link getInitialDataFromApiResponseHandler}: a cache lookup, followed
+ * by an API request. Both legs share the same invariants:
+ *
+ * - The list scrolls to its target at most once per mount, on whichever leg
+ *   is first able to resolve the target with confidence.
+ * - An already-loaded list is never reverted to a loading state by a
+ *   subsequent refetch.
+ *
+ * The cache leg and the API leg resolve the same scroll target, but the API
+ * response may reassign or clear `selectedKey`
+ * (`InitialEndpointResponse.selectedKey`) — for example, when the previously
+ * selected item is no longer available and the view falls back to the
+ * newest unread item. Until the API leg has responded, `selectedKey` should
+ * be treated as provisional: the cache leg may scroll only to a target the
+ * API leg cannot later override (i.e. when `selectedKey` is `null`, meaning
+ * the view opens at the newest page). Otherwise the cache leg could scroll
+ * to a position the API leg immediately scrolls away from.
+ *
+ * Note: this deliberately does not set `invisWhileScrolling` while the
+ * cache leg defers scrolling to the API leg. `invisWhileScrolling` is
+ * cleared only by `ScrollToCurrentDone`, which is dispatched as part of a
+ * scroll; setting it here without a corresponding scroll on this leg would
+ * leave the list hidden indefinitely instead of simply skipping the scroll.
+ */
 export const getInitialDataFromCacheResponseHandler = <A, B, amsg, Route>(
   networkStatus: boolean,
   config: LogicConfig<A, B, amsg>,
@@ -170,7 +249,12 @@ export const getInitialDataFromApiResponseHandler = <A, B, amsg, Route>(
       } else return m
     })()
 
-    // Discharge the scroll obligation if it has not already been done by the cache leg
+    // Scroll here unless the cache leg already did. This is the leg that
+    // resolves the final target, since the API response may have reassigned
+    // or cleared `selectedKey` after the cache leg ran — so it is the last
+    // opportunity to scroll for this mount. Once `initialScrollDone` is
+    // `true`, it is also what prevents a later refresh (via
+    // `refreshInitialDataHandler`) from moving the view again.
     const shouldScroll = !m.initialScrollDone
 
     return pipe(
@@ -204,8 +288,13 @@ export const setNewSelectedKeyHandler = <A, B, amsg, Route>(
 
     return pipe(
       newModel,
+      // `shouldReload` here means the mounted list's TARGET is changing (a
+      // new `selectedKey`), which is a genuine re-resolution — closer to
+      // `init()` than to a same-target refresh — so this intentionally calls
+      // `getInitialDataHandler`, not `refreshInitialDataHandler`, even though
+      // no live call site sets `shouldReload` today.
       msg.shouldReload
-        ? getInitialDataHandler(networkStatus, msg.dataSourceId)
+        ? getInitialDataHandler(networkStatus)
         : (m) => [m, Cmd.none()] satisfies [Model<A>, Cmd<Msg<A, amsg, Route>>],
       msg.triggerScrollToCurrent
         ? updateAndCmd(
@@ -248,9 +337,14 @@ export const setModeAndAddUpdateDataHandler = <A, B, amsg, Route>(
       },
       Cmd.none(),
     ] satisfies [Model<A>, Cmd<Msg<A, amsg, Route>>],
+    // `shouldReload` here means a whole new `mode` is being installed — again
+    // a genuine re-resolution of the target, not a refresh of the current
+    // one — so this intentionally calls `getInitialDataHandler`, not
+    // `refreshInitialDataHandler`, even though no live call site sets
+    // `shouldReload` today.
     msg.shouldReload
       ? updateAndCmd<Msg<A, amsg, Route>, Model<A>>(
-          getInitialDataHandler(networkStatus, msg.mode.dataSourceId),
+          getInitialDataHandler(networkStatus),
         )
       : identity,
   )
