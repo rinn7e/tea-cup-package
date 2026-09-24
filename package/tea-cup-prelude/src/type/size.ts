@@ -20,8 +20,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import type * as EqClass from 'fp-ts/lib/Eq'
-import * as N from 'fp-ts/lib/number'
 import type * as OrdClass from 'fp-ts/lib/Ord'
+import * as N from 'fp-ts/lib/number'
 
 import { brandedNumber } from '../common'
 
@@ -29,8 +29,8 @@ import { brandedNumber } from '../common'
 // -----------------------------------------------------------------
 export type Size = number & { readonly __brand: unique symbol }
 export const SizeEq: EqClass.Eq<Size> = N.Eq as unknown as EqClass.Eq<Size>
-export const SizeOrd: OrdClass.Ord<Size> = N.Ord as unknown as OrdClass.Ord<Size>
+export const SizeOrd: OrdClass.Ord<Size> =
+  N.Ord as unknown as OrdClass.Ord<Size>
 export const SizeJson = brandedNumber<Size>('Size')
 export const size = (value: number): Size => value as Size
 export const defaultPageSize = 25
-

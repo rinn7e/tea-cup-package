@@ -9,6 +9,7 @@
     "check-circular": "pnpm --filter \"!*rte*\" check-circular",
     "lint": "pnpm --filter \"!*rte*\" lint",
     "format": "pnpm --filter \"!*rte*\" format",
+    "publish-all": "./scripts/publish-all.sh",
     "staged": "pnpm --filter \"!*rte*\" staged"
   },
   "devDependencies": {

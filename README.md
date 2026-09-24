@@ -45,6 +45,89 @@ pnpm build
 
 ---
 
+## Installing from GitHub Packages (For Consumers)
+
+All packages in this monorepo are published to the **GitHub Packages npm registry** under the `@rinn7e` scope.
+
+> **Note:** GitHub Packages requires authentication to install packages, even for public repositories.
+
+### 1. Configure `.npmrc`
+
+Create or update a `.npmrc` file in the root of your application:
+
+```ini
+@rinn7e:registry=https://npm.pkg.github.com/
+//npm.pkg.github.com/:_authToken=${INSTALL_GITHUB_PACKAGE_TOKEN}
+```
+
+### 2. Set Up a GitHub Personal Access Token
+
+1. Go to your GitHub account: **Settings** → **Developer Settings** → **Personal Access Tokens** → **Tokens (classic)**.
+2. Generate a new token with the **`read:packages`** scope.
+3. Export the token in your shell environment:
+
+```bash
+export INSTALL_GITHUB_PACKAGE_TOKEN=ghp_pat_for_install_packages
+```
+
+*(Alternatively, you can save the token globally in `~/.npmrc` so you don't need to export it in each terminal session: `npm config set //npm.pkg.github.com/:_authToken ghp_pat_for_install_packages`)*
+
+### 3. Install Packages
+
+Install any of the packages using your preferred package manager:
+
+```bash
+# Using pnpm
+pnpm add @rinn7e/tea-cup-router @rinn7e/tea-cup-prelude
+
+# Using npm
+npm install @rinn7e/tea-cup-router @rinn7e/tea-cup-prelude
+
+# Using yarn
+yarn add @rinn7e/tea-cup-router @rinn7e/tea-cup-prelude
+```
+
+---
+
+## Publishing Packages (For Maintainers)
+
+Packages are published to GitHub Packages (`https://npm.pkg.github.com`).
+
+### 1. Prerequisites
+
+You must have a GitHub Personal Access Token with **`write:packages`** and **`read:packages`** permissions associated with the `@rinn7e` namespace.
+
+Set your token in your environment:
+
+```bash
+export PUBLISH_GITHUB_PACKAGE_TOKEN=ghp_pat_for_publish_packages
+```
+
+### 2. Publish All Packages in Dependency Order
+
+Use the automated publish script to compile and deploy all packages in their topological dependency order:
+
+```bash
+pnpm run publish-all
+```
+
+This runs:
+1. `tea-cup-prelude` (Core base)
+2. `tea-cup-intersection-observer` & `tea-cup-rte-toolkit`
+3. `tea-cup-router`, `tea-cup-pagination`, `tea-cup-link-pagination`, and `tea-cup-form`
+
+### 3. Publish an Individual Package
+
+To publish a specific package manually:
+
+```bash
+cd package/tea-cup-router
+pnpm run build
+npm publish --access public
+```
+
+---
+
 ## Workspace Scripts
 
 All scripts are executed from the monorepo root using pnpm workspace filters:
@@ -55,6 +138,8 @@ All scripts are executed from the monorepo root using pnpm workspace filters:
 | `pnpm check` | Run TypeScript type checking on all packages |
 | `pnpm lint` | Run ESLint check across the entire workspace |
 | `pnpm format` | Automatically format all codebase files with Prettier |
+| `pnpm publish-all` | Build and publish all packages to GitHub Packages |
+
 
 ---
 
