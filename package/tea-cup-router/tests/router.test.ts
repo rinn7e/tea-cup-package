@@ -354,6 +354,28 @@ describe('@rinn7e/tea-cup-router', () => {
       expect(cmd).toBeDefined()
     })
 
+    it('ChangeRouteNoReload is a no-op when the route is unchanged (no duplicate history entry)', () => {
+      const config = createConfig()
+      const initialModel: Model<TestRoute, TestPageModel> = {
+        route: { _tag: 'Profile', name: 'Alice' },
+        pageModel: {
+          activeTab: 'profile-tab',
+          fetchCount: 1,
+          loadedData: 'persisted data',
+        },
+        isInternal: false,
+      }
+
+      const [nextModel, cmd] = changeRouteNoReloadHandler(config)({
+        _tag: 'Profile',
+        name: 'Alice',
+      })(initialModel)
+
+      expect(nextModel).toBe(initialModel)
+      expect(nextModel.isInternal).toBe(false)
+      expect(cmd).toEqual(Cmd.none())
+    })
+
     it('ChangeRouteUrlNoReload updates URL bar only without changing route in Model', () => {
       const config = createConfig()
       const initialModel: Model<TestRoute, TestPageModel> = {

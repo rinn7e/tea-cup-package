@@ -129,6 +129,8 @@ export const changeRouteHandler =
 /**
  * Direct message handler for URL changes without page model re-initialization (`ChangeRouteNoReload`).
  * Ideal for pagination, tab switching, and query parameter changes where page state should persist.
+ * When the target route equals the current route (per `config.routeEq`), it is a no-op, so no
+ * duplicate browser history entry is pushed and `isInternal` is left untouched.
  *
  * @param config - Router configuration.
  * @returns Curried handler function: `(route) => (model) => [Model, Cmd]`.
@@ -139,17 +141,21 @@ export const changeRouteNoReloadHandler =
   ) =>
   (route: Route) =>
   (model: Model<Route, PageModel>): [Model<Route, PageModel>, Cmd<PageMsg>] => {
-    const url = config.toUrl(route)
-    const urlCmd = changeUrlCmd<Route>(url).map(config.toMsg)
+    if (config.routeEq.equals(model.route, route)) {
+      return [model, Cmd.none()]
+    } else {
+      const url = config.toUrl(route)
+      const urlCmd = changeUrlCmd<Route>(url).map(config.toMsg)
 
-    return [
-      {
-        ...model,
-        route,
-        isInternal: true,
-      },
-      urlCmd,
-    ]
+      return [
+        {
+          ...model,
+          route,
+          isInternal: true,
+        },
+        urlCmd,
+      ]
+    }
   }
 
 /**

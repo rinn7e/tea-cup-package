@@ -12,6 +12,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and adher
 
 ---
 
+## [1.0.3] - 2026-09-26
+
+### Fixed
+
+- **`@rinn7e/tea-cup-router`**:
+  - `ChangeRouteNoReload` / `ModifyRouteNoReload` are now a no-op when the target route equals the current route (`config.routeEq`). Previously every dispatch pushed a new browser history entry, flooding history with duplicates of the same URL; the model (including `isInternal`) is now left untouched in that case.
+
+---
+
 ## [1.0.2] - 2026-09-24
 
 ### Added
