@@ -55,7 +55,7 @@ export const fromRD = <A>(data: RD.RemoteData<string, A>): Type<A> => ({
 })
 
 export const fromNullable = <A>(data: A | null): Type<A> =>
-  data ? fromRD(RD.success(data)) : fromRD(RD.initial)
+  data !== null ? fromRD(RD.success(data)) : fromRD(RD.initial)
 
 export const fromO = <A>(data: O.Option<A>): Type<A> =>
   pipe(

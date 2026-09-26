@@ -52,8 +52,8 @@ export const or: (as: Array<boolean>) => boolean = A.matchLeft(
  * that is sure to be not null.
  */
 export const unsafeFromNullable = <A, _>(a: A | null) => {
-  if (a) return a
-  throw new Error('unsafeFromNullable: Cannot convert null value.')
+  if (a !== null) return a
+  else throw new Error('unsafeFromNullable: Cannot convert null value.')
 }
 
 /**
@@ -80,10 +80,9 @@ export const appRouteReload = (r: string) => {
 }
 
 // Breaks a string up into a list of words, which were delimited by white space
-export const words = (r: string): string[] => {
-  const result = r.split(/\s+/)
-  return result ? result : [r]
-}
+// (like haskell's `words`: leading/trailing white space yields no empty words)
+export const words = (r: string): string[] =>
+  r.split(/\s+/).filter((w) => w.length > 0)
 
 // Reverse of words.
 export const unwords = (r: string[]): string => {
@@ -132,20 +131,31 @@ export const throttle = <F extends (...args: any[]) => any>(
   const resetStartTime = () => (startTime = now())
   let timeout: ReturnType<typeof setTimeout> | null
   let startTime: number = now() - waitFor
+  // Callers superseded by a later call are resolved with that later call's result,
+  // so no returned promise is left pending forever.
+  let pendingResolves: Array<(value: ReturnType<F>) => void> = []
 
   return (...args: Parameters<F>): Promise<ReturnType<F>> =>
     new Promise((resolve) => {
       const timeLeft = startTime + waitFor - now()
       if (timeout) {
         clearTimeout(timeout)
+        timeout = null
       }
       if (startTime + waitFor <= now()) {
         resetStartTime()
-        resolve(func(...args))
+        const result = func(...args)
+        pendingResolves.forEach((r) => r(result))
+        pendingResolves = []
+        resolve(result)
       } else {
+        pendingResolves.push(resolve)
         timeout = setTimeout(() => {
+          timeout = null
           resetStartTime()
-          resolve(func(...args))
+          const result = func(...args)
+          pendingResolves.forEach((r) => r(result))
+          pendingResolves = []
         }, timeLeft)
       }
     })
@@ -153,11 +163,12 @@ export const throttle = <F extends (...args: any[]) => any>(
 
 export const mkDate = (dateString: string): Date => new Date(dateString)
 
+// Only `null` counts as missing: falsy values (`0`, `''`, `false`) are compared with `aEq`
 export const NullableEq = <A>(aEq: EqClass.Eq<A>): EqClass.Eq<A | null> => ({
   equals: (first, second) => {
-    if (first && second) return aEq.equals(first, second)
-    else if (first) return false
-    else if (second) return false
+    if (first !== null && second !== null) return aEq.equals(first, second)
+    else if (first !== null) return false
+    else if (second !== null) return false
     // If both are null return true
     else return true
   },
@@ -168,13 +179,15 @@ export const EqAlways: EqClass.Eq<any> = { equals: () => true }
 // Eq instance for Unit type (null is used as unit type)
 export const nullEq: EqClass.Eq<null> = EqAlways
 
+// Only `undefined` counts as missing: falsy values (`0`, `''`, `false`) are compared with `aEq`
 export const UndefinableEq = <A>(
   aEq: EqClass.Eq<A>,
 ): EqClass.Eq<A | undefined> => ({
   equals: (first, second) => {
-    if (first && second) return aEq.equals(first, second)
-    else if (first) return false
-    else if (second) return false
+    if (first !== undefined && second !== undefined)
+      return aEq.equals(first, second)
+    else if (first !== undefined) return false
+    else if (second !== undefined) return false
     // If both are undefined return true
     else return true
   },
@@ -259,7 +272,7 @@ export const rdConvertNullSuccessToInitial = <E, A>(
   input: RD.RemoteData<E, A | null>,
 ): RD.RemoteData<E, A> => {
   if (input._tag === 'RemoteSuccess') {
-    if (input.value) return RD.success(input.value)
+    if (input.value !== null) return RD.success(input.value)
     else return RD.initial
   } else return input
 }
@@ -310,7 +323,8 @@ export const errorToString = (err: unknown): string => {
     return err
   }
   try {
-    return JSON.stringify(err)
+    // JSON.stringify returns undefined (not a string) for undefined, functions and symbols
+    return JSON.stringify(err) ?? String(err)
   } catch {
     return String(err)
   }

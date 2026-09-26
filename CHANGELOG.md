@@ -16,6 +16,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and adher
 
 ### Fixed
 
+- **`@rinn7e/tea-cup-prelude`**:
+  - `NullableEq` / `UndefinableEq` now treat only `null` / `undefined` as missing. Previously any falsy value (`0`, `''`, `false`) was treated as missing, so e.g. `NullableEq(N.Eq).equals(0, null)` returned `true` and `UndefinableEq(B.Eq).equals(false, undefined)` returned `true`.
+  - Falsy values (`0`, `''`, `false`) are no longer treated as missing by `unsafeFromNullable` (no longer throws on `0`), `rdConvertNullSuccessToInitial` and `CacheData.fromNullable` (no longer turn a falsy success into `initial`), and `SortedUniqueArray.lookup` (no longer returns `none` for a falsy element).
+  - `words` follows haskell semantics: leading/trailing white space no longer yields empty words (`words(' a ')` → `['a']`, `words('')` → `[]`).
+  - `errorToString` always returns a string (previously `undefined` for `undefined` / function inputs).
+  - `throttle` resolves superseded calls with the trailing call's result; previously their promises never resolved.
+  - `isInView` with a `container` compares viewport coordinates on both sides (previously mixed the element's viewport position with the container's scroll offset).
+  - `useDebouncedCallback` picks up a changed `delay` (previously memoized with `[]`, keeping the first delay forever).
+
+### Added
+
+- **`@rinn7e/tea-cup-prelude`**: Vitest test suite (`tests/`, `pnpm test`), included in `pnpm staged`. React code (`useDebouncedCallback`, `memoStrategy`, `devTools`) is tested with `@testing-library/react` in a per-file `jsdom` environment.
+
 - **`@rinn7e/tea-cup-router`**:
   - `ChangeRouteNoReload` / `ModifyRouteNoReload` are now a no-op when the target route equals the current route (`config.routeEq`). Previously every dispatch pushed a new browser history entry, flooding history with duplicates of the same URL; the model (including `isInternal`) is now left untouched in that case.
 

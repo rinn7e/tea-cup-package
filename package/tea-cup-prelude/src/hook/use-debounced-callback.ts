@@ -34,12 +34,15 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
   // make sure the timeout is cleared when the component is unmounted
   useEffect(() => () => window.clearTimeout(debounceTimerRef.current), [])
 
-  return useCallback((...args: Parameters<T>) => {
-    window.clearTimeout(debounceTimerRef.current)
+  return useCallback(
+    (...args: Parameters<T>) => {
+      window.clearTimeout(debounceTimerRef.current)
 
-    debounceTimerRef.current = window.setTimeout(
-      () => callbackRef.current(...args),
-      delay,
-    )
-  }, [])
+      debounceTimerRef.current = window.setTimeout(
+        () => callbackRef.current(...args),
+        delay,
+      )
+    },
+    [delay],
+  )
 }

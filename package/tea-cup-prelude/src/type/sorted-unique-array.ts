@@ -82,11 +82,8 @@ export const empty = <A>(): SortedUniqueArray<A> => {
 
 export const lookup =
   <A>(i: number) =>
-  (arr: SortedUniqueArray<A>): Option<A> => {
-    const val = arr.value[i]
-    if (val) return O.some(val)
-    else return O.none
-  }
+  (arr: SortedUniqueArray<A>): Option<A> =>
+    A.lookup(i)(arr.value)
 
 // Note: `filter` can't change the ordering, so we don't have to re-sort.
 export const filter =

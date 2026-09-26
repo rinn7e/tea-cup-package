@@ -19,33 +19,26 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-export type IsInViewOptions = {
-  margin?: number
-  container?: HTMLElement
-}
+import * as E from 'fp-ts/lib/Either'
+import * as t from 'io-ts'
+import { describe, expect, it } from 'vitest'
 
-export function isInView(
-  element: HTMLElement,
-  options: IsInViewOptions = {},
-): boolean {
-  const rect = element.getBoundingClientRect()
-  const container = options.container || window
-  const offset = options.margin || 0
+import { withDefault } from '../src'
 
-  // Calculate the bounds of the container, in the same viewport coordinates
-  // as `element.getBoundingClientRect()`
-  const containerBounds =
-    container instanceof Window
-      ? { top: 0, bottom: window.innerHeight }
-      : {
-          top: container.getBoundingClientRect().top,
-          bottom: container.getBoundingClientRect().bottom,
-        }
+describe('withDefault', () => {
+  const codec = withDefault(t.number, 42)
 
-  // Adjust bounds by offset
-  const boundTop = containerBounds.top - offset
-  const boundBottom = containerBounds.bottom + offset
+  it('uses the default for null and undefined', () => {
+    expect(codec.decode(undefined)).toEqual(E.right(42))
+    expect(codec.decode(null)).toEqual(E.right(42))
+  })
 
-  // Check if any part of the element is within the adjusted container bounds
-  return rect.top <= boundBottom && rect.bottom >= boundTop
-}
+  it('keeps provided values, including falsy ones', () => {
+    expect(codec.decode(7)).toEqual(E.right(7))
+    expect(codec.decode(0)).toEqual(E.right(0))
+  })
+
+  it('still fails on the wrong type', () => {
+    expect(E.isLeft(codec.decode('x'))).toBe(true)
+  })
+})
