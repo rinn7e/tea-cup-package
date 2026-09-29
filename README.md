@@ -1,5 +1,7 @@
 # tea-cup-package
 
+[![AI-DECLARATION: assist](https://img.shields.io/badge/䷼%20AI--DECLARATION-assist-fef9c3?labelColor=fef9c3)](AI-DECLARATION.md)
+
 Monorepo containing components and utilities for react-tea-cup.
 
 ## Workspace Packages
@@ -180,3 +182,8 @@ In your host application's `package.json`, add the dependencies using relative p
 ```
 
 Since the compiled assets (`lib/` folders) are tracked in this repository, your host application will pick up the changes immediately after you run `pnpm build` in the `tea-cup-package` workspace.
+
+## AI declaration
+
+This project declares its AI usage in [AI-DECLARATION.md](AI-DECLARATION.md), following the
+[AI-DECLARATION.md](https://ai-declaration.md) standard (level: `assist`).
