@@ -48,17 +48,17 @@ export const ParentContextEq: EqClass.Eq<ParentContext> =
     dispatch: { equals: () => true },
   })
 
-export type Props<pmsg = Msg> = {
+export type Props<ParentMsg = Msg> = {
   readonly model: Model
   readonly activeRoomId: string | undefined
-  readonly dispatchP: (p: pmsg) => void
-  readonly mkPmsg: (msg: Msg) => pmsg
+  readonly dispatchParent: (p: ParentMsg) => void
+  readonly mkParentMsg: (msg: Msg) => ParentMsg
 }
 
-export const PropsEq = <pmsg>() =>
-  EqClass.struct<Props<pmsg>>({
+export const PropsEq = <ParentMsg>() =>
+  EqClass.struct<Props<ParentMsg>>({
     model: ModelEq,
     activeRoomId: UndefinableEq(S.Eq),
-    dispatchP: { equals: () => true },
-    mkPmsg: { equals: () => true },
+    dispatchParent: { equals: () => true },
+    mkParentMsg: { equals: () => true },
   })

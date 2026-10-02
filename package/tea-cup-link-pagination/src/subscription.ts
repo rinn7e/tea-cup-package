@@ -35,9 +35,9 @@ import { type Model, type Msg, nextButtonId, prevButtonId } from './type'
  * LinkPagin.subscriptions(model.linkPagin).map(subMsg => ({ _tag: 'LinkPaginMsg', subMsg }))
  * ```
  */
-export const subscriptions = <A, amsg, Route>(
-  model: Model<A>,
-): Sub<Msg<A, amsg, Route>> => {
+export const subscriptions = <Item, ItemMsg, Route>(
+  model: Model<Item>,
+): Sub<Msg<Item, ItemMsg, Route>> => {
   if (model.invisWhileScrolling) {
     return Sub.none()
   } else {
@@ -46,13 +46,13 @@ export const subscriptions = <A, amsg, Route>(
       TeaObserver.watch(
         prevButtonId(dataSourceId),
         { threshold: 0 },
-        (inView): Msg<A, amsg, Route> =>
+        (inView): Msg<Item, ItemMsg, Route> =>
           inView ? { _tag: 'GetMorePrevData' } : { _tag: 'NoOp' },
       ),
       TeaObserver.watch(
         nextButtonId(dataSourceId),
         { threshold: 0 },
-        (inView): Msg<A, amsg, Route> =>
+        (inView): Msg<Item, ItemMsg, Route> =>
           inView ? { _tag: 'GetMoreNextData' } : { _tag: 'NoOp' },
       ),
     ])

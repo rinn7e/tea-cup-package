@@ -49,7 +49,7 @@ import * as S from 'fp-ts/lib/string'
 export const mkLinkPaginationConfig = (
   refs: LinkPagination.Refs,
   mode: LinkPagination.Mode<Message>,
-): LinkPagination.Config<Message, MessageItemMsg> => ({
+): LinkPagination.Config<Message, ParentContext, MessageItemMsg> => ({
   logic: {
     refs,
     mode,
@@ -60,12 +60,12 @@ export const mkLinkPaginationConfig = (
     visibleStrategy: { _tag: 'HalfInView' },
   },
   ui: {
-    customItemUi: ({ withPrevNextA, dispatch }) => (
+    // Parent state arrives as `parent` (from `Props.parent`, compared with
+    // `parentEq`); don't close over the parent model here
+    customItemUi: ({ withPrevNextItem, parent }) => (
       <MessageBubble
-        message={withPrevNextA.a}
-        onToggleReaction={(emoji) =>
-          dispatch({ _tag: 'ToggleReaction', emoji })
-        }
+        message={withPrevNextItem.item}
+        isMine={withPrevNextItem.item.userId === parent.currentUserId}
       />
     ),
   },

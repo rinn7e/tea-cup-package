@@ -167,7 +167,7 @@ const linkPaginMsgHandler = (
   model: Model,
   networkOnline: boolean,
 ): [Model, Cmd<Msg>] => {
-  const parentSt: ParentContext = {
+  const parent: ParentContext = {
     activeRoomId: undefined,
     expandedRoomIds: model.expandedRoomIds,
     dispatch: () => {},
@@ -177,7 +177,7 @@ const linkPaginMsgHandler = (
     ParentContext,
     RoomItemMsg,
     AppRoute
-  >(networkOnline, logicConfig)(parentSt, subMsg, model.linkPagin)
+  >(networkOnline, logicConfig)(parent, subMsg, model.linkPagin)
 
   return pipe(
     [

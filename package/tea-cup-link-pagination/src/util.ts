@@ -42,22 +42,22 @@ import {
 // Helper
 // -------------------------------------------
 
-export const isAEqual =
-  <A, B, amsg>(config: LogicConfig<A, B, amsg>) =>
-  (a1: A, a2: A): boolean =>
+export const isItemEqual =
+  <Item, Parent, ItemMsg>(config: LogicConfig<Item, Parent, ItemMsg>) =>
+  (a1: Item, a2: Item): boolean =>
     config.uniqueKeyField(a1) === config.uniqueKeyField(a2)
 
-// Remove duplicated A. The array must be sorted first.
+// Remove duplicated items. The array must be sorted first.
 export const removeDup =
-  <A>({
+  <Item>({
     ord,
     uniqueKeyField,
   }: {
-    ord: Ord.Ord<A>
-    uniqueKeyField: (a: A) => string
+    ord: Ord.Ord<Item>
+    uniqueKeyField: (item: Item) => string
   }) =>
-  (arr: A[]) => {
-    const dataEq: EqClass.Eq<A> = {
+  (arr: Item[]) => {
+    const dataEq: EqClass.Eq<Item> = {
       equals: (first, second) =>
         uniqueKeyField(first) === uniqueKeyField(second),
     }
@@ -66,13 +66,13 @@ export const removeDup =
   }
 
 // Concat data at the end, removing duplicating if it exists
-export const concatRemoveDup = <A, B, amsg>(
-  config: LogicConfig<A, B, amsg>,
-  currentData: A[],
-  incomingData: A[],
-): A[] => {
+export const concatRemoveDup = <Item, Parent, ItemMsg>(
+  config: LogicConfig<Item, Parent, ItemMsg>,
+  currentData: Item[],
+  incomingData: Item[],
+): Item[] => {
   const uniqueIncomingData = filterUnique(
-    isAEqual(config),
+    isItemEqual(config),
     incomingData,
     currentData,
   )
@@ -80,13 +80,13 @@ export const concatRemoveDup = <A, B, amsg>(
 }
 
 // Concat data at the front, removing duplicating if it exists
-export const concatFrontRemoveDup = <A, B, amsg>(
-  config: LogicConfig<A, B, amsg>,
-  currentData: A[],
-  incomingData: A[],
-): A[] => {
+export const concatFrontRemoveDup = <Item, Parent, ItemMsg>(
+  config: LogicConfig<Item, Parent, ItemMsg>,
+  currentData: Item[],
+  incomingData: Item[],
+): Item[] => {
   const uniqueIncomingData = filterUnique(
-    isAEqual(config),
+    isItemEqual(config),
     incomingData,
     currentData,
   )
@@ -94,13 +94,13 @@ export const concatFrontRemoveDup = <A, B, amsg>(
 }
 
 // Concat data at the front, if the data exists, we overwrite it
-export const concatFrontOverwriteDup = <A, B, amsg>(
-  config: LogicConfig<A, B, amsg>,
-  currentData: A[],
-  incomingData: A[],
-): A[] => {
+export const concatFrontOverwriteDup = <Item, Parent, ItemMsg>(
+  config: LogicConfig<Item, Parent, ItemMsg>,
+  currentData: Item[],
+  incomingData: Item[],
+): Item[] => {
   const uniqueCurrentData = filterUnique(
-    isAEqual(config),
+    isItemEqual(config),
     currentData,
     incomingData,
   )
@@ -108,14 +108,14 @@ export const concatFrontOverwriteDup = <A, B, amsg>(
 }
 
 export const getNewCurrentData =
-  <A, B, amsg>(
-    config: LogicConfig<A, B, amsg>,
-    oldCurrentData: A,
+  <Item, Parent, ItemMsg>(
+    config: LogicConfig<Item, Parent, ItemMsg>,
+    oldCurrentData: Item,
     oldCurrentDataIndex: number | null,
   ) =>
-  (allData: A[]): [A[], A] => {
-    const currentIndex = allData.findIndex((a) =>
-      isAEqual(config)(a, oldCurrentData),
+  (allData: Item[]): [Item[], Item] => {
+    const currentIndex = allData.findIndex((item) =>
+      isItemEqual(config)(item, oldCurrentData),
     )
     if (currentIndex >= 0) {
       const current = allData[currentIndex]
@@ -137,14 +137,14 @@ export const getNewCurrentData =
 
 // The same as `getNewCurrentData` but return O.none if current data is not found
 export const getNewCurrentDataO =
-  <A, B, amsg>(
-    config: LogicConfig<A, B, amsg>,
-    oldCurrentData: A,
+  <Item, Parent, ItemMsg>(
+    config: LogicConfig<Item, Parent, ItemMsg>,
+    oldCurrentData: Item,
     oldCurrentDataIndex: number | null,
   ) =>
-  (allData: A[]): [A[], Option<A>] => {
-    const currentIndex = allData.findIndex((a) =>
-      isAEqual(config)(a, oldCurrentData),
+  (allData: Item[]): [Item[], Option<Item>] => {
+    const currentIndex = allData.findIndex((item) =>
+      isItemEqual(config)(item, oldCurrentData),
     )
     if (currentIndex >= 0) {
       const current = allData[currentIndex]
@@ -160,19 +160,19 @@ export const getNewCurrentDataO =
     }
   }
 
-export const modeToArray = <A>(mode: Mode<A>): A[] => {
+export const modeToArray = <Item>(mode: Mode<Item>): Item[] => {
   return mode.overallData.value
 }
 
 // Remove a item out of an array
-export const removeElFromArray = <A, B, amsg>(
-  config: LogicConfig<A, B, amsg>,
-  currentData: A,
-  incomingData: A[],
-): A[] => {
+export const removeElFromArray = <Item, Parent, ItemMsg>(
+  config: LogicConfig<Item, Parent, ItemMsg>,
+  currentData: Item,
+  incomingData: Item[],
+): Item[] => {
   return pipe(
     incomingData,
-    A.filter((el) => !isAEqual(config)(currentData, el)),
+    A.filter((el) => !isItemEqual(config)(currentData, el)),
   )
 }
 
@@ -180,7 +180,7 @@ export const removeElFromArray = <A, B, amsg>(
 // Mainly used to revert prevIsMax on syncing new bundle.
 // (Since new bundle has few Data, prevIsMax is reached right away.
 // When there are more old Data from syncing, we have to reset prevIsMax)
-export const revertPrevIsMax = <A>(model: Model<A>): Model<A> => {
+export const revertPrevIsMax = <Item>(model: Model<Item>): Model<Item> => {
   if (model.mode.prevIsMax) {
     return {
       ...model,
@@ -196,20 +196,20 @@ export const revertPrevIsMax = <A>(model: Model<A>): Model<A> => {
  * If the previousId is provided, in case it is found in the arr
  * directly replace it with the new data
  */
-export const upsertWithPrevious = <A, B, amsg>(
-  config: LogicConfig<A, B, amsg>,
-  arr: SortedUniqueArray<A>,
-  item: A,
-  key: (a: A) => string,
+export const upsertWithPrevious = <Item, Parent, ItemMsg>(
+  config: LogicConfig<Item, Parent, ItemMsg>,
+  arr: SortedUniqueArray<Item>,
+  item: Item,
+  key: (item: Item) => string,
   previousId: string | null,
-  comparePrevId: (a: A, prevId: string) => boolean,
-): SortedUniqueArray<A> => {
+  comparePrevId: (item: Item, prevId: string) => boolean,
+): SortedUniqueArray<Item> => {
   if (previousId) {
-    const idx = SUA.findIndex<A>((x) => comparePrevId(x, previousId))(arr)
+    const idx = SUA.findIndex<Item>((x) => comparePrevId(x, previousId))(arr)
     // console.log('[MSG_STATE][upsert] previousId:', previousId, 'idx:', idx)
     if (idx >= 0) {
       // console.log('[MSG_STATE][upsert] replacing existing item at index', idx)
-      return SUA.mapWithIndex<A>(
+      return SUA.mapWithIndex<Item>(
         config.eqWithKey,
         config.ord,
       )((i, x) => (i === idx ? item : x))(arr)
@@ -220,10 +220,10 @@ export const upsertWithPrevious = <A, B, amsg>(
       return SUA.concat(config.eqWithKey, config.ord)([item])(arr)
     }
   } else {
-    const idx = SUA.findIndex<A>((x) => key(x) === key(item))(arr)
+    const idx = SUA.findIndex<Item>((x) => key(x) === key(item))(arr)
     // console.log('[MSG_STATE][upsert] key(item):', key(item), 'idx:', idx)
     return idx >= 0
-      ? SUA.mapWithIndex<A>(
+      ? SUA.mapWithIndex<Item>(
           config.eqWithKey,
           config.ord,
         )((i, x) => (i === idx ? item : x))(arr)
@@ -231,10 +231,10 @@ export const upsertWithPrevious = <A, B, amsg>(
   }
 }
 
-export const getChangeEvent = <A>(
-  prevArr: SortedUniqueArray<A>,
-  data: A,
-  ord: Ord.Ord<A>,
+export const getChangeEvent = <Item>(
+  prevArr: SortedUniqueArray<Item>,
+  data: Item,
+  ord: Ord.Ord<Item>,
   isReversed: boolean,
 ): ContainerChangeEvent => {
   const head = prevArr.value[0]
@@ -259,13 +259,13 @@ export const getChangeEvent = <A>(
 
 // Update an existing data with new value (identifier stays the same).
 // If the value does not exist, add it.
-export function addOrUpdateData<A, B, amsg>(
-  config: LogicConfig<A, B, amsg>,
-  data: A,
+export function addOrUpdateData<Item, Parent, ItemMsg>(
+  config: LogicConfig<Item, Parent, ItemMsg>,
+  data: Item,
   previousId: string | null,
-  comparePreviousId: (data: A, prevId: string) => boolean = () => false,
+  comparePreviousId: (data: Item, prevId: string) => boolean = () => false,
 ) {
-  return (model: Model<A>): [Model<A>, ContainerChangeEvent] => {
+  return (model: Model<Item>): [Model<Item>, ContainerChangeEvent] => {
     // console.log('[MSG_STATE][] start', {
     //   previousId,
     //   data,
@@ -305,12 +305,12 @@ export function addOrUpdateData<A, B, amsg>(
 }
 // Given a function, run it against all the data
 // Sort and run reprocessStateFunc at the end
-export const replaceFuncActionHandler = <A, Route>(
-  model: Model<A>,
+export const replaceFuncActionHandler = <Item, Route>(
+  model: Model<Item>,
   func: (
-    as: SortedUniqueArray<A>,
-  ) => [SortedUniqueArray<A>, AppRouteUpdater<Route>],
-): [Model<A>, AppRouteUpdater<Route>] => {
+    as: SortedUniqueArray<Item>,
+  ) => [SortedUniqueArray<Item>, AppRouteUpdater<Route>],
+): [Model<Item>, AppRouteUpdater<Route>] => {
   const allData = model.mode.overallData
   const [newAllData, routeUpdater] = pipe(allData, (as) => func(as))
   return [
@@ -319,7 +319,7 @@ export const replaceFuncActionHandler = <A, Route>(
       mode: {
         ...model.mode,
         overallData: newAllData,
-      } satisfies Mode<A>,
+      } satisfies Mode<Item>,
       // ^ Note, we should use `statisfied` for every object spread update
       // because: https://github.com/microsoft/TypeScript/issues/39998
     },
@@ -330,12 +330,12 @@ export const replaceFuncActionHandler = <A, Route>(
 // The same as `replaceFuncActionHandler` but can run async func
 // Note: There is a different such that when current data is not found, switch to latest mode
 // Consider doing this for the non-async version as well.
-export const replaceFuncActionHandlerAsync = async <A, Route>(
-  model: Model<A>,
+export const replaceFuncActionHandlerAsync = async <Item, Route>(
+  model: Model<Item>,
   func: (
-    a: SortedUniqueArray<A>,
-  ) => Promise<[SortedUniqueArray<A>, AppRouteUpdater<Route>]>,
-): Promise<[Model<A>, AppRouteUpdater<Route>]> => {
+    items: SortedUniqueArray<Item>,
+  ) => Promise<[SortedUniqueArray<Item>, AppRouteUpdater<Route>]>,
+): Promise<[Model<Item>, AppRouteUpdater<Route>]> => {
   const allData = model.mode.overallData
   const [newAllData, routeUpdater] = await func(allData)
   return [
@@ -344,7 +344,7 @@ export const replaceFuncActionHandlerAsync = async <A, Route>(
       mode: {
         ...model.mode,
         overallData: newAllData,
-      } satisfies Mode<A>,
+      } satisfies Mode<Item>,
       // ^ Note, we should use `statisfied` for every object spread update
       // because: https://github.com/microsoft/TypeScript/issues/39998
     },
@@ -353,20 +353,21 @@ export const replaceFuncActionHandlerAsync = async <A, Route>(
 }
 
 // Get current selected data from link pagin state
-export const getSelectedA = <A, B, amsg>(
-  logicConfig: LogicConfig<A, B, amsg>,
-  model: Model<A>,
-): Option<A> => {
+export const getSelectedItem = <Item, Parent, ItemMsg>(
+  logicConfig: LogicConfig<Item, Parent, ItemMsg>,
+  model: Model<Item>,
+): Option<Item> => {
   const selectedI = model.mode.selectedKey
-    ? (model.mode.overallData.value as A[]).findIndex(
-        (a: A) => logicConfig.uniqueKeyField(a) === model.mode.selectedKey,
+    ? (model.mode.overallData.value as Item[]).findIndex(
+        (item: Item) =>
+          logicConfig.uniqueKeyField(item) === model.mode.selectedKey,
       )
     : -1
 
-  const selectedA =
+  const selectedItem =
     selectedI >= 0
       ? O.fromNullable(model.mode.overallData.value[selectedI])
       : O.none
 
-  return selectedA
+  return selectedItem
 }

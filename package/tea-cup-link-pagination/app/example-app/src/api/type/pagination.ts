@@ -1,19 +1,21 @@
 import * as t from 'io-ts'
 
-export type Pagination<A> = {
+export type Pagination<Item> = {
   size: number
   total_count: number
-  data: A[]
+  data: Item[]
 }
 
-export const PaginationJson = <A>(aJson: t.Type<A>): t.Type<Pagination<A>> =>
+export const PaginationJson = <Item>(
+  aJson: t.Type<Item>,
+): t.Type<Pagination<Item>> =>
   t.type({
     size: t.number,
     total_count: t.number,
     data: t.array(aJson),
   })
 
-export const mkPagination = <A>(data: A[]): Pagination<A> => ({
+export const mkPagination = <Item>(data: Item[]): Pagination<Item> => ({
   size: data.length,
   total_count: data.length,
   data,

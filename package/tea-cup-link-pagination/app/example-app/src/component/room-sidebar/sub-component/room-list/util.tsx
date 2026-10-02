@@ -27,7 +27,7 @@ export const logicConfig: LinkPagination.LogicConfig<
   ord: Api.RoomOrd,
   uniqueKeyField: (r: Api.Room) => r.id,
   visibleStrategy: { _tag: 'HalfInView' },
-  update: (_parentSt, msg, room) => {
+  update: (_parent, msg, room) => {
     switch (msg._tag) {
       case 'SelectRoom':
       case 'MarkAsRead':
@@ -48,9 +48,12 @@ export const logicConfig: LinkPagination.LogicConfig<
 // ---------------------------------------------------------------
 
 export const dispatch =
-  <pmsg,>(props: { dispatchP: (p: pmsg) => void; mkPmsg: (m: Msg) => pmsg }) =>
+  <ParentMsg,>(props: {
+    dispatchParent: (p: ParentMsg) => void
+    mkParentMsg: (m: Msg) => ParentMsg
+  }) =>
   (subMsg: Msg): void =>
-    props.dispatchP(props.mkPmsg(subMsg))
+    props.dispatchParent(props.mkParentMsg(subMsg))
 
 export const fromLinkPaginMsg = (
   linkPaginMsg: LinkPagination.Msg<Api.Room, RoomItemMsg, AppRoute>,
@@ -60,7 +63,7 @@ export const fromLinkPaginMsg = (
 })
 
 export const paginDispatch =
-  <pmsg,>(props: Props<pmsg>) =>
+  <ParentMsg,>(props: Props<ParentMsg>) =>
   (msg: LinkPagination.Msg<Api.Room, RoomItemMsg, AppRoute>) => {
     dispatch(props)(fromLinkPaginMsg(msg))
   }
@@ -82,21 +85,21 @@ export const noRoomView = () => (
 // UI Config
 // ---------------------------------------------------------------
 
-export const mkRoomListUiConfig = <pmsg,>(
-  props: Props<pmsg>,
+export const mkRoomListUiConfig = <ParentMsg,>(
+  props: Props<ParentMsg>,
 ): LinkPagination.UiConfig<Api.Room, ParentContext> => {
   return {
     customItemUi: ({
-      withPrevNextA,
-      b,
+      withPrevNextItem,
+      parent,
     }: LinkPagination.CustomUiParam<Api.Room, ParentContext>) => {
-      const room = withPrevNextA.a
-      const isActive = room.id === b.activeRoomId
+      const room = withPrevNextItem.item
+      const isActive = room.id === parent.activeRoomId
 
       return (
         <RoomItemComponent
           key={room.id}
-          model={{ isExpand: b.expandedRoomIds.has(room.id) }}
+          model={{ isExpand: parent.expandedRoomIds.has(room.id) }}
           room={room}
           isActive={isActive}
           dispatch={(itemMsg) => {

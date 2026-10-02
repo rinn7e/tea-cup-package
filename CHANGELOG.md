@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and adher
 
 ### Changed
 
+- **`@rinn7e/tea-cup-link-pagination`** (breaking): Renamed the one-letter names to match `tea-cup-pagination`. Type parameters `A` → `Item`, `B` → `Parent`, `amsg` → `ItemMsg`, `pmsg` → `ParentMsg`. Props `aEq` → `itemEq`, `b` → `parent`, `bEq` → `parentEq`, `mkPmsg` → `mkParentMsg`, `dispatchP` → `dispatchParent`. `CustomUiParam` fields `b` → `parent`, `withPrevNextA` → `withPrevNextItem`, `selectedA` → `selectedItem`, `allA` → `allItems`; `WithPrevAndNext` fields `a` / `prevA` / `nextA` → `item` / `prevItem` / `nextItem`; `LogicConfig.update` takes `parent` (was `parentSt`); `getSelectedA` → `getSelectedItem`, `isAEqual` → `isItemEqual`.
 - **`@rinn7e/tea-cup-pagination`** (breaking): `PaginationMemo` couldn't reflect parent state. `config` is compared with `EqAlways`, so render functions closing over the parent model rendered stale (e.g. highlighting the product open in a modal) until the pagination model itself changed. `Props` now take `parent` and `parentEq`, and `renderItems` / `renderPagination` receive `parent` as their last argument. `Config`, `Props`, `init` and `update` gain a `Parent` type parameter, and `mkPropsEq` takes `parentEq`.
 
 ---

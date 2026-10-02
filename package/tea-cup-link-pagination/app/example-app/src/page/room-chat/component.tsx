@@ -253,17 +253,17 @@ export const RoomChatPageComponent = (props: Props): JSX.Element => {
       {/* 2. Chat Timeline (LinkPagination Container) */}
       <div className='relative min-h-0 flex-1 overflow-hidden bg-slate-50/30'>
         <LinkPaginationMemo<Chat, ParentContext, Msg, ChatItemMsg, AppRoute>
-          aEq={ChatEq}
-          bEq={ParentContextEq}
-          b={{
+          itemEq={ChatEq}
+          parentEq={ParentContextEq}
+          parent={{
             currentUserId: 'user-master',
             highlightedChatId: model.highlightedChatId,
             room,
             dispatch,
           }}
           config={config}
-          dispatchP={dispatch}
-          mkPmsg={(subMsg) => ({
+          dispatchParent={dispatch}
+          mkParentMsg={(subMsg) => ({
             _tag: 'LinkPaginMsg',
             subMsg,
           })}

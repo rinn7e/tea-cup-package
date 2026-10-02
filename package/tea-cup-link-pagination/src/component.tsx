@@ -42,7 +42,7 @@ import {
   nextButtonId,
   prevButtonId,
 } from './type'
-import { getSelectedA } from './util'
+import { getSelectedItem } from './util'
 
 // -------------------------------------------------------------------------
 // View helpers
@@ -50,19 +50,19 @@ import { getSelectedA } from './util'
 
 // Convert component msg to parent msg.
 const dispatch =
-  <A, pmsg, amsg, Route>(props: {
-    dispatchP: (p: pmsg) => void
-    mkPmsg: (m: Msg<A, amsg, Route>) => pmsg
+  <Item, ParentMsg, ItemMsg, Route>(props: {
+    dispatchParent: (p: ParentMsg) => void
+    mkParentMsg: (m: Msg<Item, ItemMsg, Route>) => ParentMsg
   }) =>
-  (subMsg: Msg<A, amsg, Route>): void =>
-    props.dispatchP(props.mkPmsg(subMsg))
+  (subMsg: Msg<Item, ItemMsg, Route>): void =>
+    props.dispatchParent(props.mkParentMsg(subMsg))
 
 // -------------------------------------------------------------------------
 // View
 // -------------------------------------------------------------------------
 
-const LinkPaginationComponent = <A, B, pmsg, amsg, Route>(
-  props: Props<A, B, pmsg, amsg, Route>,
+const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
+  props: Props<Item, Parent, ParentMsg, ItemMsg, Route>,
 ) => {
   const { model, config } = props
 
@@ -296,18 +296,18 @@ export const LinkPaginationMemo = memoStrategy(
     //   'LinkPagination PropsEq.equals(prev, next)',
     //   PropsEq.equals(prev, next),
     // )
-    return PropsEq(prev.aEq, prev.bEq).equals(prev, next)
+    return PropsEq(prev.itemEq, prev.parentEq).equals(prev, next)
   },
-) as <A, B, pmsg, amsg, Route>(
-  props: Props<A, B, pmsg, amsg, Route>,
+) as <Item, Parent, ParentMsg, ItemMsg, Route>(
+  props: Props<Item, Parent, ParentMsg, ItemMsg, Route>,
 ) => JSX.Element
 
 // -------------------------------------------
 // Helper views
 // -------------------------------------------
 
-const prevLoadMoreView = <A, B, pmsg, amsg, Route>(
-  props: Props<A, B, pmsg, amsg, Route>,
+const prevLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
+  props: Props<Item, Parent, ParentMsg, ItemMsg, Route>,
 ) => {
   const { model, config } = props
   const isReversed = config.logic.isReversed
@@ -315,7 +315,7 @@ const prevLoadMoreView = <A, B, pmsg, amsg, Route>(
 
   const isMaxView = () =>
     config.ui.prevIsMaxCustomView
-      ? config.ui.prevIsMaxCustomView(props.b)
+      ? config.ui.prevIsMaxCustomView(props.parent)
       : null
 
   const loadingView = () =>
@@ -366,9 +366,9 @@ const prevLoadMoreView = <A, B, pmsg, amsg, Route>(
   )
 }
 
-const nextLoadMoreView = <A, B, pmsg, amsg, Route>(
-  props: Props<A, B, pmsg, amsg, Route>,
-  mode: Mode<A>,
+const nextLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
+  props: Props<Item, Parent, ParentMsg, ItemMsg, Route>,
+  mode: Mode<Item>,
 ) => {
   const { model, config } = props
   const isReversed = config.logic.isReversed
@@ -377,7 +377,7 @@ const nextLoadMoreView = <A, B, pmsg, amsg, Route>(
     : 'top-[20px] right-[20px]'
   const isMaxView = () =>
     config.ui.nextIsMaxCustomView ? (
-      config.ui.nextIsMaxCustomView(props.b)
+      config.ui.nextIsMaxCustomView(props.parent)
     ) : (
       <div></div>
     )
@@ -430,8 +430,8 @@ const nextLoadMoreView = <A, B, pmsg, amsg, Route>(
   )
 }
 
-const view = <A, B, pmsg, amsg, Route>(
-  props: Props<A, B, pmsg, amsg, Route>,
+const view = <Item, Parent, ParentMsg, ItemMsg, Route>(
+  props: Props<Item, Parent, ParentMsg, ItemMsg, Route>,
 ): JSX.Element[] => {
   const { model, config } = props
   const mode = model.mode
@@ -439,12 +439,12 @@ const view = <A, B, pmsg, amsg, Route>(
   const dataSourceIdAttributeFinal =
     config.logic.dataSourceIdAttribute ?? defaultDataSourceIdAttribute
 
-  const customUiWrapper = (data: A, children: () => JSX.Element) => (
+  const customUiWrapper = (data: Item, children: () => JSX.Element) => (
     <div
       id={config.logic.uniqueKeyField(data)}
       key={config.logic.uniqueKeyField(data)}
-      ref={(b) => {
-        itemRefs.current[config.logic.uniqueKeyField(data)] = b
+      ref={(el) => {
+        itemRefs.current[config.logic.uniqueKeyField(data)] = el
       }}
       className='custom-ui-wrapper'
       {...{ [dataSourceIdAttributeFinal]: mode.dataSourceId }}
@@ -453,34 +453,34 @@ const view = <A, B, pmsg, amsg, Route>(
     </div>
   )
 
-  const allDataWithPrevAndNext: WithPrevAndNext<A>[] = pipe(
+  const allDataWithPrevAndNext: WithPrevAndNext<Item>[] = pipe(
     mode.overallData.value,
     A.mapWithIndex(
-      (i: number, el: A): WithPrevAndNext<A> => ({
-        prevA: mode.overallData.value[i + 1] ?? null,
-        a: el,
-        nextA: mode.overallData.value[i - 1] ?? null,
+      (i: number, el: Item): WithPrevAndNext<Item> => ({
+        prevItem: mode.overallData.value[i + 1] ?? null,
+        item: el,
+        nextItem: mode.overallData.value[i - 1] ?? null,
       }),
     ),
   )
 
-  const renderAllItemUi = (items: WithPrevAndNext<A>[]) =>
+  const renderAllItemUi = (items: WithPrevAndNext<Item>[]) =>
     pipe(
       items,
-      A.map((withPrevNextA) =>
-        customUiWrapper(withPrevNextA.a, () => {
+      A.map((withPrevNextItem) =>
+        customUiWrapper(withPrevNextItem.item, () => {
           return config.ui.customItemUi({
-            withPrevNextA,
-            b: props.b,
-            selectedA: getSelectedA(config.logic, model),
+            withPrevNextItem,
+            parent: props.parent,
+            selectedItem: getSelectedItem(config.logic, model),
             retriggerCurrentData: mode.retriggerCurrentData,
             animationEnd: mode.animationEnd,
             dataSourceId: mode.dataSourceId,
-            // Note: BundleShort comoonent needs access to all A
+            // Note: BundleShort comoonent needs access to all items
             // Re-consider why this.
-            allA: pipe(
+            allItems: pipe(
               items,
-              A.map((i) => i.a),
+              A.map((i) => i.item),
             ),
           })
         }),
@@ -508,14 +508,14 @@ const view = <A, B, pmsg, amsg, Route>(
       )
 }
 
-const scrollToLatestCustomUi = <A, B, pmsg, amsg, Route>(
-  props: Props<A, B, pmsg, amsg, Route>,
+const scrollToLatestCustomUi = <Item, Parent, ParentMsg, ItemMsg, Route>(
+  props: Props<Item, Parent, ParentMsg, ItemMsg, Route>,
   isVisible: boolean,
 ) => {
   const { config } = props
   if (config.ui.scrollToLatestCustomUi) {
     return config.ui.scrollToLatestCustomUi({
-      parentSt: props.b,
+      parent: props.parent,
       isVisible,
       onClick: () => dispatch(props)({ _tag: 'ScrollToNewest' }),
     })

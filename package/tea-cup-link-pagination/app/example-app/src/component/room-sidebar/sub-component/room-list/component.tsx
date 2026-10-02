@@ -30,16 +30,16 @@ const RoomListInner = (props: Props<any>): JSX.Element => {
         : null}
 
       <LinkPaginationMemo<Room, ParentContext, Msg, RoomItemMsg, AppRoute>
-        aEq={RoomEq}
-        bEq={ParentContextEq}
-        b={{
+        itemEq={RoomEq}
+        parentEq={ParentContextEq}
+        parent={{
           activeRoomId,
           expandedRoomIds: model.expandedRoomIds,
           dispatch: (msg) => dispatch(props)(msg),
         }}
         config={config}
-        dispatchP={(msg) => dispatch(props)(msg)}
-        mkPmsg={(subMsg) => ({ _tag: 'LinkPaginMsg', subMsg })}
+        dispatchParent={(msg) => dispatch(props)(msg)}
+        mkParentMsg={(subMsg) => ({ _tag: 'LinkPaginMsg', subMsg })}
         model={model.linkPagin}
       />
     </div>
@@ -51,6 +51,6 @@ const RoomListInnerMemo = memo(RoomListInner, (prev, next) =>
 )
 
 export const RoomListComponent = RoomListInner
-export const RoomListMemo = <pmsg,>(props: Props<pmsg>): JSX.Element => (
-  <RoomListInnerMemo {...props} />
-)
+export const RoomListMemo = <ParentMsg,>(
+  props: Props<ParentMsg>,
+): JSX.Element => <RoomListInnerMemo {...props} />

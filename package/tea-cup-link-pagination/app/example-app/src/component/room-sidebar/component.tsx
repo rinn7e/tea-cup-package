@@ -43,8 +43,8 @@ export const RoomSidebarComponent = ({
       <RoomListMemo
         model={model.roomList}
         activeRoomId={activeRoomId}
-        dispatchP={dispatch}
-        mkPmsg={(subMsg: RoomList.Msg): Msg => ({
+        dispatchParent={dispatch}
+        mkParentMsg={(subMsg: RoomList.Msg): Msg => ({
           _tag: 'RoomListMsg',
           subMsg,
         })}

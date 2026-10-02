@@ -33,7 +33,7 @@ export const logicConfig: LinkPagination.LogicConfig<
   uniqueKeyField: (c: Chat) => c.id,
   visibleStrategy: { _tag: 'HalfInView' },
   update: (
-    parentSt: ParentContext,
+    parent: ParentContext,
     msg: ChatItemMsg,
     chat: Chat,
   ): [Chat, Cmd<ChatItemMsg>, LinkPagination.ContainerChangeEvent] => {
@@ -43,10 +43,10 @@ export const logicConfig: LinkPagination.LogicConfig<
         let updatedReactions: Reaction[]
 
         if (existing) {
-          const hasUser = existing.userIds.includes(parentSt.currentUserId)
+          const hasUser = existing.userIds.includes(parent.currentUserId)
           if (hasUser) {
             const newUserIds = existing.userIds.filter(
-              (id) => id !== parentSt.currentUserId,
+              (id) => id !== parent.currentUserId,
             )
             if (newUserIds.length === 0) {
               updatedReactions = chat.reactions.filter(
@@ -60,7 +60,7 @@ export const logicConfig: LinkPagination.LogicConfig<
               )
             }
           } else {
-            const newUserIds = [...existing.userIds, parentSt.currentUserId]
+            const newUserIds = [...existing.userIds, parent.currentUserId]
             updatedReactions = chat.reactions.map((r) =>
               r.emoji === msg.emoji
                 ? { ...r, count: newUserIds.length, userIds: newUserIds }
@@ -73,7 +73,7 @@ export const logicConfig: LinkPagination.LogicConfig<
             {
               emoji: msg.emoji,
               count: 1,
-              userIds: [parentSt.currentUserId],
+              userIds: [parent.currentUserId],
             },
           ]
         }
@@ -152,7 +152,7 @@ export const groupChatsByDate = (
   let currentGroup: LinkPagination.WithPrevAndNext<Chat>[] = []
 
   for (const item of allWithPrevNext) {
-    const itemDate = formatChatDateGroup(item.a.timestamp)
+    const itemDate = formatChatDateGroup(item.item.timestamp)
     if (itemDate !== currentDate) {
       if (currentGroup.length > 0) {
         groups.push({
@@ -202,8 +202,8 @@ export const mkUiConfig = (
   props: Props,
 ): LinkPagination.UiConfig<Chat, ParentContext> => {
   return {
-    customAllItemUi: (allA, allItemUi, isReversed) => {
-      const dateGroups = groupChatsByDate(allA)
+    customAllItemUi: (allItems, allItemUi, isReversed) => {
+      const dateGroups = groupChatsByDate(allItems)
       return dateGroups.map(({ date, withPrevAndNextMessages }) => {
         const orderedMessages = isReversed
           ? withPrevAndNextMessages.reverse()
@@ -223,16 +223,17 @@ export const mkUiConfig = (
     },
 
     customItemUi: ({
-      withPrevNextA,
-      b,
-      selectedA,
+      withPrevNextItem,
+      parent,
+      selectedItem,
     }: LinkPagination.CustomUiParam<Chat, ParentContext>) => {
-      const chat = withPrevNextA.a
+      const chat = withPrevNextItem.item
       const isSelected =
-        b.highlightedChatId === chat.id ||
-        (selectedA._tag === 'Some' && selectedA.value.id === chat.id)
+        parent.highlightedChatId === chat.id ||
+        (selectedItem._tag === 'Some' && selectedItem.value.id === chat.id)
       const isFirstUnread = Boolean(
-        b.room?.firstUnreadChatId && b.room.firstUnreadChatId === chat.id,
+        parent.room?.firstUnreadChatId &&
+        parent.room.firstUnreadChatId === chat.id,
       )
       return (
         <ChatBubble

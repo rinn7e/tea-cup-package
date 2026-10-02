@@ -60,12 +60,12 @@ import {
 // Init
 // -------------------------------------------
 
-export function init<A, amsg, Route>(
+export function init<Item, ItemMsg, Route>(
   networkStatus: boolean,
-  mode: Mode<A>,
+  mode: Mode<Item>,
   onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => void,
   shouldRestoreScrollState?: ShouldRestoreScrollStateArg,
-): [Model<A>, Cmd<Msg<A, amsg, Route>>] {
+): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] {
   const model = {
     mode,
     containerChangeEvent: { _tag: 'NoChange' },
@@ -76,9 +76,9 @@ export function init<A, amsg, Route>(
     isScrolling: false,
     savedScrollPos: null,
     initialScrollDone: false,
-  } satisfies Model<A>
+  } satisfies Model<Item>
 
-  return getInitialDataHandler(networkStatus)<A, amsg, Route>(model)
+  return getInitialDataHandler(networkStatus)<Item, ItemMsg, Route>(model)
 }
 
 //
@@ -87,15 +87,15 @@ export function init<A, amsg, Route>(
 // -------------------------------------------
 
 export const update =
-  <A, B, amsg, Route>(
+  <Item, Parent, ItemMsg, Route>(
     networkStatus: boolean,
-    config: LogicConfig<A, B, amsg>,
+    config: LogicConfig<Item, Parent, ItemMsg>,
   ) =>
   (
-    parentModel: B,
-    msg: Msg<A, amsg, Route>,
-    model: Model<A>,
-  ): [Model<A>, Cmd<Msg<A, amsg, Route>>, AppRouteUpdater<Route>] => {
+    parentModel: Parent,
+    msg: Msg<Item, ItemMsg, Route>,
+    model: Model<Item>,
+  ): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>, AppRouteUpdater<Route>] => {
     switch (msg._tag) {
       case 'NoOp':
         return [
@@ -106,7 +106,7 @@ export const update =
           null,
         ]
       case 'ScrollToNewest': {
-        const [m, cmd] = scrollToNewestHandler<A, amsg, Route>(
+        const [m, cmd] = scrollToNewestHandler<Item, ItemMsg, Route>(
           config.refs,
           config.isReversed,
           model,
@@ -114,7 +114,7 @@ export const update =
         return [m, cmd, null]
       }
       case 'ForceScrollTo': {
-        const [m, cmd] = forceScrollToHandler<A, amsg, Route>(
+        const [m, cmd] = forceScrollToHandler<Item, ItemMsg, Route>(
           config.refs,
           model,
           msg,
@@ -122,7 +122,7 @@ export const update =
         return [m, cmd, null]
       }
       case 'ScrollToKey': {
-        const [m, cmd] = scrollToKeyHandler<A, amsg, Route>(
+        const [m, cmd] = scrollToKeyHandler<Item, ItemMsg, Route>(
           config.refs,
           model,
           msg.key,
@@ -132,9 +132,9 @@ export const update =
       // TODO: Disabled for now since we disable prefetching
       // case 'PopulateFirstResponse': {
       // const populateFirstResponse = (
-      //   mode: Mode<A>,
-      //   cacheRD: RD.RemoteData<string, A[]>,
-      //   currentResult: E.Either<string, A[]>,
+      //   mode: Mode<Item>,
+      //   cacheRD: RD.RemoteData<string, Item[]>,
+      //   currentResult: E.Either<string, Item[]>,
       // ) => {
       //   if (currentResult._tag === 'Right') {
       //     dispatch(props)({
@@ -334,18 +334,18 @@ export const update =
         else return [model, Cmd.none(), null]
 
       case 'SetModeAndAddUpdateData': {
-        const [m, cmd] = setModeAndAddUpdateDataHandler<A, B, amsg, Route>(
-          networkStatus,
-          config,
-          model,
-          {
-            ...msg,
-          },
-        )
+        const [m, cmd] = setModeAndAddUpdateDataHandler<
+          Item,
+          Parent,
+          ItemMsg,
+          Route
+        >(networkStatus, config, model, {
+          ...msg,
+        })
         return [m, cmd, null]
       }
       case 'SetNewSelectedKey': {
-        const [m, cmd] = setNewSelectedKeyHandler<A, B, amsg, Route>(
+        const [m, cmd] = setNewSelectedKeyHandler<Item, Parent, ItemMsg, Route>(
           networkStatus,
           config,
           model,
@@ -385,7 +385,7 @@ export const update =
       }
 
       case 'GetMorePrevData': {
-        const [m, cmd] = getMorePrevDataHandler<A, amsg, Route>(
+        const [m, cmd] = getMorePrevDataHandler<Item, ItemMsg, Route>(
           networkStatus,
           model,
         )
@@ -393,9 +393,9 @@ export const update =
       }
       case 'GetMorePrevDataFromCacheResponse': {
         const [m, cmd] = getMorePrevDataFromCacheResponseHandler<
-          A,
-          B,
-          amsg,
+          Item,
+          Parent,
+          ItemMsg,
           Route
         >(
           networkStatus,
@@ -409,9 +409,9 @@ export const update =
       }
       case 'GetMorePrevDataFromApiResponse': {
         const [m, cmd] = getMorePrevDataFromApiResponseHandler<
-          A,
-          B,
-          amsg,
+          Item,
+          Parent,
+          ItemMsg,
           Route
         >(
           config,
@@ -424,7 +424,7 @@ export const update =
       }
 
       case 'GetMoreNextData': {
-        const [m, cmd] = getMoreNextDataHandler<A, amsg, Route>(
+        const [m, cmd] = getMoreNextDataHandler<Item, ItemMsg, Route>(
           networkStatus,
           model,
         )
@@ -432,9 +432,9 @@ export const update =
       }
       case 'GetMoreNextDataFromCacheResponse': {
         const [m, cmd] = getMoreNextDataFromCacheResponseHandler<
-          A,
-          B,
-          amsg,
+          Item,
+          Parent,
+          ItemMsg,
           Route
         >(
           networkStatus,
@@ -448,9 +448,9 @@ export const update =
       }
       case 'GetMoreNextDataFromApiResponse': {
         const [m, cmd] = getMoreNextDataFromApiResponseHandler<
-          A,
-          B,
-          amsg,
+          Item,
+          Parent,
+          ItemMsg,
           Route
         >(
           config,
@@ -473,24 +473,26 @@ export const update =
         ]
 
       case 'GetInitialData': {
-        const [m, cmd] = getInitialDataHandler(networkStatus)<A, amsg, Route>(
-          model,
-        )
+        const [m, cmd] = getInitialDataHandler(networkStatus)<
+          Item,
+          ItemMsg,
+          Route
+        >(model)
         return [m, cmd, null]
       }
       case 'RefreshInitialData': {
         const [m, cmd] = refreshInitialDataHandler(networkStatus)<
-          A,
-          amsg,
+          Item,
+          ItemMsg,
           Route
         >(model)
         return [m, cmd, null]
       }
       case 'GetInitialDataFromCacheResponse': {
         const [m, cmd] = getInitialDataFromCacheResponseHandler<
-          A,
-          B,
-          amsg,
+          Item,
+          Parent,
+          ItemMsg,
           Route
         >(networkStatus, config, msg.dataSourceId, msg.cache, model)
         return [m, cmd, null]
@@ -511,9 +513,9 @@ export const update =
 
       case 'GetInitialDataFromApiResponse': {
         const [m, cmd] = getInitialDataFromApiResponseHandler<
-          A,
-          B,
-          amsg,
+          Item,
+          Parent,
+          ItemMsg,
           Route
         >(config, msg.dataSourceId, msg.result, model)
         return [m, cmd, null]

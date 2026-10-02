@@ -388,7 +388,7 @@ const sendChatSuccessHandler = (
       _tag: 'AddOrUpdateData',
       dataSourceId: model.roomId,
       value: [{ data: chat, previousId: null }],
-      compareId: (a, id) => a.id === id,
+      compareId: (item, id) => item.id === id,
     },
     model.linkPagin,
   )
@@ -432,7 +432,7 @@ const updateChatSuccessHandler = (
       _tag: 'AddOrUpdateData',
       dataSourceId: model.roomId,
       value: [{ data: chat, previousId: null }],
-      compareId: (a, id) => a.id === id,
+      compareId: (item, id) => item.id === id,
     },
     model.linkPagin,
   )

@@ -68,20 +68,20 @@ export const mkRefs = (): Refs => ({
   itemRefs: { current: {} },
 })
 
-export type CacheHandler<A> = (
+export type CacheHandler<Item> = (
   networkStatus: boolean,
-) => Promise<CacheData.Type<A[]>>
+) => Promise<CacheData.Type<Item[]>>
 
 // Endpoint type for next or prev handler
 // - cacheData is needed to delete stale cache
-export type EndpointHandler<A> = (
+export type EndpointHandler<Item> = (
   networkStatus: boolean,
-  cacheData: A[],
-  // TODO: use dataF (currentOverall: A[]) => A[] for EndpointHandler as well
-) => TE.TaskEither<HttpErrorString, A[]>
+  cacheData: Item[],
+  // TODO: use dataF (currentOverall: Item[]) => Item[] for EndpointHandler as well
+) => TE.TaskEither<HttpErrorString, Item[]>
 
-export type InitialEndpointResponse<A> = {
-  dataF: (currentOverall: A[]) => A[]
+export type InitialEndpointResponse<Item> = {
+  dataF: (currentOverall: Item[]) => Item[]
   nextIsMax: boolean
   selectedKey?: string | null
 }
@@ -91,10 +91,10 @@ export type InitialEndpointResponse<A> = {
 // - calculate `nextIsMax` by:
 //   - if no `selectedData` then, we know `nextIsMax === true`
 //   - if the next data is less than the `pageSize`, then we know there is no more next data
-export type InitialEndpointHandler<A> = (
+export type InitialEndpointHandler<Item> = (
   networkStatus: boolean,
-  cacheData: A[],
-) => TE.TaskEither<HttpErrorString, InitialEndpointResponse<A>>
+  cacheData: Item[],
+) => TE.TaskEither<HttpErrorString, InitialEndpointResponse<Item>>
 
 export type ContainerChangeEvent =
   | { _tag: 'ElementModifyOnTop' } // When we want to maintain the scroll pos, knowing the new dom is added/removed on top.
@@ -105,40 +105,40 @@ export type ContainerChangeEvent =
   | { _tag: 'ForceManipulateScrollPos' }
   | { _tag: 'NoChange' }
 
-export type InitialHandler<A> = () => {
-  cache: CacheHandler<A>
-  endpoint: InitialEndpointHandler<A>
+export type InitialHandler<Item> = () => {
+  cache: CacheHandler<Item>
+  endpoint: InitialEndpointHandler<Item>
 }
 
-export type Mode<A> = {
+export type Mode<Item> = {
   // A unique key used to identify the data source of the component.
   // Mainly used as debugging at the moment.
   dataSourceId: string
 
-  prevHandler: (overallData: A[]) => (size: Size) => {
-    cache: () => Promise<CacheData.Type<A[]>>
-    endpoint: EndpointHandler<A>
+  prevHandler: (overallData: Item[]) => (size: Size) => {
+    cache: () => Promise<CacheData.Type<Item[]>>
+    endpoint: EndpointHandler<Item>
   }
-  overallData: SortedUniqueArray<A>
-  prevData: RD.RemoteData<HttpErrorString, A[]>
+  overallData: SortedUniqueArray<Item>
+  prevData: RD.RemoteData<HttpErrorString, Item[]>
   prevSize: Size
   prevIsMax: boolean
   // When true, on load more prev, it will call the same index instead of increasing
   // the index.
   allowRetryPrev: boolean
 
-  initialHandler: InitialHandler<A>
-  initialData: RD.RemoteData<HttpErrorString, A[]>
+  initialHandler: InitialHandler<Item>
+  initialData: RD.RemoteData<HttpErrorString, Item[]>
 
-  // Identify current selected A using uniqueKeyField
+  // Identify current selected item using uniqueKeyField
   // Scroll to this value on initial load
   selectedKey: string | null
 
-  nextHandler: (overallData: A[]) => (size: Size) => {
-    cache: () => Promise<CacheData.Type<A[]>>
-    endpoint: EndpointHandler<A>
+  nextHandler: (overallData: Item[]) => (size: Size) => {
+    cache: () => Promise<CacheData.Type<Item[]>>
+    endpoint: EndpointHandler<Item>
   }
-  nextData: RD.RemoteData<HttpErrorString, A[]>
+  nextData: RD.RemoteData<HttpErrorString, Item[]>
   nextSize: Size
   nextIsMax: boolean
 
@@ -154,20 +154,20 @@ export type Mode<A> = {
   animationEnd: boolean
 }
 
-export function mkModeEq<A>(aEq: EqClass.Eq<A>) {
-  return EqClass.struct<Mode<A>>({
+export function mkModeEq<Item>(itemEq: EqClass.Eq<Item>) {
+  return EqClass.struct<Mode<Item>>({
     dataSourceId: S.Eq,
     prevHandler: { equals: () => true },
-    overallData: SUA.getEq(aEq),
-    prevData: RD.getEq(HttpErrorStringEq, A.getEq(aEq)),
+    overallData: SUA.getEq(itemEq),
+    prevData: RD.getEq(HttpErrorStringEq, A.getEq(itemEq)),
     prevSize: SizeEq,
     prevIsMax: B.Eq,
     allowRetryPrev: B.Eq,
     initialHandler: { equals: () => true },
-    initialData: RD.getEq(HttpErrorStringEq, A.getEq(aEq)),
+    initialData: RD.getEq(HttpErrorStringEq, A.getEq(itemEq)),
     selectedKey: NullableEq(S.Eq),
     nextHandler: { equals: () => true },
-    nextData: RD.getEq(HttpErrorStringEq, A.getEq(aEq)),
+    nextData: RD.getEq(HttpErrorStringEq, A.getEq(itemEq)),
     nextSize: SizeEq,
     nextIsMax: B.Eq,
     retriggerCurrentData: S.Eq,
@@ -175,7 +175,7 @@ export function mkModeEq<A>(aEq: EqClass.Eq<A>) {
   })
 }
 
-export function defaultMode<A>(): Mode<A> {
+export function defaultMode<Item>(): Mode<Item> {
   return {
     dataSourceId: '',
     prevHandler: () => () => {
@@ -223,48 +223,52 @@ export const VisibleStrategyEq = EqClass.struct<VisibleStrategy>({
   _tag: S.Eq,
 })
 
-export type CustomUiParam<A, B> = {
-  withPrevNextA: WithPrevAndNext<A>
-  b: B
-  selectedA: Option<A>
+export type CustomUiParam<Item, Parent> = {
+  withPrevNextItem: WithPrevAndNext<Item>
+  parent: Parent
+  selectedItem: Option<Item>
   retriggerCurrentData: 'start' | 'done'
   animationEnd: boolean
   dataSourceId: string
-  allA: A[]
+  allItems: Item[]
 }
 
 export const defaultDataSourceIdAttribute = 'data-link-pagin-datasource-id'
 
-export type LogicConfig<A, B, amsg> = {
+export type LogicConfig<Item, Parent, ItemMsg> = {
   refs: Refs
-  mode: Mode<A>
+  mode: Mode<Item>
   dataSourceIdAttribute?: string
 
   isReversed: boolean
   // eq instance that compare key only (should be the same as `uniqueKeyField`)
   // TODO: probably derived this from `uniqueKeyField`, instead of passing it twice
-  eqWithKey: EqClass.Eq<A>
-  ord: OrdClass.Ord<A>
-  uniqueKeyField: (a: A) => string
+  eqWithKey: EqClass.Eq<Item>
+  ord: OrdClass.Ord<Item>
+  uniqueKeyField: (item: Item) => string
   visibleStrategy: VisibleStrategy
 
   update: (
-    parentSt: B,
-    msg: amsg,
-    model: A,
-  ) => [A, Cmd<amsg>, ContainerChangeEvent]
+    parent: Parent,
+    msg: ItemMsg,
+    model: Item,
+  ) => [Item, Cmd<ItemMsg>, ContainerChangeEvent]
 }
 
-export type WithPrevAndNext<A> = { nextA: A | null; a: A; prevA: A | null }
+export type WithPrevAndNext<Item> = {
+  nextItem: Item | null
+  item: Item
+  prevItem: Item | null
+}
 
-export type UiConfig<A, B> = {
+export type UiConfig<Item, Parent> = {
   // A function on how to render an item
-  customItemUi: (param: CustomUiParam<A, B>) => JSX.Element
+  customItemUi: (param: CustomUiParam<Item, Parent>) => JSX.Element
   // A function on how to render all items together (doesn't include prev or next loading)
   // Only use where grouping items together in a block is a must-have (sticky date, using `position: sticky`)
   customAllItemUi?: (
-    allA: WithPrevAndNext<A>[],
-    allItemUi: (data: WithPrevAndNext<A>[]) => JSX.Element[],
+    allItems: WithPrevAndNext<Item>[],
+    allItemUi: (data: WithPrevAndNext<Item>[]) => JSX.Element[],
     configIsReversed: boolean,
   ) => JSX.Element[]
   customAllItemEffect?: (
@@ -280,7 +284,7 @@ export type UiConfig<A, B> = {
   titleView: (() => JSX.Element) | null
   scrollToLatestCustomUi:
     | ((props: {
-        parentSt: B
+        parent: Parent
         onClick: () => void
         isVisible: boolean
       }) => JSX.Element)
@@ -288,19 +292,21 @@ export type UiConfig<A, B> = {
   loadingView: (() => JSX.Element) | null
   prevLoadingIndicatorView?: () => JSX.Element | null
   nextLoadingIndicatorView?: () => JSX.Element | null
-  prevIsMaxCustomView?: (b: B) => JSX.Element | null
-  nextIsMaxCustomView?: (b: B) => JSX.Element | null
+  prevIsMaxCustomView?: (parent: Parent) => JSX.Element | null
+  nextIsMaxCustomView?: (parent: Parent) => JSX.Element | null
 }
 
-export type Config<A, B, amsg> = {
-  logic: LogicConfig<A, B, amsg>
-  ui: UiConfig<A, B>
+export type Config<Item, Parent, ItemMsg> = {
+  logic: LogicConfig<Item, Parent, ItemMsg>
+  ui: UiConfig<Item, Parent>
 }
 
-export function mkLogicConfigEq<A, B, amsg>(eqA: EqClass.Eq<A>) {
-  return EqClass.struct<LogicConfig<A, B, amsg>>({
+export function mkLogicConfigEq<Item, Parent, ItemMsg>(
+  itemEq: EqClass.Eq<Item>,
+) {
+  return EqClass.struct<LogicConfig<Item, Parent, ItemMsg>>({
     refs: { equals: () => true },
-    mode: mkModeEq(eqA),
+    mode: mkModeEq(itemEq),
     dataSourceIdAttribute: UndefinableEq(S.Eq),
     isReversed: B.Eq,
     eqWithKey: { equals: () => true },
@@ -312,8 +318,8 @@ export function mkLogicConfigEq<A, B, amsg>(eqA: EqClass.Eq<A>) {
   })
 }
 
-export function mkUiConfigEq<A, B>(_eqA: EqClass.Eq<A>) {
-  return EqClass.struct<UiConfig<A, B>>({
+export function mkUiConfigEq<Item, Parent>(_eqA: EqClass.Eq<Item>) {
+  return EqClass.struct<UiConfig<Item, Parent>>({
     customItemUi: { equals: () => true },
     customAllItemUi: { equals: () => true },
     customAllItemEffect: { equals: () => true },
@@ -329,10 +335,10 @@ export function mkUiConfigEq<A, B>(_eqA: EqClass.Eq<A>) {
   })
 }
 
-export function mkConfigEq<A, B, amsg>(eqA: EqClass.Eq<A>) {
-  return EqClass.struct<Config<A, B, amsg>>({
-    logic: mkLogicConfigEq(eqA),
-    ui: mkUiConfigEq(eqA),
+export function mkConfigEq<Item, Parent, ItemMsg>(itemEq: EqClass.Eq<Item>) {
+  return EqClass.struct<Config<Item, Parent, ItemMsg>>({
+    logic: mkLogicConfigEq(itemEq),
+    ui: mkUiConfigEq(itemEq),
   })
 }
 
@@ -351,8 +357,8 @@ export type ShouldRestoreScrollStateArg = {
   restore: (dataSourceId: string, container: HTMLDivElement) => void
 }
 
-export type Model<A> = {
-  mode: Mode<A>
+export type Model<Item> = {
+  mode: Mode<Item>
 
   containerChangeEvent: ContainerChangeEvent
 
@@ -378,9 +384,9 @@ export type Model<A> = {
   initialScrollDone: boolean
 }
 
-export function ModelEq<A>(eqA: EqClass.Eq<A>) {
-  return EqClass.struct<Model<A>>({
-    mode: mkModeEq(eqA),
+export function ModelEq<Item>(itemEq: EqClass.Eq<Item>) {
+  return EqClass.struct<Model<Item>>({
+    mode: mkModeEq(itemEq),
     containerChangeEvent: EqClass.struct({ _tag: S.Eq }),
     onContainerScroll: { equals: () => true },
     shouldRestoreScrollState: { equals: () => true },
@@ -403,30 +409,30 @@ export type ScrollToCurrentParam = {
 // Prop
 // -------------------------------------------
 
-export type Props<A, B, pmsg, amsg, Route> = {
-  aEq: EqClass.Eq<A>
-  bEq: EqClass.Eq<B>
-  config: Config<A, B, amsg>
-  b: B // props from parent to be passed into customUI
+export type Props<Item, Parent, ParentMsg, ItemMsg, Route> = {
+  itemEq: EqClass.Eq<Item>
+  parentEq: EqClass.Eq<Parent>
+  config: Config<Item, Parent, ItemMsg>
+  parent: Parent // props from parent to be passed into customUI
 
-  dispatchP: (p: pmsg) => void
-  mkPmsg: (msg: Msg<A, amsg, Route>) => pmsg
-  model: Model<A>
+  dispatchParent: (p: ParentMsg) => void
+  mkParentMsg: (msg: Msg<Item, ItemMsg, Route>) => ParentMsg
+  model: Model<Item>
 }
 
-export function PropsEq<A, B, pmsg, amsg, Route>(
-  eqA: EqClass.Eq<A>,
-  eqB: EqClass.Eq<B>,
+export function PropsEq<Item, Parent, ParentMsg, ItemMsg, Route>(
+  itemEq: EqClass.Eq<Item>,
+  parentEq: EqClass.Eq<Parent>,
 ) {
-  return EqClass.struct<Props<A, B, pmsg, amsg, Route>>({
-    aEq: { equals: () => true },
-    bEq: { equals: () => true },
-    config: mkConfigEq(eqA),
-    b: eqB,
+  return EqClass.struct<Props<Item, Parent, ParentMsg, ItemMsg, Route>>({
+    itemEq: { equals: () => true },
+    parentEq: { equals: () => true },
+    config: mkConfigEq(itemEq),
+    parent: parentEq,
 
-    dispatchP: { equals: () => true },
-    mkPmsg: { equals: () => true },
-    model: ModelEq(eqA),
+    dispatchParent: { equals: () => true },
+    mkParentMsg: { equals: () => true },
+    model: ModelEq(itemEq),
   })
 }
 
@@ -434,15 +440,19 @@ export function PropsEq<A, B, pmsg, amsg, Route>(
 // Msg
 // -------------------------------------------
 
-export type Msg<A, amsg, Route> =
+export type Msg<Item, ItemMsg, Route> =
   // --------------------------------------------
   // General
   | { _tag: 'NoOp' }
-  | { _tag: 'SetState'; value: Model<A>; routeUpdater?: AppRouteUpdater<Route> }
+  | {
+      _tag: 'SetState'
+      value: Model<Item>
+      routeUpdater?: AppRouteUpdater<Route>
+    }
   | {
       _tag: 'SetModeAndAddUpdateData'
-      mode: Mode<A>
-      data: A | null // new data to be added right after changing the mode (mainly used by SSE)
+      mode: Mode<Item>
+      data: Item | null // new data to be added right after changing the mode (mainly used by SSE)
       shouldReload?: true
       onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => void
       shouldRestoreScrollState?: ShouldRestoreScrollStateArg
@@ -450,15 +460,15 @@ export type Msg<A, amsg, Route> =
   | {
       // Given a function, map it to each data (depends on mode)
       _tag: 'MapFunc'
-      func: (a: A) => A
+      func: (item: Item) => Item
       containerChangeEvent?: ContainerChangeEvent
     }
   | {
       // Given a function, run it against all the data
       _tag: 'ReplaceFunc'
       func: (
-        a: SortedUniqueArray<A>,
-      ) => [SortedUniqueArray<A>, AppRouteUpdater<Route>]
+        items: SortedUniqueArray<Item>,
+      ) => [SortedUniqueArray<Item>, AppRouteUpdater<Route>]
       containerChangeEvent?: ContainerChangeEvent
     }
   | { _tag: 'SetContainerChangeEvent'; value: ContainerChangeEvent }
@@ -477,7 +487,7 @@ export type Msg<A, amsg, Route> =
   // TODO: Disabled for now since we disable prefetching
   //  | {
   //   _tag: 'PopulateFirstResponse'
-  //   result: E.Either<string, A[]>
+  //   result: E.Either<string, Item[]>
   //   invokeTime: Date
   // }
   | {
@@ -485,8 +495,8 @@ export type Msg<A, amsg, Route> =
       // TODO: setGlobalMsg is a hack to be able to call navigate in this function
       // When link pagin become tea-cup component, we can remove this hack
       func: (
-        a: SortedUniqueArray<A>,
-      ) => Promise<[SortedUniqueArray<A>, AppRouteUpdater<Route>]>
+        items: SortedUniqueArray<Item>,
+      ) => Promise<[SortedUniqueArray<Item>, AppRouteUpdater<Route>]>
       containerChangeEvent?: ContainerChangeEvent
     }
   | {
@@ -499,27 +509,27 @@ export type Msg<A, amsg, Route> =
   | {
       _tag: 'GetMorePrevDataFromCacheResponse'
       dataSourceId: string
-      endpoint: EndpointHandler<A>
-      cache: RD.RemoteData<HttpErrorString, A[]>
+      endpoint: EndpointHandler<Item>
+      cache: RD.RemoteData<HttpErrorString, Item[]>
     }
   | {
       _tag: 'GetMorePrevDataFromApiResponse'
       dataSourceId: string
-      overallDataBeforeCache: A[]
-      result: E.Either<HttpErrorString, A[]>
+      overallDataBeforeCache: Item[]
+      result: E.Either<HttpErrorString, Item[]>
     }
   | { _tag: 'GetMoreNextData' }
   | {
       _tag: 'GetMoreNextDataFromCacheResponse'
       dataSourceId: string
-      endpoint: EndpointHandler<A>
-      cache: RD.RemoteData<HttpErrorString, A[]>
+      endpoint: EndpointHandler<Item>
+      cache: RD.RemoteData<HttpErrorString, Item[]>
     }
   | {
       _tag: 'GetMoreNextDataFromApiResponse'
       dataSourceId: string
-      overallDataBeforeCache: A[]
-      result: E.Either<HttpErrorString, A[]>
+      overallDataBeforeCache: Item[]
+      result: E.Either<HttpErrorString, Item[]>
     }
   // --------------------------------------------
   // Datasource specific
@@ -527,19 +537,19 @@ export type Msg<A, amsg, Route> =
       // Find and update existing data. If it does not exist, add the data.
       _tag: 'AddOrUpdateData'
       dataSourceId: string
-      value: { data: A; previousId: string | null }[]
-      compareId: (a: A, b: string) => boolean
+      value: { data: Item; previousId: string | null }[]
+      compareId: (item: Item, id: string) => boolean
     }
   | {
       _tag: 'SetPrevData'
       dataSourceId: string
-      value: RD.RemoteData<HttpErrorString, A[]>
+      value: RD.RemoteData<HttpErrorString, Item[]>
       isFirstLoad: boolean
     }
   | {
       _tag: 'AddToPrevOverallData'
       dataSourceId: string
-      value: A[]
+      value: Item[]
     }
   | {
       _tag: 'SetPrevIsMax'
@@ -549,12 +559,12 @@ export type Msg<A, amsg, Route> =
   | {
       _tag: 'SetNextData'
       dataSourceId: string
-      value: RD.RemoteData<HttpErrorString, A[]>
+      value: RD.RemoteData<HttpErrorString, Item[]>
     }
   | {
       _tag: 'AddToNextOverallData'
       dataSourceId: string
-      value: A[]
+      value: Item[]
     }
   | {
       _tag: 'SetNextIsMax'
@@ -564,7 +574,7 @@ export type Msg<A, amsg, Route> =
   | {
       _tag: 'SetInitialData'
       dataSourceId: string
-      value: RD.RemoteData<HttpErrorString, A[]>
+      value: RD.RemoteData<HttpErrorString, Item[]>
     }
   | {
       _tag: 'SetReTriggerCurrentData'
@@ -607,12 +617,12 @@ export type Msg<A, amsg, Route> =
   | {
       _tag: 'GetInitialDataFromCacheResponse'
       dataSourceId: string
-      cache: RD.RemoteData<HttpErrorString, A[]>
+      cache: RD.RemoteData<HttpErrorString, Item[]>
     }
   | {
       _tag: 'GetInitialDataFromApiResponse'
       dataSourceId: string
-      result: E.Either<HttpErrorString, InitialEndpointResponse<A>>
+      result: E.Either<HttpErrorString, InitialEndpointResponse<Item>>
     }
   | {
       _tag: 'ScrollToCurrentDone'
@@ -627,7 +637,7 @@ export type Msg<A, amsg, Route> =
   | {
       _tag: 'ChildMsg'
       childId: string
-      subMsg: amsg
+      subMsg: ItemMsg
     }
 
 // Stable IDs for the prev/next InView trigger buttons, derived from the data source.

@@ -373,7 +373,7 @@ const applyIncomingChat = (
       {
         dataSourceId: currentChatModel.linkPagin.mode.dataSourceId,
         value: [{ data: incomingChat, previousId: null }],
-        compareId: (a, b) => a.id === b,
+        compareId: (item, id) => item.id === id,
       },
     )
 
