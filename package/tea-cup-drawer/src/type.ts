@@ -19,7 +19,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-import { EqAlways } from '@rinn7e/tea-cup-prelude'
+import { EqAlways, UndefinableEq } from '@rinn7e/tea-cup-prelude'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as O from 'fp-ts/lib/Option'
 import * as B from 'fp-ts/lib/boolean'
@@ -147,17 +147,17 @@ export const PointerPositionEq: EqClass.Eq<PointerPosition> =
 // Invisible  ─Open→  Mounting ─(next frame)→ AnimateIn ─(transitionend)→ Visible
 // Visible    ─Close→ AnimateOut ─(transitionend)→ Invisible
 // Visible    ─drag→  Dragging ─release→ Settling (snap/spring back) | AnimateOut
-export type AnimateState<A> =
+export type AnimateState<Item> =
   | { _tag: 'Invisible' }
   // Rendered at the closed position, waiting one frame so the transition to
   // the open position runs
-  | { _tag: 'Mounting'; internal: A }
-  | { _tag: 'AnimateIn'; internal: A }
-  | { _tag: 'Visible'; internal: A }
+  | { _tag: 'Mounting'; internal: Item }
+  | { _tag: 'AnimateIn'; internal: Item }
+  | { _tag: 'Visible'; internal: Item }
   // The pointer controls the position; no CSS transition
   | {
       _tag: 'Dragging'
-      internal: A
+      internal: Item
       press: Press
       // Current distance (px) toward the closed position (negative while
       // pulled past the open position)
@@ -165,12 +165,12 @@ export type AnimateState<A> =
       last: PointerPosition
     }
   // Transitioning to the active snap point after a release
-  | { _tag: 'Settling'; internal: A }
-  | { _tag: 'AnimateOut'; internal: A }
+  | { _tag: 'Settling'; internal: Item }
+  | { _tag: 'AnimateOut'; internal: Item }
 
-export const getAnimateStateEq = <A>(
-  aEq: EqClass.Eq<A>,
-): EqClass.Eq<AnimateState<A>> => ({
+export const getAnimateStateEq = <Item>(
+  itemEq: EqClass.Eq<Item>,
+): EqClass.Eq<AnimateState<Item>> => ({
   equals: (x, y) => {
     switch (x._tag) {
       case 'Invisible':
@@ -180,11 +180,11 @@ export const getAnimateStateEq = <A>(
       case 'Visible':
       case 'Settling':
       case 'AnimateOut':
-        return y._tag === x._tag && aEq.equals(x.internal, y.internal)
+        return y._tag === x._tag && itemEq.equals(x.internal, y.internal)
       case 'Dragging':
         return (
           y._tag === 'Dragging' &&
-          aEq.equals(x.internal, y.internal) &&
+          itemEq.equals(x.internal, y.internal) &&
           PressEq.equals(x.press, y.press) &&
           x.distance === y.distance &&
           PointerPositionEq.equals(x.last, y.last)
@@ -217,8 +217,8 @@ export const GestureEq: EqClass.Eq<Gesture> = {
 // Model
 // ---------------------------------
 
-export type Model<A> = {
-  animate: AnimateState<A>
+export type Model<Item> = {
+  animate: AnimateState<Item>
   gesture: Gesture
   activeSnap: number
   // `Event.timeStamp` of the last time a gesture scrolled the content
@@ -230,9 +230,11 @@ export type Model<A> = {
   config: Config
 }
 
-export const getModelEq = <A>(aEq: EqClass.Eq<A>): EqClass.Eq<Model<A>> =>
-  EqClass.struct<Model<A>>({
-    animate: getAnimateStateEq(aEq),
+export const getModelEq = <Item>(
+  itemEq: EqClass.Eq<Item>,
+): EqClass.Eq<Model<Item>> =>
+  EqClass.struct<Model<Item>>({
+    animate: getAnimateStateEq(itemEq),
     gesture: GestureEq,
     activeSnap: N.Eq,
     lastDragPreventedAt: O.getEq(N.Eq),
@@ -243,9 +245,9 @@ export const getModelEq = <A>(aEq: EqClass.Eq<A>): EqClass.Eq<Model<A>> =>
 // Msg
 // ---------------------------------
 
-export type Msg<A> =
+export type Msg<Item> =
   // Open the drawer with a payload, or replace the payload while it is open
-  | { _tag: 'Open'; internal: A }
+  | { _tag: 'Open'; internal: Item }
   // Close the drawer (always honored)
   | { _tag: 'Close' }
   // Close requested by the user (overlay, Escape); ignored when not dismissible
@@ -312,11 +314,39 @@ export type Ui = {
   overlay?: (arg: OverlayUiArg) => JSX.Element
 }
 
-export type Props<A> = {
-  model: Model<A>
-  dispatch: Dispatcher<Msg<A>>
-  // Renders the drawer content from the payload it was opened with
-  children: (internal: A) => ReactNode
+// The drawer content has two sources of data, like link-pagination's `Item`
+// and `Parent`:
+// - `internal` (`Item`): owned by the drawer. Set by `Open` / `setInternal`,
+//   kept while the drawer slides out, dropped once it is closed. Use it for
+//   state that lives and dies with the drawer (the default).
+// - `parent` (`Parent`): owned by the parent and only borrowed for rendering.
+//   Use it for state that must outlive the drawer (a draft) or that the parent
+//   owns anyway (current user, selection).
+// `children` must only use its arguments, the drawer's own `model` and stable
+// values like `dispatch`: anything else it closes over is invisible to
+// `DrawerMemo`.
+export type Props<Item, Parent> = {
+  model: Model<Item>
+  dispatch: Dispatcher<Msg<Item>>
+  children: (internal: Item, parent: Parent) => ReactNode
+  itemEq: EqClass.Eq<Item>
+  parent: Parent
+  parentEq: EqClass.Eq<Parent>
   className?: string
   overlayClassName?: string
 }
+
+export const getPropsEq = <Item, Parent>(
+  itemEq: EqClass.Eq<Item>,
+  parentEq: EqClass.Eq<Parent>,
+): EqClass.Eq<Props<Item, Parent>> =>
+  EqClass.struct<Props<Item, Parent>>({
+    model: getModelEq(itemEq),
+    dispatch: EqAlways,
+    children: EqAlways,
+    itemEq: EqAlways,
+    parent: parentEq,
+    parentEq: EqAlways,
+    className: UndefinableEq(S.Eq),
+    overlayClassName: UndefinableEq(S.Eq),
+  })

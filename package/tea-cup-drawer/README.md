@@ -11,6 +11,7 @@ A drawer (bottom sheet / side panel) for React and The Elm Architecture, powered
 - **vaul's gestures**: swipe to dismiss with velocity and distance thresholds, rubber-banding past the open position, snap points (fractions or px), handle taps that cycle snap points, `handleOnly`, and drags that leave scrolled content and selected text alone.
 - **Four directions**: `bottom`, `top`, `left`, `right`.
 - **Modal or not**: modal drawers render an overlay, lock the body scroll (with vaul's iOS Safari fix), trap Tab and give focus back on close. Non-modal drawers leave the page interactive.
+- **Memoized, with two data channels**: `DrawerMemo` gets the content data as arguments: `internal` (owned by the drawer, dropped when it closes) and `parent` (owned by the parent), each with its own `Eq`.
 - **Pure, tested logic**: the physics (`decideDrag`, `decideRelease`, `dragDistance`, ...) are pure functions in `util.ts`. DOM reads happen at event time and reach `update` as facts inside messages.
 - **Isolated React entrypoint**: types, `update` and `subscriptions` come from `@rinn7e/tea-cup-drawer`; views from `@rinn7e/tea-cup-drawer/component`.
 
@@ -101,27 +102,66 @@ Open it from anywhere by sending `{ _tag: 'Open', internal: message }`, and clos
 ### 3. View
 
 ```tsx
-import {
-  DrawerComponent,
-  DrawerHandle,
-} from '@rinn7e/tea-cup-drawer/component'
+import { DrawerHandle, DrawerMemo } from '@rinn7e/tea-cup-drawer/component'
 
 const actionsDispatch = map(dispatch, (subMsg): Msg => ({
   _tag: 'ActionsMsg',
   subMsg,
 }))
 
-<DrawerComponent model={model.actions} dispatch={actionsDispatch}>
-  {(message) => (
+<DrawerMemo
+  model={model.actions}
+  dispatch={actionsDispatch}
+  itemEq={MessageEq}
+  parent={{ currentUserId: model.currentUserId }}
+  parentEq={ParentEq}
+>
+  {(message, parent) => (
     <>
       <DrawerHandle dispatch={actionsDispatch} />
-      <MessageActions message={message} />
+      <MessageActions message={message} currentUserId={parent.currentUserId} />
     </>
   )}
-</DrawerComponent>
+</DrawerMemo>
 ```
 
-### 4. Reacting to open changes
+`DrawerMemo` re-renders only when the model (compared with `itemEq`) or `parent` (compared with `parentEq`) change. `children` must therefore only use its arguments, the drawer's own model and stable values like `dispatch`. Use `DrawerComponent` for the unmemoized version.
+
+### `internal` vs `parent`
+
+The content gets two kinds of data, like link-pagination's `Item` and `Parent`. Pick per piece of state with one question: **does it need to survive the drawer closing?**
+
+|          | `internal` (`Item`)                                     | `parent` (`Parent`)                                                                            |
+| -------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Owned by | The drawer                                              | The parent; the drawer only borrows it                                                         |
+| Set by   | `Open { internal }`, `setInternal`                      | Every render (`parent` prop)                                                                   |
+| Lifetime | Kept while sliding out, dropped once closed             | Whatever the parent currently has                                                              |
+| Use for  | State that lives and dies with the drawer (the default) | State that must outlive it (a draft), or that the parent owns anyway (current user, selection) |
+
+### A TEA component as the content
+
+Put the component's model in `internal` and route its messages from the parent with `getInternal` / `setInternal`. The state then resets on every open, survives the close animation, and messages arriving after the drawer closed are dropped:
+
+```ts
+case 'MenuMsg':
+  return pipe(
+    Drawer.getInternal(model.actions),
+    O.fold(
+      () => [model, Cmd.none()], // drawer closed: drop late messages
+      (menu) => {
+        const [nextMenu, cmd] = Menu.update(msg.subMsg, menu)
+        return [
+          { ...model, actions: Drawer.setInternal(nextMenu)(model.actions) },
+          cmd.map((subMsg): Msg => ({ _tag: 'MenuMsg', subMsg })),
+        ]
+      },
+    ),
+  )
+```
+
+The parent can still react in the same step with `updateAndCmd` (e.g. close the drawer once the menu picked something). The example app's "TEA content" demo shows the full pattern.
+
+### Reacting to open changes
 
 The drawer closes itself on swipes, overlay taps and Escape. To react like vaul's `onOpenChange`, compare `isOpen` before and after the update:
 
@@ -181,6 +221,8 @@ Before a drag starts, a press lives in `model.gesture` (`Pressed`). It becomes `
 | `noBodyStyles`          | `false`            | Don't touch `document.body` (scroll lock)                                                                   |
 | `portal`                | `{ _tag: 'Body' }` | `Body`, `Inline` or `{ _tag: 'Container', get }`                                                            |
 | `ui`                    | —                  | `{ content?, overlay? }` view overrides                                                                     |
+
+Escape and the Tab trap apply to the topmost open drawer only (the most recently opened), like Radix's layer stack.
 
 Mark elements that should never start a drag with `data-drawer-no-drag` (e.g. sliders, carousels).
 

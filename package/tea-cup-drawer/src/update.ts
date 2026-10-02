@@ -27,8 +27,8 @@ import {
   afterNextPaintCmd,
   focusContentCmd,
   lockBodyScrollCmd,
-  rememberFocusCmd,
-  restoreFocusCmd,
+  popLayerCmd,
+  pushLayerCmd,
   unlockBodyScrollCmd,
 } from './effect'
 import { type Config, type Model, type Msg, type Press } from './type'
@@ -65,7 +65,7 @@ export const defaultConfig = (id: string): Config => ({
   portal: { _tag: 'Body' },
 })
 
-export const defaultModel = <A>(config: Config): Model<A> => ({
+export const defaultModel = <Item>(config: Config): Model<Item> => ({
   animate: { _tag: 'Invisible' },
   gesture: { _tag: 'Idle' },
   activeSnap: config.initialSnap,
@@ -77,21 +77,23 @@ export const defaultModel = <A>(config: Config): Model<A> => ({
 // Effects
 // ---------------------------------
 
-const noOp = <A>(cmd: Cmd<{ _tag: 'NoOp' }>): Cmd<Msg<A>> =>
-  cmd.map((m): Msg<A> => m)
+const noOp = <Item>(cmd: Cmd<{ _tag: 'NoOp' }>): Cmd<Msg<Item>> =>
+  cmd.map((m): Msg<Item> => m)
 
 // Settle on `TransitionEnd`, or after the transition duration in case the
 // `transitionend` event never fires (e.g. nothing actually moved).
-const animationTimeoutCmd = <A>(model: Model<A>): Cmd<Msg<A>> =>
-  delayCmd<Msg<A>>(model.config.durationMs + 50, {
+const animationTimeoutCmd = <Item>(model: Model<Item>): Cmd<Msg<Item>> =>
+  delayCmd<Msg<Item>>(model.config.durationMs + 50, {
     _tag: 'AnimationTimeout',
     seq: model.seq,
   })
 
 // Start a new animation: bump `seq` so messages of the previous one are
 // ignored, and schedule its timeout.
-const startAnimation = <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
-  const next: Model<A> = {
+const startAnimation = <Item>(
+  model: Model<Item>,
+): [Model<Item>, Cmd<Msg<Item>>] => {
+  const next: Model<Item> = {
     ...model,
     seq: model.seq + 1,
     gesture: { _tag: 'Idle' },
@@ -103,8 +105,8 @@ const startAnimation = <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
 // ---------------------------------
 
 export const openHandler =
-  <A>(internal: A) =>
-  (model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
+  <Item>(internal: Item) =>
+  (model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const animate = model.animate
     switch (animate._tag) {
       case 'Invisible': {
@@ -117,9 +119,9 @@ export const openHandler =
             seq,
           },
           Cmd.batch([
-            noOp(rememberFocusCmd(model.config)),
+            noOp(pushLayerCmd(model.config)),
             noOp(lockBodyScrollCmd(model.config)),
-            afterNextPaintCmd<Msg<A>>(model.config, {
+            afterNextPaintCmd<Msg<Item>>(model.config, {
               _tag: 'MountFrame',
               seq,
             }),
@@ -143,7 +145,9 @@ export const openHandler =
 
 // Fully closed: drop the payload, reset the snap point and undo the effects
 // of opening.
-const finishClose = <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => [
+const finishClose = <Item>(
+  model: Model<Item>,
+): [Model<Item>, Cmd<Msg<Item>>] => [
   {
     ...model,
     animate: { _tag: 'Invisible' },
@@ -153,11 +157,13 @@ const finishClose = <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => [
   },
   Cmd.batch([
     noOp(unlockBodyScrollCmd(model.config)),
-    noOp(restoreFocusCmd(model.config)),
+    noOp(popLayerCmd(model.config)),
   ]),
 ]
 
-export const closeHandler = <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
+export const closeHandler = <Item>(
+  model: Model<Item>,
+): [Model<Item>, Cmd<Msg<Item>>] => {
   const animate = model.animate
   switch (animate._tag) {
     case 'Invisible':
@@ -182,7 +188,9 @@ export const closeHandler = <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
   }
 }
 
-export const dismissHandler = <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
+export const dismissHandler = <Item>(
+  model: Model<Item>,
+): [Model<Item>, Cmd<Msg<Item>>] => {
   if (model.config.dismissible) {
     return closeHandler(model)
   } else {
@@ -191,7 +199,9 @@ export const dismissHandler = <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
 }
 
 // Current animation finished
-const animationEndHandler = <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
+const animationEndHandler = <Item>(
+  model: Model<Item>,
+): [Model<Item>, Cmd<Msg<Item>>] => {
   const animate = model.animate
   switch (animate._tag) {
     case 'AnimateIn':
@@ -212,7 +222,7 @@ const animationEndHandler = <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
 
 const mountFrameHandler =
   (seq: number) =>
-  <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
+  <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const animate = model.animate
     if (animate._tag === 'Mounting' && seq === model.seq) {
       const [next, cmd] = startAnimation(model)
@@ -228,7 +238,7 @@ const mountFrameHandler =
 
 export const setSnapHandler =
   (index: number) =>
-  <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
+  <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const animate = model.animate
     const isValid = index >= 0 && index <= lastSnapIndex(model.config)
     if (!isValid || index === model.activeSnap) {
@@ -262,7 +272,9 @@ export const setSnapHandler =
 
 // Port of vaul's handle tap: cycle to the next snap point, closing from the
 // last one when dismissible.
-const cycleSnapHandler = <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
+const cycleSnapHandler = <Item>(
+  model: Model<Item>,
+): [Model<Item>, Cmd<Msg<Item>>] => {
   const isLast = model.activeSnap === lastSnapIndex(model.config)
   if (model.animate._tag !== 'Visible' || !hasSnapPoints(model.config)) {
     // Ignore taps during animations and right after a drag
@@ -278,7 +290,7 @@ const cycleSnapHandler = <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
 
 const pointerDownHandler =
   (press: Press) =>
-  <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
+  <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const canDrag = model.config.dismissible || hasSnapPoints(model.config)
     const isAtRest =
       model.animate._tag === 'Visible' || model.animate._tag === 'Settling'
@@ -305,7 +317,7 @@ const pointerDownHandler =
 const pressedMoveHandler =
   (press: Press, move: { x: number; y: number; time: number }) =>
   (hasSelection: boolean) =>
-  <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
+  <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const config = model.config
     const animate = model.animate
     const dx = move.x - press.startX
@@ -367,7 +379,7 @@ const pressedMoveHandler =
 
 const pointerMoveHandler =
   (move: { x: number; y: number; time: number }, hasSelection: boolean) =>
-  <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
+  <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const animate = model.animate
     const gesture = model.gesture
     if (animate._tag === 'Dragging') {
@@ -397,7 +409,7 @@ const pointerMoveHandler =
 
 const releaseHandler =
   (release: { x: number; y: number; time: number }) =>
-  <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
+  <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const animate = model.animate
     if (animate._tag === 'Dragging') {
       const decision = decideRelease(
@@ -431,7 +443,7 @@ const releaseHandler =
 
 const pointerCancelHandler =
   (time: number) =>
-  <A>(model: Model<A>): [Model<A>, Cmd<Msg<A>>] => {
+  <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const animate = model.animate
     if (animate._tag === 'Dragging') {
       // Release where the pointer was last seen, like vaul
@@ -444,10 +456,10 @@ const pointerCancelHandler =
 // Update
 // ---------------------------------
 
-export const update = <A>(
-  msg: Msg<A>,
-  model: Model<A>,
-): [Model<A>, Cmd<Msg<A>>] => {
+export const update = <Item>(
+  msg: Msg<Item>,
+  model: Model<Item>,
+): [Model<Item>, Cmd<Msg<Item>>] => {
   switch (msg._tag) {
     case 'Open':
       return openHandler(msg.internal)(model)

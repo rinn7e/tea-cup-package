@@ -1,10 +1,18 @@
 import * as Drawer from '@rinn7e/tea-cup-drawer'
-import { DrawerComponent, DrawerHandle } from '@rinn7e/tea-cup-drawer/component'
-import { cn } from '@rinn7e/tea-cup-prelude'
+import { DrawerHandle, DrawerMemo } from '@rinn7e/tea-cup-drawer/component'
+import { cn, nullEq } from '@rinn7e/tea-cup-prelude'
+import * as S from 'fp-ts/lib/string'
 import { type ReactNode } from 'react'
 import { type Dispatcher, map } from 'tea-cup-fp'
 
-import { type DemoKey, type Model, type Msg } from './type'
+import {
+  type Model as ActionMenuModel,
+  ModelEq as ActionMenuModelEq,
+  type Msg as ActionMenuMsg,
+  defaultModel as defaultActionMenu,
+} from './component/action-menu'
+import { ActionMenu } from './component/action-menu/component'
+import { ActionsParentEq, type DemoKey, type Model, type Msg } from './type'
 
 const fruits = ['Apple', 'Banana', 'Cherry']
 
@@ -280,6 +288,18 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
       }),
     )
 
+  const actionsDrawerDispatch = map(
+    dispatch,
+    (subMsg: Drawer.Msg<ActionMenuModel>): Msg => ({
+      _tag: 'ActionsDrawerMsg',
+      subMsg,
+    }),
+  )
+  const actionMenuDispatch = map(
+    dispatch,
+    (subMsg: ActionMenuMsg): Msg => ({ _tag: 'ActionMenuMsg', subMsg }),
+  )
+
   const cards: { key: DemoKey; title: string; description: string }[] = [
     {
       key: 'basic',
@@ -393,6 +413,37 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
                 </>
               ),
             })}
+
+            <div className='flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200'>
+              <div className='flex items-center justify-between gap-2'>
+                <h2 className='font-bold text-slate-900'>TEA content</h2>
+                <span
+                  data-test='state-actions'
+                  className='rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600'
+                >
+                  {model.actionsDrawer.animate._tag}
+                </span>
+              </div>
+              <p className='text-sm text-slate-600'>
+                A TEA menu in the payload (resets on open) and a draft in the
+                parent (kept on close).
+              </p>
+              <div className='flex flex-wrap gap-2'>
+                <button
+                  type='button'
+                  data-test='trigger-actions'
+                  className={buttonClassName}
+                  onClick={() =>
+                    dispatch({
+                      _tag: 'ActionsDrawerMsg',
+                      subMsg: { _tag: 'Open', internal: defaultActionMenu() },
+                    })
+                  }
+                >
+                  Open
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className='rounded-2xl bg-slate-900 p-5 text-sm text-emerald-400 shadow-sm'>
@@ -412,16 +463,56 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
         const key = k as DemoKey
         const dispatchDrawer = drawerDispatch(key)
         return (
-          <DrawerComponent
+          <DrawerMemo
             key={key}
             model={drawer}
             dispatch={dispatchDrawer}
+            itemEq={S.Eq}
+            parent={null}
+            parentEq={nullEq}
             className={cn(drawerClassName(key))}
           >
             {(internal) => drawerContent(key, drawer, dispatchDrawer, internal)}
-          </DrawerComponent>
+          </DrawerMemo>
         )
       })}
+
+      {/* Option C + parent channel: the menu (a TEA component) lives in the
+          payload and resets on every open; the draft lives in the parent and
+          survives closing */}
+      <DrawerMemo
+        model={model.actionsDrawer}
+        dispatch={actionsDrawerDispatch}
+        itemEq={ActionMenuModelEq}
+        parent={{ draft: model.draft }}
+        parentEq={ActionsParentEq}
+      >
+        {(menu, parent) => (
+          <div
+            data-test='content-actions'
+            className='flex min-h-0 flex-1 flex-col'
+          >
+            <DrawerHandle dispatch={actionsDrawerDispatch} />
+            <div className='flex flex-col gap-3 px-6 pt-2 pb-8'>
+              <h2 className='text-lg font-bold text-slate-900'>
+                Message actions
+              </h2>
+              <ActionMenu model={menu} dispatch={actionMenuDispatch} />
+              <label className='flex flex-col gap-1 text-sm text-slate-600'>
+                Note (kept when the drawer closes)
+                <textarea
+                  data-test='draft'
+                  value={parent.draft}
+                  onChange={(e) =>
+                    dispatch({ _tag: 'SetDraft', value: e.target.value })
+                  }
+                  className='rounded-lg border border-slate-300 px-3 py-2 text-sm'
+                />
+              </label>
+            </div>
+          </div>
+        )}
+      </DrawerMemo>
     </div>
   )
 }

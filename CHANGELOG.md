@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and adher
 
 ### Added
 
-- **`@rinn7e/tea-cup-drawer`**: New package. A drawer (bottom sheet / side panel) ported from [vaul](https://github.com/emilkowalski/vaul) to The Elm Architecture: swipe to dismiss, snap points, four directions, modal and non-modal modes, scroll-aware dragging, body scroll lock and focus handling. Every animation phase is an explicit `AnimateState` (`Invisible`, `Mounting`, `AnimateIn`, `Visible`, `Dragging`, `Settling`, `AnimateOut`) that keeps the opening payload until the drawer is fully closed. Includes a Vitest suite, a kitchen-sink example app and a Playwright e2e suite.
+- **`@rinn7e/tea-cup-drawer`**: New package. A drawer (bottom sheet / side panel) ported from [vaul](https://github.com/emilkowalski/vaul) to The Elm Architecture: swipe to dismiss, snap points, four directions, modal and non-modal modes, scroll-aware dragging, body scroll lock and focus handling. `DrawerMemo` renders the content from two channels, `internal` (owned by the drawer) and `parent` (owned by the parent), and `getInternal` / `setInternal` let a TEA component live in the payload. Every animation phase is an explicit `AnimateState` (`Invisible`, `Mounting`, `AnimateIn`, `Visible`, `Dragging`, `Settling`, `AnimateOut`) that keeps the opening payload until the drawer is fully closed. Includes a Vitest suite, a kitchen-sink example app and a Playwright e2e suite.
 
 ### Changed
 

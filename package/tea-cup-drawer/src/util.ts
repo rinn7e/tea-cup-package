@@ -143,7 +143,7 @@ const restDistanceCss = (config: Config, activeSnap: number): string => {
 
 // Distance toward the closed position the drawer is rendered at, as a CSS
 // length. `100%` is fully closed.
-export const translateCss = <A>(model: Model<A>): string => {
+export const translateCss = <Item>(model: Model<Item>): string => {
   const animate = model.animate
   switch (animate._tag) {
     case 'Invisible':
@@ -192,7 +192,7 @@ const overlayOpacityAtRest = (config: Config, activeSnap: number): number => {
   }
 }
 
-export const overlayOpacity = <A>(model: Model<A>): number => {
+export const overlayOpacity = <Item>(model: Model<Item>): number => {
   const animate = model.animate
   switch (animate._tag) {
     case 'Invisible':
@@ -214,7 +214,7 @@ export const overlayOpacity = <A>(model: Model<A>): number => {
 
 // Whether the drawer is (or is becoming) open; use it to detect open changes
 // from the parent, e.g. a swipe that closed the drawer.
-export const isOpen = <A>(animate: AnimateState<A>): boolean => {
+export const isOpen = <Item>(animate: AnimateState<Item>): boolean => {
   switch (animate._tag) {
     case 'Invisible':
     case 'AnimateOut':
@@ -227,6 +227,46 @@ export const isOpen = <A>(animate: AnimateState<A>): boolean => {
       return true
   }
 }
+
+// Payload
+// ---------------------------------
+
+// The payload the drawer was opened with; `none` once it is fully closed.
+// Use it to route messages of a TEA component living in the payload, so
+// late replies for a closed drawer are dropped.
+export const getInternal = <Item>(model: Model<Item>): O.Option<Item> => {
+  const animate = model.animate
+  switch (animate._tag) {
+    case 'Invisible':
+      return O.none
+    case 'Mounting':
+    case 'AnimateIn':
+    case 'Visible':
+    case 'Dragging':
+    case 'Settling':
+    case 'AnimateOut':
+      return O.some(animate.internal)
+  }
+}
+
+// Replace the payload, keeping the animation state. No-op once the drawer is
+// fully closed (there is nothing to update).
+export const setInternal =
+  <Item>(internal: Item) =>
+  (model: Model<Item>): Model<Item> => {
+    const animate = model.animate
+    switch (animate._tag) {
+      case 'Invisible':
+        return model
+      case 'Mounting':
+      case 'AnimateIn':
+      case 'Visible':
+      case 'Dragging':
+      case 'Settling':
+      case 'AnimateOut':
+        return { ...model, animate: { ...animate, internal } }
+    }
+  }
 
 // Dragging
 // ---------------------------------

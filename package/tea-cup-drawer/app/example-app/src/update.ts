@@ -4,6 +4,7 @@ import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
+import * as ActionMenu from './component/action-menu'
 import { type DemoKey, type Model, type Msg } from './type'
 
 const configs: Record<DemoKey, Drawer.Config> = {
@@ -64,6 +65,8 @@ export const init = (): [Model, Cmd<Msg>] => [
       payload: Drawer.defaultModel(configs.payload),
       handleOnly: Drawer.defaultModel(configs.handleOnly),
     },
+    actionsDrawer: Drawer.defaultModel(Drawer.defaultConfig('actions')),
+    draft: '',
     openLog: [],
   },
   Cmd.none(),
@@ -94,9 +97,79 @@ const drawerMsgHandler =
     )
   }
 
+const actionsDrawerMsgHandler =
+  (subMsg: Drawer.Msg<ActionMenu.Model>) =>
+  (model: Model): [Model, Cmd<Msg>] => {
+    const before = model.actionsDrawer
+    const [after, cmd] = Drawer.update(subMsg, before)
+    return pipe(
+      [
+        { ...model, actionsDrawer: after },
+        cmd.map((m): Msg => ({ _tag: 'ActionsDrawerMsg', subMsg: m })),
+      ],
+      updateAndCmd((m: Model): [Model, Cmd<Msg>] => {
+        const wasOpen = Drawer.isOpen(before.animate)
+        const isOpen = Drawer.isOpen(after.animate)
+        if (wasOpen !== isOpen) {
+          const entry = `actions ${isOpen ? 'opened' : 'closed'}`
+          return [{ ...m, openLog: [entry, ...m.openLog] }, Cmd.none()]
+        } else {
+          return [m, Cmd.none()]
+        }
+      }),
+    )
+  }
+
+// Option C: the menu lives in the drawer payload, the parent routes its
+// messages. Once the drawer has closed `getInternal` is `none`, so late
+// messages are dropped.
+const actionMenuMsgHandler =
+  (subMsg: ActionMenu.Msg) =>
+  (model: Model): [Model, Cmd<Msg>] =>
+    pipe(
+      Drawer.getInternal(model.actionsDrawer),
+      O.fold(
+        (): [Model, Cmd<Msg>] => [model, Cmd.none()],
+        (menu): [Model, Cmd<Msg>] => {
+          const [nextMenu, menuCmd] = ActionMenu.update(subMsg, menu)
+          return pipe(
+            [
+              {
+                ...model,
+                actionsDrawer: Drawer.setInternal(nextMenu)(
+                  model.actionsDrawer,
+                ),
+              },
+              menuCmd.map((m): Msg => ({ _tag: 'ActionMenuMsg', subMsg: m })),
+            ],
+            updateAndCmd((m: Model): [Model, Cmd<Msg>] => {
+              if (subMsg._tag === 'Pick') {
+                // The parent reacts in the same step: log and close
+                return pipe(
+                  {
+                    ...m,
+                    openLog: [`moved to ${subMsg.folder}`, ...m.openLog],
+                  },
+                  actionsDrawerMsgHandler({ _tag: 'Close' }),
+                )
+              } else {
+                return [m, Cmd.none()]
+              }
+            }),
+          )
+        },
+      ),
+    )
+
 export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'DrawerMsg':
       return drawerMsgHandler(msg.key, msg.subMsg)(model)
+    case 'ActionsDrawerMsg':
+      return actionsDrawerMsgHandler(msg.subMsg)(model)
+    case 'ActionMenuMsg':
+      return actionMenuMsgHandler(msg.subMsg)(model)
+    case 'SetDraft':
+      return [{ ...model, draft: msg.value }, Cmd.none()]
   }
 }

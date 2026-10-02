@@ -90,8 +90,8 @@ const hasScrolledAncestor = (
   return found
 }
 
-const measurePress = <A,>(
-  model: Model<A>,
+const measurePress = <Item,>(
+  model: Model<Item>,
   e: PointerEvent<HTMLElement>,
 ): O.Option<Press> => {
   const config = model.config
@@ -132,9 +132,9 @@ const measurePress = <A,>(
 // Attributes
 // ---------------------------------
 
-export const contentAttrs = <A,>(
-  model: Model<A>,
-  dispatch: Dispatcher<Msg<A>>,
+export const contentAttrs = <Item,>(
+  model: Model<Item>,
+  dispatch: Dispatcher<Msg<Item>>,
 ): ContentAttrs => ({
   id: contentDomId(model.config.id),
   role: 'dialog',
@@ -166,9 +166,9 @@ export const contentAttrs = <A,>(
   },
 })
 
-export const overlayAttrs = <A,>(
-  model: Model<A>,
-  dispatch: Dispatcher<Msg<A>>,
+export const overlayAttrs = <Item,>(
+  model: Model<Item>,
+  dispatch: Dispatcher<Msg<Item>>,
 ): OverlayAttrs => ({
   'data-drawer-overlay': '',
   'data-state': model.animate._tag,

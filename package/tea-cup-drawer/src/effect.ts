@@ -189,14 +189,24 @@ export const unlockBodyScrollCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
     }
   })
 
-// Focus
+// Layers and focus
 // ---------------------------------
+
+// Open drawers, most recently opened last (like Radix's layer stack). Only
+// the topmost one reacts to Escape and traps Tab, wherever the focus is: the
+// focused element may have been removed by a re-render of the content.
+let layerStack: string[] = []
+
+export const isTopmostLayer = (id: string): boolean =>
+  layerStack[layerStack.length - 1] === id
 
 // Element focused before each drawer opened, keyed by `Config.id`
 const previousFocus = new Map<string, HTMLElement>()
 
-export const rememberFocusCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
+// On open: become the topmost layer and remember where the focus was
+export const pushLayerCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
   performIO_(() => {
+    layerStack = [...layerStack.filter((id) => id !== config.id), config.id]
     const active = document.activeElement
     if (active instanceof HTMLElement) {
       previousFocus.set(config.id, active)
@@ -205,8 +215,10 @@ export const rememberFocusCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
     }
   })
 
-export const restoreFocusCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
+// Once fully closed: leave the stack and give the focus back
+export const popLayerCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
   performIO_(() => {
+    layerStack = layerStack.filter((id) => id !== config.id)
     const element = previousFocus.get(config.id)
     previousFocus.delete(config.id)
     if (element && element.isConnected) {

@@ -20,12 +20,12 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { cn } from '@rinn7e/tea-cup-prelude'
-import { type ReactNode } from 'react'
+import { type ReactElement, type ReactNode, memo } from 'react'
 import { createPortal } from 'react-dom'
 import { type Dispatcher } from 'tea-cup-fp'
 
 import './drawer.css'
-import { type Msg, type Portal, type Props } from './type'
+import { type Msg, type Portal, type Props, getPropsEq } from './type'
 import {
   contentAttrs,
   defaultContentView,
@@ -50,15 +50,14 @@ const renderInPortal = (portal: Portal, node: ReactNode): ReactNode => {
   }
 }
 
-// Not memoized: `children` is a render function closing over the parent's
-// state, which has no sound `Eq`, so a memo could render stale content.
-export const DrawerComponent = <A,>({
+export const DrawerComponent = <Item, Parent>({
   model,
   dispatch,
   children,
+  parent,
   className,
   overlayClassName,
-}: Props<A>) => {
+}: Props<Item, Parent>) => {
   const animate = model.animate
   const config = model.config
   if (animate._tag === 'Invisible') {
@@ -74,22 +73,31 @@ export const DrawerComponent = <A,>({
         {contentView({
           attrs: contentAttrs(model, dispatch),
           direction: config.direction,
-          children: children(animate.internal),
+          children: children(animate.internal, parent),
         })}
       </>,
     )
   }
 }
 
-export type HandleProps<A> = {
-  dispatch: Dispatcher<Msg<A>>
+// Re-renders only when the model (`itemEq`) or `parent` (`parentEq`) change.
+// Sound because `children` receives everything it renders from as arguments.
+export const DrawerMemo = memo(DrawerComponent, (prev, next) =>
+  getPropsEq(prev.itemEq, prev.parentEq).equals(prev, next),
+) as <Item, Parent>(props: Props<Item, Parent>) => ReactElement | null
+
+export type HandleProps<Item> = {
+  dispatch: Dispatcher<Msg<Item>>
   className?: string
 }
 
 // Drag handle. A tap cycles through the snap points (closing from the last
 // one when dismissible); with `handleOnly`, only the handle starts a drag.
 // Not memoized: it is a tiny leaf that only holds `dispatch`.
-export const DrawerHandle = <A,>({ dispatch, className }: HandleProps<A>) => (
+export const DrawerHandle = <Item,>({
+  dispatch,
+  className,
+}: HandleProps<Item>) => (
   <div
     data-drawer-handle=''
     aria-hidden='true'

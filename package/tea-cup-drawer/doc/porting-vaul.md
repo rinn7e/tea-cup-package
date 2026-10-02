@@ -172,11 +172,24 @@ module-level state in `effect.ts`, reached only through `Cmd`s. It is
 contained, but it is impure state TEA cannot see, and the scroll lock can
 interact badly with page layout (see below).
 
-### No memoization for the component
+### Memoization needed explicit data channels
 
-`DrawerComponent` takes `children` as a render function closing over the
-parent's state, which has no sound `Eq`. So it is not memoized, and the
-content should be memoized by the caller instead.
+The first version had `children: (internal) => ReactNode` closing over the
+parent's state, which has no sound `Eq`, so it couldn't be memoized. The fix
+came from link-pagination's `Item` / `Parent` split: `children` now receives
+both `internal` (owned by the drawer, compared with `itemEq`) and `parent`
+(owned by the parent, compared with `parentEq`), so `DrawerMemo` is sound as
+long as `children` only uses its arguments. The same audit found the same
+staleness bug in tea-cup-pagination, which got a `parent` channel too.
+
+### Escape needs a layer stack, not "who has focus"
+
+Escape first went to "the drawer holding the focus". That broke as soon as the
+content re-rendered away the focused element (switching a menu page): focus
+fell back to `<body>` and Escape stopped working. It now follows Radix's
+approach: open drawers form a stack, and Escape / the Tab trap belong to the
+topmost one, wherever the focus is. The stack is module state in `effect.ts`,
+updated by the same `Cmd`s that save and restore focus.
 
 ### `onOpenChange` needs a little ceremony
 
@@ -189,17 +202,17 @@ but more code than passing a callback.
 
 ## 5. Trade-offs at a glance
 
-|                       | vaul                                  | tea-cup-drawer                                       |
-| --------------------- | ------------------------------------- | ---------------------------------------------------- |
-| Drag performance      | Direct DOM writes, no re-render       | Re-render per move (unmeasured on low-end phones)    |
-| Where state lives     | Hooks, refs, Radix internals          | One model, one `AnimateState`                        |
-| Interruptions         | Guards and timeouts                   | Explicit transitions, `seq` for stale messages       |
-| Content while closing | Radix keeps the old tree mounted      | Payload kept in the state                            |
-| Open/close animation  | CSS keyframes (jump when interrupted) | CSS transitions (reverse smoothly)                   |
-| Testing               | Playwright only                       | Unit tests on pure logic + Playwright                |
-| API                   | Controlled or uncontrolled, callbacks | Controlled only, messages                            |
-| Focus / a11y          | Radix Dialog (battle-tested)          | Own minimal version: Tab trap, Escape, focus restore |
-| Dependencies          | Radix Dialog                          | None beyond tea-cup / fp-ts                          |
+|                       | vaul                                  | tea-cup-drawer                                                        |
+| --------------------- | ------------------------------------- | --------------------------------------------------------------------- |
+| Drag performance      | Direct DOM writes, no re-render       | Re-render per move (unmeasured on low-end phones)                     |
+| Where state lives     | Hooks, refs, Radix internals          | One model, one `AnimateState`                                         |
+| Interruptions         | Guards and timeouts                   | Explicit transitions, `seq` for stale messages                        |
+| Content while closing | Radix keeps the old tree mounted      | Payload kept in the state                                             |
+| Open/close animation  | CSS keyframes (jump when interrupted) | CSS transitions (reverse smoothly)                                    |
+| Testing               | Playwright only                       | Unit tests on pure logic + Playwright                                 |
+| API                   | Controlled or uncontrolled, callbacks | Controlled only, messages                                             |
+| Focus / a11y          | Radix Dialog (battle-tested)          | Own minimal version: layer stack for Escape / Tab trap, focus restore |
+| Dependencies          | Radix Dialog                          | None beyond tea-cup / fp-ts                                           |
 
 ---
 

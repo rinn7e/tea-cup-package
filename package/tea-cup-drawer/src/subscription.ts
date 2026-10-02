@@ -22,7 +22,7 @@ SOFTWARE. */
 import { DocumentEvents } from 'react-tea-cup'
 import { Sub } from 'tea-cup-fp'
 
-import { focusableElements } from './effect'
+import { focusableElements, isTopmostLayer } from './effect'
 import { type Config, type Model, type Msg } from './type'
 import { contentDomId, isOpen } from './util'
 
@@ -35,11 +35,11 @@ const hasSelection = (): boolean => {
 
 // Follow the pointer on the whole document while a gesture is in progress,
 // so the drag continues when the pointer leaves the drawer.
-const gestureSubscriptions = <A>(): Sub<Msg<A>> =>
-  Sub.batch<Msg<A>>([
+const gestureSubscriptions = <Item>(): Sub<Msg<Item>> =>
+  Sub.batch<Msg<Item>>([
     documentEvents.on(
       'pointermove',
-      (e): Msg<A> =>
+      (e): Msg<Item> =>
         e.isPrimary
           ? {
               _tag: 'PointerMove',
@@ -52,21 +52,21 @@ const gestureSubscriptions = <A>(): Sub<Msg<A>> =>
     ),
     documentEvents.on(
       'pointerup',
-      (e): Msg<A> =>
+      (e): Msg<Item> =>
         e.isPrimary
           ? { _tag: 'PointerUp', x: e.pageX, y: e.pageY, time: e.timeStamp }
           : { _tag: 'NoOp' },
     ),
     documentEvents.on(
       'pointercancel',
-      (e): Msg<A> =>
+      (e): Msg<Item> =>
         e.isPrimary
           ? { _tag: 'PointerCancel', time: e.timeStamp }
           : { _tag: 'NoOp' },
     ),
     documentEvents.on(
       'contextmenu',
-      (e): Msg<A> => ({ _tag: 'PointerCancel', time: e.timeStamp }),
+      (e): Msg<Item> => ({ _tag: 'PointerCancel', time: e.timeStamp }),
     ),
   ])
 
@@ -93,16 +93,13 @@ const trapFocus = (content: HTMLElement, e: KeyboardEvent): void => {
   }
 }
 
-const keyboardSubscriptions = <A>(config: Config): Sub<Msg<A>> =>
-  documentEvents.on('keydown', (e): Msg<A> => {
+const keyboardSubscriptions = <Item>(config: Config): Sub<Msg<Item>> =>
+  documentEvents.on('keydown', (e): Msg<Item> => {
     const content = document.getElementById(contentDomId(config.id))
-    // Only the drawer holding the focus reacts, so stacked drawers close
-    // one at a time
-    const hasFocus =
-      content !== null && content.contains(document.activeElement)
-    if (content === null) {
+    // Only the topmost drawer reacts, so stacked drawers close one at a time
+    if (content === null || !isTopmostLayer(config.id)) {
       return { _tag: 'NoOp' }
-    } else if (e.key === 'Escape' && hasFocus) {
+    } else if (e.key === 'Escape') {
       e.preventDefault()
       return { _tag: 'Dismiss' }
     } else if (e.key === 'Tab' && config.modal) {
@@ -113,13 +110,13 @@ const keyboardSubscriptions = <A>(config: Config): Sub<Msg<A>> =>
     }
   })
 
-export const subscriptions = <A>(model: Model<A>): Sub<Msg<A>> => {
+export const subscriptions = <Item>(model: Model<Item>): Sub<Msg<Item>> => {
   const isGestureActive =
     model.gesture._tag === 'Pressed' || model.animate._tag === 'Dragging'
-  return Sub.batch<Msg<A>>([
-    isGestureActive ? gestureSubscriptions<A>() : Sub.none<Msg<A>>(),
+  return Sub.batch<Msg<Item>>([
+    isGestureActive ? gestureSubscriptions<Item>() : Sub.none<Msg<Item>>(),
     isOpen(model.animate)
-      ? keyboardSubscriptions<A>(model.config)
-      : Sub.none<Msg<A>>(),
+      ? keyboardSubscriptions<Item>(model.config)
+      : Sub.none<Msg<Item>>(),
   ])
 }

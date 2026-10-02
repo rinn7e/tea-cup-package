@@ -20,6 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as O from 'fp-ts/lib/Option'
+import * as S from 'fp-ts/lib/string'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -27,9 +28,13 @@ import {
   type Model,
   type Msg,
   type Press,
+  type Props,
   defaultConfig,
   defaultModel,
+  getInternal,
+  getPropsEq,
   isOpen,
+  setInternal,
   update,
 } from '../src'
 
@@ -317,5 +322,48 @@ describe('snap points', () => {
     )
     expect(model.activeSnap).toBe(1)
     expect(model.animate._tag).toBe('Settling')
+  })
+})
+
+describe('payload helpers', () => {
+  it('reads the payload until the drawer is fully closed', () => {
+    expect(getInternal(closed())).toEqual(O.none)
+    expect(getInternal(visible())).toEqual(O.some('apple'))
+    const closing = run(visible(), { _tag: 'Close' })
+    expect(getInternal(closing)).toEqual(O.some('apple'))
+    expect(getInternal(run(closing, { _tag: 'TransitionEnd' }))).toEqual(O.none)
+  })
+
+  it('replaces the payload without touching the animation', () => {
+    const model = setInternal('banana')(visible())
+    expect(model.animate).toEqual({ _tag: 'Visible', internal: 'banana' })
+    const closing = setInternal('cherry')(run(visible(), { _tag: 'Close' }))
+    expect(closing.animate).toEqual({ _tag: 'AnimateOut', internal: 'cherry' })
+  })
+
+  it('ignores updates once the drawer is closed', () => {
+    const model = closed()
+    expect(setInternal('banana')(model)).toBe(model)
+  })
+})
+
+describe('getPropsEq', () => {
+  const props = (internal: string, parent: string): Props<string, string> => ({
+    model: setInternal(internal)(visible()),
+    dispatch: () => {},
+    children: () => null,
+    itemEq: S.Eq,
+    parent,
+    parentEq: S.Eq,
+  })
+  const eq = getPropsEq(S.Eq, S.Eq)
+
+  it('ignores children and dispatch identity', () => {
+    expect(eq.equals(props('a', 'p'), props('a', 'p'))).toBe(true)
+  })
+
+  it('sees payload and parent changes', () => {
+    expect(eq.equals(props('a', 'p'), props('b', 'p'))).toBe(false)
+    expect(eq.equals(props('a', 'p'), props('a', 'q'))).toBe(false)
   })
 })
