@@ -214,7 +214,7 @@ Not ported (yet): background scaling (`shouldScaleBackground`), nested drawers, 
 
 ```bash
 pnpm --filter @rinn7e/tea-cup-drawer staged          # format, check, lint, unit tests
-pnpm --filter tea-cup-drawer-example dev             # kitchen sink on http://localhost:5181
+pnpm --filter tea-cup-drawer-example dev             # kitchen sink on http://localhost:5183
 pnpm --filter tea-cup-drawer-example-e2e test        # Playwright suite
 ```
 

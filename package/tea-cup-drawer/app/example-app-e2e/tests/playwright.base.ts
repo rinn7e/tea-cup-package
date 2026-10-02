@@ -2,7 +2,7 @@ import { type PlaywrightTestConfig, devices } from '@playwright/test'
 
 // The example app runs on its own port (see its vite.config.ts) so a server
 // of another example app is never reused by mistake.
-const appUrl = 'http://localhost:5181'
+const appUrl = 'http://localhost:5183'
 
 export const baseConfig: PlaywrightTestConfig = {
   testDir: './tests',
