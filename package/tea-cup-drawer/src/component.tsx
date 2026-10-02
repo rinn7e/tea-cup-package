@@ -1,0 +1,107 @@
+/* MIT License
+
+Copyright (c) 2026 Moremi Vannak
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE. */
+import { cn } from '@rinn7e/tea-cup-prelude'
+import { type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { type Dispatcher } from 'tea-cup-fp'
+
+import './drawer.css'
+import { type Msg, type Portal, type Props } from './type'
+import {
+  contentAttrs,
+  defaultContentView,
+  defaultOverlayView,
+  overlayAttrs,
+} from './view'
+
+const renderInPortal = (portal: Portal, node: ReactNode): ReactNode => {
+  switch (portal._tag) {
+    case 'Body':
+      return createPortal(node, document.body)
+    case 'Inline':
+      return node
+    case 'Container': {
+      const container = portal.get()
+      if (container === null) {
+        return null
+      } else {
+        return createPortal(node, container)
+      }
+    }
+  }
+}
+
+// Not memoized: `children` is a render function closing over the parent's
+// state, which has no sound `Eq`, so a memo could render stale content.
+export const DrawerComponent = <A,>({
+  model,
+  dispatch,
+  children,
+  className,
+  overlayClassName,
+}: Props<A>) => {
+  const animate = model.animate
+  const config = model.config
+  if (animate._tag === 'Invisible') {
+    return null
+  } else {
+    const contentView = config.ui?.content ?? defaultContentView(className)
+    const overlayView =
+      config.ui?.overlay ?? defaultOverlayView(overlayClassName)
+    return renderInPortal(
+      config.portal,
+      <>
+        {config.modal && overlayView({ attrs: overlayAttrs(model, dispatch) })}
+        {contentView({
+          attrs: contentAttrs(model, dispatch),
+          direction: config.direction,
+          children: children(animate.internal),
+        })}
+      </>,
+    )
+  }
+}
+
+export type HandleProps<A> = {
+  dispatch: Dispatcher<Msg<A>>
+  className?: string
+}
+
+// Drag handle. A tap cycles through the snap points (closing from the last
+// one when dismissible); with `handleOnly`, only the handle starts a drag.
+// Not memoized: it is a tiny leaf that only holds `dispatch`.
+export const DrawerHandle = <A,>({ dispatch, className }: HandleProps<A>) => (
+  <div
+    data-drawer-handle=''
+    aria-hidden='true'
+    onClick={() => dispatch({ _tag: 'CycleSnap' })}
+    className={cn(
+      'mx-auto my-3 h-[5px] w-9 shrink-0 cursor-grab rounded-full bg-gray-300 opacity-70 hover:opacity-100',
+      className,
+    )}
+  >
+    <span data-drawer-handle-hitarea='' />
+  </div>
+)
+
+// Re-exported so a `ui` override can start from the default look
+export { defaultContentView, defaultOverlayView } from './view'

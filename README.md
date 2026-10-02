@@ -14,6 +14,7 @@ This monorepo manages the following sub-packages:
 *   **[package/tea-cup-link-pagination](package/tea-cup-link-pagination)**: Bidirectional infinite-scroll and cursor-based stream pagination engine.
 *   **[package/tea-cup-intersection-observer](package/tea-cup-intersection-observer)**: Intersection Observer subscription for React Tea-Cup applications.
 *   **[package/tea-cup-router](package/tea-cup-router)**: Pure, modular router and navigation manager preventing double-update loops.
+*   **[package/tea-cup-drawer](package/tea-cup-drawer)**: Drawer / bottom sheet with swipe gestures and snap points, a TEA port of vaul.
 *   **[package/tea-cup-rte-toolkit](package/tea-cup-rte-toolkit)**: Rich Text Editor toolkit built for React Tea-Cup applications.
 
 ---

@@ -1,0 +1,125 @@
+/* Drawer mechanics: position, transform and transitions.
+   Colors, sizes and radii come from the (overridable) Tailwind classes of the
+   default view. Ported from vaul's style.css (MIT, Copyright (c) 2023 Emil
+   Kowalski). */
+
+[data-drawer] {
+  position: fixed;
+  z-index: 50;
+  touch-action: none;
+  will-change: transform;
+  transition: transform var(--drawer-duration, 500ms)
+    cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* The pointer is in control while dragging */
+[data-drawer][data-state='Dragging'] {
+  transition: none;
+}
+
+/* Let clicks reach the page while the drawer slides away */
+[data-drawer][data-state='AnimateOut'],
+[data-drawer-overlay][data-state='AnimateOut'] {
+  pointer-events: none;
+}
+
+[data-drawer][data-drawer-direction='bottom'] {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transform: translate3d(0, var(--drawer-translate), 0);
+}
+
+[data-drawer][data-drawer-direction='top'] {
+  left: 0;
+  right: 0;
+  top: 0;
+  transform: translate3d(0, calc(var(--drawer-translate) * -1), 0);
+}
+
+[data-drawer][data-drawer-direction='left'] {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  transform: translate3d(calc(var(--drawer-translate) * -1), 0, 0);
+}
+
+[data-drawer][data-drawer-direction='right'] {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  transform: translate3d(var(--drawer-translate), 0, 0);
+}
+
+/* Extend the background past the edge so pulling the drawer beyond its
+   open position doesn't reveal a gap */
+[data-drawer]::after {
+  content: '';
+  position: absolute;
+  background: inherit;
+  background-color: inherit;
+}
+
+[data-drawer][data-drawer-direction='bottom']::after {
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 200%;
+}
+
+[data-drawer][data-drawer-direction='top']::after {
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  height: 200%;
+}
+
+[data-drawer][data-drawer-direction='left']::after {
+  right: 100%;
+  top: 0;
+  bottom: 0;
+  width: 200%;
+}
+
+[data-drawer][data-drawer-direction='right']::after {
+  left: 100%;
+  top: 0;
+  bottom: 0;
+  width: 200%;
+}
+
+[data-drawer-overlay] {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  touch-action: none;
+  opacity: var(--drawer-overlay-opacity, 0);
+  transition: opacity var(--drawer-duration, 500ms)
+    cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+[data-drawer-overlay][data-state='Dragging'] {
+  transition: none;
+}
+
+[data-drawer-handle] {
+  position: relative;
+  touch-action: pan-y;
+}
+
+/* 44px touch target around the small handle */
+[data-drawer-handle-hitarea] {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: max(100%, 2.75rem);
+  height: max(100%, 2.75rem);
+  touch-action: inherit;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-drawer] {
+    user-select: none;
+  }
+}

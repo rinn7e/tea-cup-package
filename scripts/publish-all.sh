@@ -26,6 +26,7 @@ PACKAGES=(
   "package/tea-cup-pagination"
   "package/tea-cup-link-pagination"
   "package/tea-cup-form"
+  "package/tea-cup-drawer"
 )
 
 echo "🚀 Publishing packages to GitHub Packages (https://npm.pkg.github.com)..."
@@ -35,4 +36,4 @@ for pkg in "${PACKAGES[@]}"; do
   echo "✨ Successfully published $pkg!"
 done
 
-echo "🎉 All 7 packages published to GitHub Packages!"
+echo "🎉 All 8 packages published to GitHub Packages!"
