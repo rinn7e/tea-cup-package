@@ -1,10 +1,11 @@
 import * as Drawer from '@rinn7e/tea-cup-drawer'
-import { updateAndCmd } from '@rinn7e/tea-cup-prelude'
+import { batchCmd, delayCmd, updateAndCmd } from '@rinn7e/tea-cup-prelude'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
 import * as ActionMenu from './component/action-menu'
+import * as Feedback from './component/feedback'
 import { type DemoKey, type Model, type Msg } from './type'
 
 const configs: Record<DemoKey, Drawer.Config> = {
@@ -67,6 +68,10 @@ export const init = (): [Model, Cmd<Msg>] => [
     },
     actionsDrawer: Drawer.defaultModel(Drawer.defaultConfig('actions')),
     draft: '',
+    feedbackDrawer: Drawer.defaultModel(Drawer.defaultConfig('feedback')),
+    feedback: Feedback.defaultModel(),
+    clearFeedbackWhenClosed: false,
+    lastFeedback: null,
     openLog: [],
   },
   Cmd.none(),
@@ -161,6 +166,62 @@ const actionMenuMsgHandler =
       ),
     )
 
+const feedbackDrawerMsgHandler =
+  (subMsg: Drawer.Msg<null>) =>
+  (model: Model): [Model, Cmd<Msg>] => {
+    const [feedbackDrawer, cmd] = Drawer.update(subMsg, model.feedbackDrawer)
+    return pipe(
+      [
+        { ...model, feedbackDrawer },
+        cmd.map((m): Msg => ({ _tag: 'FeedbackDrawerMsg', subMsg: m })),
+      ],
+      updateAndCmd((m: Model): [Model, Cmd<Msg>] => {
+        // With side by side state, the parent decides when to reset it: only
+        // once the drawer has fully closed
+        const isClosed = m.feedbackDrawer.animate._tag === 'Invisible'
+        if (m.clearFeedbackWhenClosed && isClosed) {
+          return [
+            {
+              ...m,
+              feedback: Feedback.defaultModel(),
+              clearFeedbackWhenClosed: false,
+            },
+            Cmd.none(),
+          ]
+        } else {
+          return [m, Cmd.none()]
+        }
+      }),
+    )
+  }
+
+// Option A: the parent owns the form and routes its messages like any other
+// child. Nothing ties the form to the drawer's lifetime.
+const feedbackMsgHandler =
+  (subMsg: Feedback.Msg) =>
+  (model: Model): [Model, Cmd<Msg>] => {
+    const [feedback, cmd] = Feedback.update(subMsg, model.feedback)
+    return pipe(
+      [
+        { ...model, feedback },
+        cmd.map((m): Msg => ({ _tag: 'FeedbackMsg', subMsg: m })),
+      ],
+      updateAndCmd((m: Model): [Model, Cmd<Msg>] => {
+        if (subMsg._tag === 'Submit') {
+          const summary = `${m.feedback.rating}★ ${m.feedback.comment}`
+          return pipe(
+            { ...m, clearFeedbackWhenClosed: true },
+            feedbackDrawerMsgHandler({ _tag: 'Close' }),
+            // Simulated request: replies after the drawer has closed
+            batchCmd(delayCmd<Msg>(800, { _tag: 'FeedbackSent', summary })),
+          )
+        } else {
+          return [m, Cmd.none()]
+        }
+      }),
+    )
+  }
+
 export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'DrawerMsg':
@@ -171,5 +232,11 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
       return actionMenuMsgHandler(msg.subMsg)(model)
     case 'SetDraft':
       return [{ ...model, draft: msg.value }, Cmd.none()]
+    case 'FeedbackDrawerMsg':
+      return feedbackDrawerMsgHandler(msg.subMsg)(model)
+    case 'FeedbackMsg':
+      return feedbackMsgHandler(msg.subMsg)(model)
+    case 'FeedbackSent':
+      return [{ ...model, lastFeedback: msg.summary }, Cmd.none()]
   }
 }

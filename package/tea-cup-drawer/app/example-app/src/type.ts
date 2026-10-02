@@ -3,6 +3,7 @@ import * as EqClass from 'fp-ts/lib/Eq'
 import * as S from 'fp-ts/lib/string'
 
 import type * as ActionMenu from './component/action-menu'
+import type * as Feedback from './component/feedback'
 
 // One drawer per scenario of the kitchen sink
 export type DemoKey =
@@ -39,6 +40,15 @@ export type Model = {
   actionsDrawer: Drawer.Model<ActionMenu.Model>
   // Owned by the parent, so it survives the drawer closing
   draft: string
+  // Option A, side by side: the drawer carries no payload (`null`); the form
+  // lives next to it, owned by the parent, and reaches it through `parent`
+  feedbackDrawer: Drawer.Model<null>
+  feedback: Feedback.Model
+  // Clear the form once the drawer is fully closed, not on `Close` (the form
+  // would empty while sliding away)
+  clearFeedbackWhenClosed: boolean
+  // Result of the (simulated) request, which arrives after the drawer closed
+  lastFeedback: string | null
   // Open / close changes noticed by the parent, newest first
   openLog: string[]
 }
@@ -54,3 +64,6 @@ export type Msg =
   | { _tag: 'ActionsDrawerMsg'; subMsg: Drawer.Msg<ActionMenu.Model> }
   | { _tag: 'ActionMenuMsg'; subMsg: ActionMenu.Msg }
   | { _tag: 'SetDraft'; value: string }
+  | { _tag: 'FeedbackDrawerMsg'; subMsg: Drawer.Msg<null> }
+  | { _tag: 'FeedbackMsg'; subMsg: Feedback.Msg }
+  | { _tag: 'FeedbackSent'; summary: string }

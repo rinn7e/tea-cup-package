@@ -12,6 +12,11 @@ import {
   defaultModel as defaultActionMenu,
 } from './component/action-menu'
 import { ActionMenu } from './component/action-menu/component'
+import {
+  ModelEq as FeedbackModelEq,
+  type Msg as FeedbackMsg,
+} from './component/feedback'
+import { FeedbackForm } from './component/feedback/component'
 import { ActionsParentEq, type DemoKey, type Model, type Msg } from './type'
 
 const fruits = ['Apple', 'Banana', 'Cherry']
@@ -288,6 +293,14 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
       }),
     )
 
+  const feedbackDrawerDispatch = map(
+    dispatch,
+    (subMsg: Drawer.Msg<null>): Msg => ({ _tag: 'FeedbackDrawerMsg', subMsg }),
+  )
+  const feedbackDispatch = map(
+    dispatch,
+    (subMsg: FeedbackMsg): Msg => ({ _tag: 'FeedbackMsg', subMsg }),
+  )
   const actionsDrawerDispatch = map(
     dispatch,
     (subMsg: Drawer.Msg<ActionMenuModel>): Msg => ({
@@ -444,6 +457,43 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
                 </button>
               </div>
             </div>
+
+            <div className='flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200'>
+              <div className='flex items-center justify-between gap-2'>
+                <h2 className='font-bold text-slate-900'>Side by side</h2>
+                <span
+                  data-test='state-feedback'
+                  className='rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600'
+                >
+                  {model.feedbackDrawer.animate._tag}
+                </span>
+              </div>
+              <p className='text-sm text-slate-600'>
+                No payload: the form lives in the parent (via `parent`), so it
+                survives closing and is cleared only once fully closed.
+              </p>
+              <p className='text-sm text-slate-600'>
+                Last sent:{' '}
+                <span data-test='feedback-last-sent' className='font-semibold'>
+                  {model.lastFeedback ?? '—'}
+                </span>
+              </p>
+              <div className='flex flex-wrap gap-2'>
+                <button
+                  type='button'
+                  data-test='trigger-feedback'
+                  className={buttonClassName}
+                  onClick={() =>
+                    dispatch({
+                      _tag: 'FeedbackDrawerMsg',
+                      subMsg: { _tag: 'Open', internal: null },
+                    })
+                  }
+                >
+                  Open
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className='rounded-2xl bg-slate-900 p-5 text-sm text-emerald-400 shadow-sm'>
@@ -509,6 +559,37 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
                   className='rounded-lg border border-slate-300 px-3 py-2 text-sm'
                 />
               </label>
+            </div>
+          </div>
+        )}
+      </DrawerMemo>
+
+      {/* Option A, side by side: no payload; the form is parent state passed
+          through the `parent` channel, so the memo sees every keystroke */}
+      <DrawerMemo
+        model={model.feedbackDrawer}
+        dispatch={feedbackDrawerDispatch}
+        itemEq={nullEq}
+        parent={model.feedback}
+        parentEq={FeedbackModelEq}
+      >
+        {(_, feedback) => (
+          <div
+            data-test='content-feedback'
+            className='flex min-h-0 flex-1 flex-col'
+          >
+            <DrawerHandle dispatch={feedbackDrawerDispatch} />
+            <div className='flex flex-col gap-3 px-6 pt-2 pb-8'>
+              <h2 className='text-lg font-bold text-slate-900'>Feedback</h2>
+              <FeedbackForm model={feedback} dispatch={feedbackDispatch} />
+              <button
+                type='button'
+                data-test='close-feedback'
+                className={secondaryButtonClassName}
+                onClick={() => feedbackDrawerDispatch({ _tag: 'Close' })}
+              >
+                Close
+              </button>
             </div>
           </div>
         )}

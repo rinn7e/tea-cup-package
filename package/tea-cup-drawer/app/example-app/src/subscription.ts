@@ -13,4 +13,7 @@ export const subscriptions = (model: Model): Sub<Msg> =>
     Drawer.subscriptions(model.actionsDrawer).map(
       (subMsg): Msg => ({ _tag: 'ActionsDrawerMsg', subMsg }),
     ),
+    Drawer.subscriptions(model.feedbackDrawer).map(
+      (subMsg): Msg => ({ _tag: 'FeedbackDrawerMsg', subMsg }),
+    ),
   ])
