@@ -247,6 +247,22 @@ test.describe('Tea-Cup Pagination Showcase E2E', () => {
     await expect(modalContent).toHaveCount(0)
   })
 
+  test('Test 10b: Card of the product open in the modal is highlighted (parent state)', async ({
+    page,
+  }) => {
+    const card = page.locator('[data-test^="product-card-"]').first()
+    await expect(card).toHaveAttribute('data-selected', 'false')
+
+    await card.locator('[data-test^="view-details-"]').click()
+    await expect(
+      page.locator('[data-test="product-modal-content"]'),
+    ).toBeVisible()
+    await expect(card).toHaveAttribute('data-selected', 'true')
+
+    await page.locator('[data-test="modal-close-footer-btn"]').click()
+    await expect(card).toHaveAttribute('data-selected', 'false')
+  })
+
   test('Test 11: Rapid navigation during loading discards intermediate page results and loads the target page', async ({
     page,
   }) => {

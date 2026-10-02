@@ -34,7 +34,7 @@ export const init = (): [Model, Cmd<Msg>] => {
     selectedProduct: null,
   }
 
-  const config = mkPaginationConfig(baseModel, () => {})
+  const config = mkPaginationConfig(baseModel)
   const [pagination, paginationCmd] = Pagination.init(config, 1)
 
   const model: Model = {
@@ -107,7 +107,7 @@ const paginationMsgHandler = (
   subMsg: Extract<Msg, { _tag: 'PaginationMsg' }>['subMsg'],
   model: Model,
 ): [Model, Cmd<Msg>] => {
-  const config = mkPaginationConfig(model, () => {})
+  const config = mkPaginationConfig(model)
   const [pagination, paginationCmd] = Pagination.update(config)(
     subMsg,
     model.pagination,
@@ -138,7 +138,7 @@ const setTabHandler = (tab: CategoryTab, model: Model): [Model, Cmd<Msg>] => {
     return [model, Cmd.none()]
   }
   const nextModel: Model = { ...model, tab }
-  const config = mkPaginationConfig(nextModel, () => {})
+  const config = mkPaginationConfig(nextModel)
   const [pagination, paginationCmd] = Pagination.init(config, 1)
 
   return [
@@ -155,7 +155,7 @@ const setSearchQueryHandler = (
     return [model, Cmd.none()]
   }
   const nextModel: Model = { ...model, searchQuery: query }
-  const config = mkPaginationConfig(nextModel, () => {})
+  const config = mkPaginationConfig(nextModel)
   const [pagination, paginationCmd] = Pagination.init(config, 1)
 
   return [
@@ -169,7 +169,7 @@ const setSortByHandler = (sortBy: SortBy, model: Model): [Model, Cmd<Msg>] => {
     return [model, Cmd.none()]
   }
   const nextModel: Model = { ...model, sortBy }
-  const config = mkPaginationConfig(nextModel, () => {})
+  const config = mkPaginationConfig(nextModel)
   const [pagination, paginationCmd] = Pagination.init(config, 1)
 
   return [
@@ -183,7 +183,7 @@ const setLimitHandler = (limit: number, model: Model): [Model, Cmd<Msg>] => {
     return [model, Cmd.none()]
   }
   const nextModel: Model = { ...model, limit }
-  const config = mkPaginationConfig(nextModel, () => {})
+  const config = mkPaginationConfig(nextModel)
   const [pagination, paginationCmd] = Pagination.init(config, 1)
 
   return [
@@ -199,7 +199,7 @@ const toggleSimulateErrorHandler = (model: Model): [Model, Cmd<Msg>] => {
   }
 
   if (nextModel.simulateError) {
-    const config = mkPaginationConfig(nextModel, () => {})
+    const config = mkPaginationConfig(nextModel)
     const [pagination, paginationCmd] = Pagination.init(
       config,
       model.pagination.page,
@@ -220,7 +220,7 @@ const setSimulateLatencyHandler = (
 ): [Model, Cmd<Msg>] => [{ ...model, simulateLatencyMs: latencyMs }, Cmd.none()]
 
 const retryFetchHandler = (model: Model): [Model, Cmd<Msg>] => {
-  const config = mkPaginationConfig(model, () => {})
+  const config = mkPaginationConfig(model)
   const [pagination, paginationCmd] = Pagination.init(
     config,
     model.pagination.page,
@@ -244,7 +244,7 @@ const resetFiltersHandler = (model: Model): [Model, Cmd<Msg>] => {
     searchQuery: '',
     sortBy: 'rating_desc',
   }
-  const config = mkPaginationConfig(nextModel, () => {})
+  const config = mkPaginationConfig(nextModel)
   const [pagination, paginationCmd] = Pagination.init(config, 1)
 
   return [
@@ -432,7 +432,7 @@ const paginationItemMsgHandler =
             selectedProduct: updatedSelected,
           }
 
-          const config = mkPaginationConfig(nextModel, () => {})
+          const config = mkPaginationConfig(nextModel)
           const [pagination, paginationCmd] = Pagination.init(
             config,
             m.pagination.page,

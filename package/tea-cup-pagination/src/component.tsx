@@ -23,29 +23,39 @@ import React, { memo } from 'react'
 
 import { type Props, mkPropsEq } from './type'
 
-export const PaginationComponent = <Item, ItemMsg, Err>({
+export const PaginationComponent = <Item, ItemMsg, Err, Parent>({
   model,
   dispatch,
   config,
-}: Props<Item, ItemMsg, Err>) => {
+  parent,
+}: Props<Item, ItemMsg, Err, Parent>) => {
   const { page, pageAmount } = model
 
   return (
     <>
-      {config.renderItems(model.items, (item, msg) => {
-        dispatch({ _tag: 'ItemMsg', item, msg })
-      })}
+      {config.renderItems(
+        model.items,
+        (item, msg) => {
+          dispatch({ _tag: 'ItemMsg', item, msg })
+        },
+        parent,
+      )}
 
-      {config.renderPagination(page, pageAmount, (p) => {
-        dispatch({ _tag: 'ChangePage', page: p })
-      })}
+      {config.renderPagination(
+        page,
+        pageAmount,
+        (p) => {
+          dispatch({ _tag: 'ChangePage', page: p })
+        },
+        parent,
+      )}
     </>
   )
 }
 
 export const PaginationMemo = memo(PaginationComponent, (prev, next) => {
-  const propEq = mkPropsEq(prev.itemEq, prev.errEq)
+  const propEq = mkPropsEq(prev.itemEq, prev.errEq, prev.parentEq)
   return propEq.equals(prev, next)
-}) as <Item, ItemMsg, Err>(
-  props: Props<Item, ItemMsg, Err>,
+}) as <Item, ItemMsg, Err, Parent>(
+  props: Props<Item, ItemMsg, Err, Parent>,
 ) => React.ReactElement

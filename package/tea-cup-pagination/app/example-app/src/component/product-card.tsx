@@ -5,15 +5,26 @@ import { type Product, type ProductMsg } from '../type'
 
 type Props = {
   product: Product
+  // Parent state: this product is the one open in the detail modal
+  isSelected: boolean
   dispatch: (msg: ProductMsg) => void
 }
 
-export const ProductCard: React.FC<Props> = ({ product, dispatch }) => {
+export const ProductCard: React.FC<Props> = ({
+  product,
+  isSelected,
+  dispatch,
+}) => {
   return (
     <div
       data-test={`product-card-${product.id}`}
       data-category={product.category}
-      className='group relative flex h-[270px] flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-500/10'
+      data-selected={isSelected ? 'true' : 'false'}
+      className={`group relative flex h-[270px] flex-col justify-between overflow-hidden rounded-2xl border bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-500/10 ${
+        isSelected
+          ? 'border-indigo-500 ring-2 ring-indigo-500'
+          : 'border-slate-200/80'
+      }`}
     >
       <div>
         {/* Card Header: Category & Actions */}

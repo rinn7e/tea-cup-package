@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and adher
 
 - **`@rinn7e/tea-cup-drawer`**: New package. A drawer (bottom sheet / side panel) ported from [vaul](https://github.com/emilkowalski/vaul) to The Elm Architecture: swipe to dismiss, snap points, four directions, modal and non-modal modes, scroll-aware dragging, body scroll lock and focus handling. Every animation phase is an explicit `AnimateState` (`Invisible`, `Mounting`, `AnimateIn`, `Visible`, `Dragging`, `Settling`, `AnimateOut`) that keeps the opening payload until the drawer is fully closed. Includes a Vitest suite, a kitchen-sink example app and a Playwright e2e suite.
 
+### Changed
+
+- **`@rinn7e/tea-cup-pagination`** (breaking): `PaginationMemo` couldn't reflect parent state. `config` is compared with `EqAlways`, so render functions closing over the parent model rendered stale (e.g. highlighting the product open in a modal) until the pagination model itself changed. `Props` now take `parent` and `parentEq`, and `renderItems` / `renderPagination` receive `parent` as their last argument. `Config`, `Props`, `init` and `update` gain a `Parent` type parameter, and `mkPropsEq` takes `parentEq`.
+
 ---
 
 ## [1.0.3] - 2026-09-26

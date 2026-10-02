@@ -10,12 +10,16 @@ import { ErrorView } from './component/error-view'
 import { LoadingSkeleton } from './component/loading-skeleton'
 import { PaginationBar } from './component/pagination-bar'
 import { ProductCard } from './component/product-card'
-import { type Model, type Msg, type Product, type ProductMsg } from './type'
+import {
+  type Model,
+  type ParentContext,
+  type Product,
+  type ProductMsg,
+} from './type'
 
 export const mkPaginationConfig = (
   model: Model,
-  dispatch: (msg: Msg) => void,
-): Pagination.Config<Product, ProductMsg, string> => ({
+): Pagination.Config<Product, ProductMsg, string, ParentContext> => ({
   limit: model.limit,
   scrollContainerId: 'product-scroll-container',
 
@@ -36,13 +40,14 @@ export const mkPaginationConfig = (
       TE.mapLeft((httpErr) => httpErr.actualErr),
     ),
 
-  renderItems: (itemsRd, itemDispatch) => {
+  // Only uses its arguments: parent state comes in through `parent`
+  renderItems: (itemsRd, itemDispatch, parent) => {
     return pipeRemoteData(itemsRd, {
-      onPending: () => <LoadingSkeleton count={model.limit} />,
+      onPending: () => <LoadingSkeleton count={parent.limit} />,
       onFailure: (err) => (
         <ErrorView
           message={err}
-          onRetry={() => dispatch({ _tag: 'RetryFetch' })}
+          onRetry={() => parent.dispatch({ _tag: 'RetryFetch' })}
         />
       ),
       onSuccess: (items) => {
@@ -65,7 +70,7 @@ export const mkPaginationConfig = (
               <button
                 type='button'
                 data-test='clear-filters-btn'
-                onClick={() => dispatch({ _tag: 'ResetFilters' })}
+                onClick={() => parent.dispatch({ _tag: 'ResetFilters' })}
                 className='mt-4 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-600 transition-colors'
               >
                 Reset Filters
@@ -83,6 +88,7 @@ export const mkPaginationConfig = (
               <ProductCard
                 key={product.id}
                 product={product}
+                isSelected={parent.selectedProductId === product.id}
                 dispatch={(productMsg) => itemDispatch(product, productMsg)}
               />
             ))}

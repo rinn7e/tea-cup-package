@@ -45,8 +45,8 @@ export const scrollToTopCmd = (
     })
   })
 
-export const init = <Item, ItemMsg, Err>(
-  config: Config<Item, ItemMsg, Err>,
+export const init = <Item, ItemMsg, Err, Parent>(
+  config: Config<Item, ItemMsg, Err, Parent>,
   page: number = 1,
 ): [Model<Item, Err>, Cmd<Msg<Item, ItemMsg, Err>>] => {
   const model: Model<Item, Err> = {
@@ -59,7 +59,7 @@ export const init = <Item, ItemMsg, Err>(
 }
 
 export const update =
-  <Item, ItemMsg, Err>(config: Config<Item, ItemMsg, Err>) =>
+  <Item, ItemMsg, Err, Parent>(config: Config<Item, ItemMsg, Err, Parent>) =>
   (
     msg: Msg<Item, ItemMsg, Err>,
     model: Model<Item, Err>,
@@ -120,8 +120,8 @@ export const update =
     }
   }
 
-const fetchCmd = <Item, ItemMsg, Err>(
-  config: Config<Item, ItemMsg, Err>,
+const fetchCmd = <Item, ItemMsg, Err, Parent>(
+  config: Config<Item, ItemMsg, Err, Parent>,
   page: number,
 ): Cmd<Msg<Item, ItemMsg, Err>> => {
   const offset = (page - 1) * config.limit

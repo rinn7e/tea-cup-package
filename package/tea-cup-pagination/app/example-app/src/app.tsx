@@ -19,6 +19,7 @@ import {
   LIMIT_OPTIONS,
   type Model,
   type Msg,
+  ParentContextEq,
   ProductEq,
   SORT_OPTIONS,
   isSortBy,
@@ -30,7 +31,7 @@ type Props = {
 }
 
 export const App: React.FC<Props> = ({ model, dispatch }) => {
-  const paginationConfig = mkPaginationConfig(model, dispatch)
+  const paginationConfig = mkPaginationConfig(model)
 
   return (
     <div
@@ -257,6 +258,12 @@ export const App: React.FC<Props> = ({ model, dispatch }) => {
             dispatch={(subMsg) => dispatch({ _tag: 'PaginationMsg', subMsg })}
             itemEq={ProductEq}
             errEq={S.Eq}
+            parent={{
+              selectedProductId: model.selectedProduct?.id ?? null,
+              limit: model.limit,
+              dispatch,
+            }}
+            parentEq={ParentContextEq}
           />
         </section>
       </main>

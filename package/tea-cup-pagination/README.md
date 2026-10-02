@@ -43,10 +43,22 @@ import type * as Pagination from '@rinn7e/tea-cup-pagination'
 import * as TE from 'fp-ts/lib/TaskEither'
 import React from 'react'
 
+// Parent state the list renders from. It reaches the render functions as
+// their `parent` argument and is compared with `parentEq`, so the memoized
+// component re-renders when it changes.
+export type ParentContext = {
+  selectedProductId: string | null
+  dispatch: Dispatcher<AppMsg>
+}
+
+export const ParentContextEq: Eq<ParentContext> = EqClass.struct({
+  selectedProductId: NullableEq(S.Eq),
+  dispatch: EqAlways,
+})
+
 export const mkPaginationConfig = (
   model: AppModel,
-  dispatch: (msg: AppMsg) => void,
-): Pagination.Config<Product, ProductMsg, string> => ({
+): Pagination.Config<Product, ProductMsg, string, ParentContext> => ({
   limit: 6,
   scrollContainerId: 'product-scroll-container',
 
@@ -54,8 +66,9 @@ export const mkPaginationConfig = (
   handler: (offset: number, limit: number) =>
     Api.getProducts({ offset, limit, category: model.selectedCategory }),
 
-  // Render items based on RemoteData lifecycle
-  renderItems: (itemsRd, itemDispatch) => {
+  // Render items based on RemoteData lifecycle. Only use the arguments:
+  // anything closed over (e.g. `model`) is invisible to the memo.
+  renderItems: (itemsRd, itemDispatch, parent) => {
     switch (itemsRd._tag) {
       case 'RemoteInitial':
       case 'RemotePending':
@@ -64,7 +77,7 @@ export const mkPaginationConfig = (
         return (
           <ErrorView
             message={itemsRd.error}
-            onRetry={() => dispatch({ _tag: 'RetryFetch' })}
+            onRetry={() => parent.dispatch({ _tag: 'RetryFetch' })}
           />
         )
       case 'RemoteSuccess':
@@ -74,6 +87,7 @@ export const mkPaginationConfig = (
               <ProductCard
                 key={product.id}
                 product={product}
+                isSelected={parent.selectedProductId === product.id}
                 dispatch={(productMsg) => itemDispatch(product, productMsg)}
               />
             ))}
@@ -183,7 +197,7 @@ import * as S from 'fp-ts/lib/string'
 import React from 'react'
 
 export const AppView: React.FC<Props> = ({ model, dispatch }) => {
-  const paginationConfig = mkPaginationConfig(model, dispatch)
+  const paginationConfig = mkPaginationConfig(model)
 
   return (
     <div id='product-scroll-container'>
@@ -193,6 +207,11 @@ export const AppView: React.FC<Props> = ({ model, dispatch }) => {
         dispatch={(subMsg) => dispatch({ _tag: 'PaginationMsg', subMsg })}
         itemEq={ProductEq}
         errEq={S.Eq}
+        parent={{
+          selectedProductId: model.selectedProduct?.id ?? null,
+          dispatch,
+        }}
+        parentEq={ParentContextEq}
       />
     </div>
   )
@@ -205,17 +224,17 @@ export const AppView: React.FC<Props> = ({ model, dispatch }) => {
 
 ### Core Types (`@rinn7e/tea-cup-pagination`)
 
-#### `Config<Item, ItemMsg, Err>`
+#### `Config<Item, ItemMsg, Err, Parent>`
 
-Configuration object for the pagination engine:
+Configuration object for the pagination engine. `Parent` is the parent state the render functions receive (from `Props.parent`); they must only use their arguments, since anything they close over is invisible to `PaginationMemo`.
 
-| Property            | Type                                                                                                 | Description                                                    |
-| :------------------ | :--------------------------------------------------------------------------------------------------- | :------------------------------------------------------------- |
-| `limit`             | `number`                                                                                             | Maximum number of items per page.                              |
-| `handler`           | `(offset: number, limit: number) => TE.TaskEither<Err, { items: Item[]; totalCount: number }>`       | TaskEither endpoint handler to fetch items.                    |
-| `renderItems`       | `(items: RD.RemoteData<Err, Item[]>, itemDispatch: (item: Item, msg: ItemMsg) => void) => ReactNode` | Item list renderer for the current RemoteData state.           |
-| `renderPagination`  | `(currentPage: number, pageAmount: number, onPageChange: (page: number) => void) => ReactNode`       | Navigation bar renderer.                                       |
-| `scrollContainerId` | `string?`                                                                                            | Optional container element ID to scroll to top on page change. |
+| Property            | Type                                                                                                                 | Description                                                    |
+| :------------------ | :------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------- |
+| `limit`             | `number`                                                                                                             | Maximum number of items per page.                              |
+| `handler`           | `(offset: number, limit: number) => TE.TaskEither<Err, { items: Item[]; totalCount: number }>`                       | TaskEither endpoint handler to fetch items.                    |
+| `renderItems`       | `(items: RD.RemoteData<Err, Item[]>, itemDispatch: (item: Item, msg: ItemMsg) => void, parent: Parent) => ReactNode` | Item list renderer for the current RemoteData state.           |
+| `renderPagination`  | `(currentPage: number, pageAmount: number, onPageChange: (page: number) => void, parent: Parent) => ReactNode`       | Navigation bar renderer.                                       |
+| `scrollContainerId` | `string?`                                                                                                            | Optional container element ID to scroll to top on page change. |
 
 #### `Model<Item, Err>`
 
@@ -245,17 +264,17 @@ export type Msg<Item, ItemMsg, Err> =
 
 ### Functions (`@rinn7e/tea-cup-pagination`)
 
-- **`init<Item, ItemMsg, Err>(config, page = 1): [Model<Item, Err>, Cmd<Msg<Item, ItemMsg, Err>>]`**  
+- **`init<Item, ItemMsg, Err, Parent>(config, page = 1): [Model<Item, Err>, Cmd<Msg<Item, ItemMsg, Err>>]`**  
   Initializes model state and dispatches the initial data fetch command for the requested page.
 
-- **`update<Item, ItemMsg, Err>(config)(msg, model): [Model<Item, Err>, Cmd<Msg<Item, ItemMsg, Err>>]`**  
+- **`update<Item, ItemMsg, Err, Parent>(config)(msg, model): [Model<Item, Err>, Cmd<Msg<Item, ItemMsg, Err>>]`**  
   Reduces pagination messages and emits commands (data fetch, smooth scroll).
 
 - **`mkModelEq(itemEq, errEq): Eq<Model<Item, Err>>`**  
   Constructs an `fp-ts` `Eq` instance for deep model equality checking.
 
-- **`mkPropsEq(itemEq, errEq): Eq<Props<Item, ItemMsg, Err>>`**  
-  Constructs an `fp-ts` `Eq` instance for React memoization.
+- **`mkPropsEq(itemEq, errEq, parentEq): Eq<Props<Item, ItemMsg, Err, Parent>>`**  
+  Constructs an `fp-ts` `Eq` instance for React memoization. `parent` is compared with `parentEq`.
 
 ---
 
@@ -271,7 +290,7 @@ export type Msg<Item, ItemMsg, Err> =
 An interactive showcase application and automated end-to-end test suite are included in this repository:
 
 - **Example App**: `app/example-app` (Runs on `http://localhost:5181`)
-- **E2E Playwright Suite**: `app/example-app-e2e` (17 automated test suites)
+- **E2E Playwright Suite**: `app/example-app-e2e` (18 automated test suites)
 
 ```bash
 # Run example app in development

@@ -1,11 +1,11 @@
 import * as RD from '@devexperts/remote-data-ts'
 import * as Pagination from '@rinn7e/tea-cup-pagination'
-import { EqAlways } from '@rinn7e/tea-cup-prelude'
+import { EqAlways, NullableEq } from '@rinn7e/tea-cup-prelude'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as B from 'fp-ts/lib/boolean'
 import * as N from 'fp-ts/lib/number'
 import * as S from 'fp-ts/lib/string'
-import { type Result } from 'tea-cup-fp'
+import { type Dispatcher, type Result } from 'tea-cup-fp'
 
 import {
   CATEGORY_TABS,
@@ -82,3 +82,18 @@ export type Msg =
   | { _tag: 'CloseModal' }
   | { _tag: 'ResetFilters' }
   | { _tag: 'NoOp' }
+
+// Parent state the product list renders from, passed to the pagination as
+// `parent` so its memo re-renders when any of it changes
+export type ParentContext = {
+  selectedProductId: string | null
+  limit: number
+  dispatch: Dispatcher<Msg>
+}
+
+export const ParentContextEq: EqClass.Eq<ParentContext> =
+  EqClass.struct<ParentContext>({
+    selectedProductId: NullableEq(S.Eq),
+    limit: N.Eq,
+    dispatch: EqAlways,
+  })
