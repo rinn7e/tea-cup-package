@@ -1,0 +1,19 @@
+@import 'tailwindcss';
+@source '../../../../tea-cup-drawer/src/**/*.{ts,tsx}';
+@import '../../../../tea-cup-drawer/src/drawer.css';
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+    @apply bg-slate-50;
+  }
+
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply relative text-base text-slate-800 antialiased;
+  }
+}

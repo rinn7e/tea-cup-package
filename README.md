@@ -15,6 +15,7 @@ This monorepo manages the following sub-packages:
 *   **[package/tea-cup-intersection-observer](package/tea-cup-intersection-observer)**: Intersection Observer subscription for React Tea-Cup applications.
 *   **[package/tea-cup-router](package/tea-cup-router)**: Pure, modular router and navigation manager preventing double-update loops.
 *   **[package/tea-cup-drawer](package/tea-cup-drawer)**: Drawer / bottom sheet with swipe gestures and snap points, a TEA port of vaul.
+*   **[package/tea-cup-screen](package/tea-cup-screen)**: Screen stack with animated push / pop and height transitions, e.g. multi-screen drawers.
 *   **[package/tea-cup-rte-toolkit](package/tea-cup-rte-toolkit)**: Rich Text Editor toolkit built for React Tea-Cup applications.
 
 ---
