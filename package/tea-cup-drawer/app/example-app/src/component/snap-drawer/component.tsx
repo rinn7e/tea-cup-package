@@ -26,8 +26,7 @@ export const SnapDrawer = ({
       parent={null}
       parentEq={nullEq}
       className='h-full max-h-[97%] border-t border-slate-200'
-    >
-      {(_internal) =>
+      renderContent={(_internal) =>
         drawerBody({
           id,
           dispatch: drawerDispatch,
@@ -57,6 +56,6 @@ export const SnapDrawer = ({
           ),
         })
       }
-    </DrawerMemo>
+    />
   )
 }

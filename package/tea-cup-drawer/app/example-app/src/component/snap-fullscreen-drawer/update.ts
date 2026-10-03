@@ -4,8 +4,8 @@ import { type Cmd } from 'tea-cup-fp'
 
 import { type Model, type Msg } from './type'
 
-const config: Drawer.Config = {
-  ...Drawer.defaultConfig('snapFullscreen'),
+const config: Drawer.Config<null> = {
+  ...Drawer.defaultConfig<null>('snapFullscreen', () => 'snapFullscreen'),
   snapPoints: [
     { _tag: 'Pixel', value: 260 },
     { _tag: 'Fraction', value: 1 },

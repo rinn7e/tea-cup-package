@@ -3,8 +3,8 @@ import { type Cmd } from 'tea-cup-fp'
 
 import { type Model, type Msg } from './type'
 
-const config: Drawer.Config = {
-  ...Drawer.defaultConfig('snap'),
+const config: Drawer.Config<null> = {
+  ...Drawer.defaultConfig<null>('snap', () => 'snap'),
   snapPoints: [
     { _tag: 'Pixel', value: 148 },
     { _tag: 'Fraction', value: 0.5 },

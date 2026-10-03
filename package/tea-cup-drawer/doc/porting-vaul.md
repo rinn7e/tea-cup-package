@@ -44,7 +44,7 @@ buried inside event handlers that read and write refs.
 | Body `position: fixed` (Safari), scroll lock, focus restore                                   | `Cmd`s in `effect.ts` (`lockBodyScrollCmd`, `pushLayerCmd` / `popLayerCmd`, ...)                                          |
 | `open` / `onOpenChange` / `defaultOpen` (controlled + uncontrolled)                           | Always controlled: `Open { internal }`, `Close`, `Dismiss` messages; parents compare `isOpen` before/after `update`       |
 | Radix Dialog                                                                                  | Plain `div role="dialog"` + overlay; Escape and the Tab trap in `subscriptions`, routed to the topmost layer              |
-| `children` as React elements (re-render with the parent)                                      | `DrawerMemo` with `children(internal, parent)`, compared with `itemEq` / `parentEq`                                       |
+| `children` as React elements (re-render with the parent)                                      | `DrawerMemo` with `renderContent(content, contentDispatch, parent)`, compared with `itemEq` / `parentEq`                  |
 
 ---
 
@@ -80,9 +80,11 @@ Here the drawer keeps the payload until `AnimateOut` finishes, so the
 problem cannot happen. This one would be awkward to retrofit into vaul.
 
 It also makes the payload a good home for a whole TEA component (a menu with
-sub-pages, a small form): the parent routes its messages through
-`getInternal` / `setInternal`, its state resets on every open, survives the
-close animation, and messages arriving after the drawer closed find `none`
+sub-pages, a small form): its view sends messages with `contentDispatch`,
+the owner intercepts them (`ContentMsg`) and applies them with
+`getContent` / `modifyContent` by the payload's key. Its state resets on
+every open, survives the close animation, and messages arriving after the
+drawer closed, or after it was reopened with another payload, find `none`
 and are dropped. State that must outlive the drawer (a draft) goes through
 the `parent` channel instead (see "Memoization needed explicit data
 channels").
@@ -189,11 +191,19 @@ the scroll lock can interact badly with page layout (see section 6).
 
 The first version had `children: (internal) => ReactNode` closing over the
 parent's state, which has no sound `Eq`, so it couldn't be memoized. The fix
-came from link-pagination's `Item` / `Parent` split: `children` now receives
-both `internal` (owned by the drawer, compared with `itemEq`) and `parent`
-(owned by the parent, compared with `parentEq`), so `DrawerMemo` is sound as
-long as `children` only uses its arguments, the drawer's own model (which the
-memo compares) and stable values like `dispatch`. The same audit found the
+came from link-pagination's `Item` / `Parent` split: the render function now
+receives both the payload (owned by the drawer, compared with `itemEq`) and
+`parent` (owned by the parent, compared with `parentEq`), so `DrawerMemo` is
+sound as long as it only uses its arguments.
+
+A later round (`renderContent(content, contentDispatch, parent)`) also took
+the owner's `dispatch` out of it. Content messages used to be routed to
+"whatever the payload is now" (`getInternal`), but `Open` while the drawer is
+open or still closing replaces the payload, so a reply from the old payload
+could be written into the new one. Content messages now carry the payload's
+key (`Config.uniqueKeyField`, `ContentMsg { key, msg }`) and are applied with
+`getContent` / `modifyContent`, the same pattern as tea-cup-pagination's
+items and the screen stack's screens. The same audit found the
 same staleness bug in tea-cup-pagination, which got a `parent` channel too,
 and link-pagination's one-letter `a` / `b` were renamed to `item` / `parent`
 so all three packages read the same.

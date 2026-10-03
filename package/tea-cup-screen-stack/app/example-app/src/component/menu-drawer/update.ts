@@ -11,6 +11,7 @@ import {
   type MainMsg,
   type MenuScreen,
   type MenuScreenMsg,
+  type MenuStackMsg,
   type Model,
   type Msg,
   menuScreenKey,
@@ -18,7 +19,15 @@ import {
 
 type MenuStack = ScreenStack.Model<MenuScreen>
 
-const drawerConfig = Drawer.defaultConfig('menu')
+// The stack has no identity of its own: a constant key. Screen messages
+// inside it are routed by screen key, so a late reply from a closed menu
+// finds no such screen in the next one.
+const menuContentKey = 'menu'
+
+const drawerConfig = Drawer.defaultConfig<MenuStack>(
+  'menu',
+  () => menuContentKey,
+)
 
 const stackConfig = ScreenStack.defaultConfig('menu', menuScreenKey)
 
@@ -35,13 +44,23 @@ const addLog =
 // ---------------------------------
 
 const drawerMsgHandler =
-  (subMsg: Drawer.Msg<MenuStack>) =>
+  (subMsg: Drawer.Msg<MenuStack, MenuStackMsg>) =>
   (model: Model): [Model, Cmd<Msg>] => {
     const [drawer, cmd] = Drawer.update(subMsg, model.drawer)
-    return [
-      { ...model, drawer },
-      cmd.map((m): Msg => ({ _tag: 'DrawerMsg', subMsg: m })),
-    ]
+    return pipe(
+      [
+        { ...model, drawer },
+        cmd.map((m): Msg => ({ _tag: 'DrawerMsg', subMsg: m })),
+      ],
+      // The stack's messages, from the drawer content
+      updateAndCmd((m: Model): [Model, Cmd<Msg>] => {
+        if (subMsg._tag === 'ContentMsg') {
+          return menuStackMsgHandler(subMsg.msg)(m)
+        } else {
+          return [m, Cmd.none()]
+        }
+      }),
+    )
   }
 
 const closeMenu = drawerMsgHandler({ _tag: 'Close' })
@@ -49,11 +68,9 @@ const closeMenu = drawerMsgHandler({ _tag: 'Close' })
 // Screen stack
 // ---------------------------------
 
-type MenuStackMsg = ScreenStack.Msg<MenuScreen, MenuScreenMsg>
-
-const toMenuStackMsg = (subMsg: MenuStackMsg): Msg => ({
-  _tag: 'ScreenStackMsg',
-  subMsg,
+const toMenuStackMsg = (msg: MenuStackMsg): Msg => ({
+  _tag: 'DrawerMsg',
+  subMsg: { _tag: 'ContentMsg', key: menuContentKey, msg },
 })
 
 // A message for the screen with `key`
@@ -61,13 +78,13 @@ const toScreenMsg = (key: string, msg: MenuScreenMsg): Msg =>
   toMenuStackMsg({ _tag: 'ScreenMsg', key, msg })
 
 // Run `f` on the menu's screen stack, which lives in the drawer payload.
-// Once the drawer has closed `getInternal` is `none`, so late messages are
+// Once the drawer has closed `getContent` is `none`, so late messages are
 // dropped.
 const withMenuStack =
   (f: (stack: MenuStack) => [MenuStack, Cmd<Msg>]) =>
   (model: Model): [Model, Cmd<Msg>] =>
     pipe(
-      Drawer.getInternal(model.drawer),
+      Drawer.getContent(menuContentKey)(model.drawer),
       O.fold(
         (): [Model, Cmd<Msg>] => [model, Cmd.none()],
         (stack): [Model, Cmd<Msg>] => {
@@ -75,7 +92,10 @@ const withMenuStack =
           return [
             {
               ...model,
-              drawer: Drawer.setInternal(nextStack)(model.drawer),
+              drawer: Drawer.modifyContent<MenuStack>(
+                menuContentKey,
+                () => nextStack,
+              )(model.drawer),
             },
             cmd,
           ]
@@ -193,7 +213,7 @@ const menuScreenMsgHandler =
   (key: string, subMsg: MenuScreenMsg) =>
   (model: Model): [Model, Cmd<Msg>] =>
     pipe(
-      Drawer.getInternal(model.drawer),
+      Drawer.getContent(menuContentKey)(model.drawer),
       O.chain(ScreenStack.getScreen(key)),
       O.fold(
         (): [Model, Cmd<Msg>] => [
@@ -252,7 +272,5 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
       })(model)
     case 'DrawerMsg':
       return drawerMsgHandler(msg.subMsg)(model)
-    case 'ScreenStackMsg':
-      return menuStackMsgHandler(msg.subMsg)(model)
   }
 }

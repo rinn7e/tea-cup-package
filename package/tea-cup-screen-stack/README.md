@@ -168,12 +168,23 @@ import { ScreenStackMemo } from '@rinn7e/tea-cup-screen-stack/component'
 
 ## With a drawer
 
-The whole stack is the drawer's `Item`. The drawer does not know about screens:
+The whole stack is the drawer's payload, and the stack's messages are the drawer content's messages. The drawer does not know about screens:
 
 ```ts
+type MenuStackMsg = ScreenStack.Msg<MenuScreen, MenuScreenMsg>
+
 type Model = {
   drawer: Drawer.Model<ScreenStack.Model<MenuScreen>>
 }
+
+type Msg = {
+  _tag: 'DrawerMsg'
+  subMsg: Drawer.Msg<ScreenStack.Model<MenuScreen>, MenuStackMsg>
+}
+
+// A stack has no identity of its own: a constant content key. Screen
+// messages inside it are routed by screen key.
+const drawerConfig = Drawer.defaultConfig<MenuStack>('menu', () => 'menu')
 
 // Open: every open starts at the first screen
 Drawer.update(
@@ -187,19 +198,26 @@ Drawer.update(
   model.drawer,
 )
 
-// Run stack updates on the drawer payload; once the drawer has closed,
-// `getInternal` is `none` and late messages are dropped
+// The stack's messages arrive as the drawer's `ContentMsg`: intercept them
+// and run the stack update on the payload. Once the drawer has closed,
+// `getContent` is `none` and late messages are dropped.
 const withMenuStack =
   (f: (stack: MenuStack) => [MenuStack, Cmd<Msg>]) =>
   (model: Model): [Model, Cmd<Msg>] =>
     pipe(
-      Drawer.getInternal(model.drawer),
+      Drawer.getContent('menu')(model.drawer),
       O.fold(
         (): [Model, Cmd<Msg>] => [model, Cmd.none()],
         (stack): [Model, Cmd<Msg>] => {
           const [next, cmd] = f(stack)
           return [
-            { ...model, drawer: Drawer.setInternal(next)(model.drawer) },
+            {
+              ...model,
+              drawer: Drawer.modifyContent<MenuStack>(
+                'menu',
+                () => next,
+              )(model.drawer),
+            },
             cmd,
           ]
         },
@@ -214,11 +232,10 @@ const withMenuStack =
   itemEq={ScreenStack.getModelEq(MenuScreenEq)}
   parent={null}
   parentEq={nullEq}
->
-  {(stack) => (
+  renderContent={(stack, contentDispatch) => (
     <ScreenStackComponent
       model={stack}
-      dispatch={stackDispatch}
+      dispatch={contentDispatch}
       itemEq={MenuScreenEq}
       parent={null}
       parentEq={nullEq}
@@ -227,7 +244,7 @@ const withMenuStack =
       }
     />
   )}
-</DrawerMemo>
+/>
 ```
 
 What the drawer gives for free: the stack resets on every open, the last screen stays visible while the drawer slides away, and late messages after close are dropped. Escape and the overlay close the **whole drawer** (as on iOS); a screen's back button sends its own `Back` message, which the parent turns into a pop. Inside `DrawerMemo`, the non-memoized `ScreenStackComponent` is enough.

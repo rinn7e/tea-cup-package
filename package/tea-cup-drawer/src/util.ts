@@ -24,6 +24,7 @@ The drag, release and snap point logic is ported from vaul
 (https://github.com/emilkowalski/vaul), Copyright (c) 2023 Emil Kowalski,
 MIT License. */
 import * as O from 'fp-ts/lib/Option'
+import { pipe } from 'fp-ts/lib/function'
 
 import {
   type AnimateState,
@@ -231,9 +232,8 @@ export const isOpen = <Item>(animate: AnimateState<Item>): boolean => {
 // Payload
 // ---------------------------------
 
-// The payload the drawer was opened with; `none` once it is fully closed.
-// Use it to route messages of a TEA component living in the payload, so
-// late replies for a closed drawer are dropped.
+// The current payload, whatever it is: for display. To route the
+// content's messages, use `getContent` / `modifyContent` with their key.
 export const getInternal = <Item>(model: Model<Item>): O.Option<Item> => {
   const animate = model.animate
   switch (animate._tag) {
@@ -249,10 +249,23 @@ export const getInternal = <Item>(model: Model<Item>): O.Option<Item> => {
   }
 }
 
-// Replace the payload, keeping the animation state. No-op once the drawer is
-// fully closed (there is nothing to update).
-export const setInternal =
-  <Item>(internal: Item) =>
+// The payload, if it still is the one with `key` (like the screen stack's
+// `getScreen`): `none` once the drawer has closed or the payload was replaced
+// by another one (`Open` while open or closing), so a late reply is dropped
+// instead of reaching the new payload
+export const getContent =
+  (key: string) =>
+  <Item>(model: Model<Item>): O.Option<Item> =>
+    pipe(
+      getInternal(model),
+      O.filter((internal) => model.config.uniqueKeyField(internal) === key),
+    )
+
+// Update the payload, keeping the animation state, if it still is the one
+// with `key`. The same model otherwise, or when `f` would change its key
+// (a payload keeps its identity).
+export const modifyContent =
+  <Item>(key: string, f: (internal: Item) => Item) =>
   (model: Model<Item>): Model<Item> => {
     const animate = model.animate
     switch (animate._tag) {
@@ -263,8 +276,16 @@ export const setInternal =
       case 'Visible':
       case 'Dragging':
       case 'Settling':
-      case 'AnimateOut':
-        return { ...model, animate: { ...animate, internal } }
+      case 'AnimateOut': {
+        const keyOf = model.config.uniqueKeyField
+        const next = f(animate.internal)
+        if (keyOf(animate.internal) === key && keyOf(next) === key) {
+          return { ...model, animate: { ...animate, internal: next } }
+        } else {
+          // Another payload, or a key change
+          return model
+        }
+      }
     }
   }
 

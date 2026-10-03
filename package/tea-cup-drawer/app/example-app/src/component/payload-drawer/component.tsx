@@ -26,8 +26,7 @@ export const PayloadDrawer = ({
       itemEq={S.Eq}
       parent={null}
       parentEq={nullEq}
-    >
-      {(internal) =>
+      renderContent={(internal) =>
         drawerBody({
           id,
           dispatch: drawerDispatch,
@@ -41,6 +40,6 @@ export const PayloadDrawer = ({
           ),
         })
       }
-    </DrawerMemo>
+    />
   )
 }

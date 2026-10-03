@@ -16,6 +16,7 @@ export type Model = {
 
 export type Msg =
   | { _tag: 'Open' }
-  | { _tag: 'DrawerMsg'; subMsg: Drawer.Msg<null> }
-  | { _tag: 'FeedbackMsg'; subMsg: Feedback.Msg }
+  // The form's messages arrive as the drawer's `ContentMsg` (sent with
+  // `contentDispatch` from the content)
+  | { _tag: 'DrawerMsg'; subMsg: Drawer.Msg<null, Feedback.Msg> }
   | { _tag: 'FeedbackSent'; summary: string }

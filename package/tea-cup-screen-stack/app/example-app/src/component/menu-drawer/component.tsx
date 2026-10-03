@@ -13,6 +13,7 @@ import {
   MenuScreenEq,
   type MenuScreenMsg,
   MenuStackEq,
+  type MenuStackMsg,
   type Model,
   type Msg,
 } from './type'
@@ -128,15 +129,8 @@ export const MenuDrawer = ({
 }) => {
   const drawerDispatch = map(
     dispatch,
-    (subMsg: Drawer.Msg<ScreenStack.Model<MenuScreen>>): Msg => ({
+    (subMsg: Drawer.Msg<ScreenStack.Model<MenuScreen>, MenuStackMsg>): Msg => ({
       _tag: 'DrawerMsg',
-      subMsg,
-    }),
-  )
-  const stackDispatch = map(
-    dispatch,
-    (subMsg: ScreenStack.Msg<MenuScreen, MenuScreenMsg>): Msg => ({
-      _tag: 'ScreenStackMsg',
       subMsg,
     }),
   )
@@ -147,14 +141,13 @@ export const MenuDrawer = ({
       itemEq={MenuStackEq}
       parent={null}
       parentEq={nullEq}
-    >
-      {(stack) => (
+      renderContent={(stack, contentDispatch) => (
         <div data-test='content-menu' className='flex flex-col'>
           <DrawerHandle dispatch={drawerDispatch} />
           {/* Not memoized: the drawer's memo already compares the stack */}
           <ScreenStackComponent
             model={stack}
-            dispatch={stackDispatch}
+            dispatch={contentDispatch}
             itemEq={MenuScreenEq}
             parent={null}
             parentEq={nullEq}
@@ -164,6 +157,6 @@ export const MenuDrawer = ({
           />
         </div>
       )}
-    </DrawerMemo>
+    />
   )
 }

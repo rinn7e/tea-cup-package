@@ -255,7 +255,9 @@ module only if the duplication hurts:
   find the tab, then the stack's top screen inside it.
 - **In a drawer**: `Drawer.Model<ScreenTabs.Model<Tab>>`, the same recipe as
   the stack (the tabs are the drawer's `internal`: reset on open, kept while
-  sliding away). Use `getInternal` / `setInternal`.
+  sliding away). The tabs' messages are the drawer content's messages
+  (`contentDispatch` → `ContentMsg`, applied with `getContent` /
+  `modifyContent`), as in the screen stack's drawer recipe.
 - The drawer and the stack must **not** depend on tabs. Composition happens in
   the consumer only.
 

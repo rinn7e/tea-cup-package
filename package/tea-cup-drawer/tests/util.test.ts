@@ -54,7 +54,7 @@ const press = (overrides: Partial<Press> = {}): Press => ({
 })
 
 const snapConfig = (overrides: Partial<Config> = {}): Config => ({
-  ...defaultConfig('snap'),
+  ...defaultConfig('snap', () => 'snap'),
   snapPoints: [
     { _tag: 'Fraction', value: 0.4 },
     { _tag: 'Fraction', value: 1 },
@@ -87,7 +87,7 @@ describe('snap points', () => {
 })
 
 describe('dragDistance', () => {
-  const config = defaultConfig('basic')
+  const config = defaultConfig('basic', () => 'basic')
 
   it('follows the pointer toward the closed position', () => {
     expect(dragDistance(config, press(), -100)).toBe(100)
@@ -128,7 +128,7 @@ describe('isDeltaInDirection', () => {
 })
 
 describe('decideDrag', () => {
-  const config = defaultConfig('basic')
+  const config = defaultConfig('basic', () => 'basic')
   const args = {
     isDraggingInDirection: false,
     hasSelection: false,
@@ -203,7 +203,7 @@ describe('decideDrag', () => {
 })
 
 describe('decideRelease without snap points', () => {
-  const config = defaultConfig('basic')
+  const config = defaultConfig('basic', () => 'basic')
 
   it('closes after a slow drag past the threshold', () => {
     expect(
@@ -274,7 +274,7 @@ describe('decideRelease with snap points', () => {
 
 describe('overlay opacity', () => {
   it('fades over the drawer size without snap points', () => {
-    const config = defaultConfig('basic')
+    const config = defaultConfig('basic', () => 'basic')
     expect(overlayOpacityAt(config, 1000, 0)).toBe(1)
     expect(overlayOpacityAt(config, 1000, 250)).toBe(0.75)
     expect(overlayOpacityAt(config, 1000, 2000)).toBe(0)
@@ -295,11 +295,20 @@ describe('rendering', () => {
   })
 
   it('renders closed states fully translated', () => {
-    expect(translateCss(defaultModel(defaultConfig('a')))).toBe('100%')
+    expect(translateCss(defaultModel(defaultConfig('a', () => 'a')))).toBe(
+      '100%',
+    )
   })
 
   it('renders the active snap point at rest', () => {
-    expect(translateCss(visible(defaultConfig('a'), 0))).toBe('0px')
+    expect(
+      translateCss(
+        visible(
+          defaultConfig('a', () => 'a'),
+          0,
+        ),
+      ),
+    ).toBe('0px')
     expect(translateCss(visible(snapConfig(), 0))).toBe('60%')
     expect(overlayOpacity(visible(snapConfig(), 0))).toBe(0)
     expect(overlayOpacity(visible(snapConfig(), 1))).toBe(1)
@@ -307,7 +316,7 @@ describe('rendering', () => {
 
   it('renders the pointer position while dragging', () => {
     const model: Model<string> = {
-      ...defaultModel(defaultConfig('a')),
+      ...defaultModel(defaultConfig('a', () => 'a')),
       animate: {
         _tag: 'Dragging',
         internal: 'x',

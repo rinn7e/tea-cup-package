@@ -26,8 +26,7 @@ export const DirectionDrawer = ({
       parent={null}
       parentEq={nullEq}
       className={id === 'top' ? 'min-h-[40dvh]' : undefined}
-    >
-      {(_internal) =>
+      renderContent={(_internal) =>
         drawerBody({
           id,
           dispatch: drawerDispatch,
@@ -35,6 +34,6 @@ export const DirectionDrawer = ({
           description: `Swipe it ${id === 'top' ? 'up' : id} to close.`,
         })
       }
-    </DrawerMemo>
+    />
   )
 }

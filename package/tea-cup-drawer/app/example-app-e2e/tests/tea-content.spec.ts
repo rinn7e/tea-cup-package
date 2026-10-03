@@ -64,4 +64,32 @@ test.describe('TEA content (internal) and parent state', () => {
       'actions opened',
     ])
   })
+  test('a reply for a menu reopened for another message does not reach the new menu', async ({
+    page,
+  }) => {
+    // Opened for message A (beforeEach); its folder request starts
+    await expect(page.locator('[data-test="menu-message"]')).toHaveText(
+      'Message A',
+    )
+    await page.locator('[data-test="action-move-to"]').click()
+    await expect(page.locator('[data-test="folders-loading"]')).toBeVisible()
+
+    // Reopen for message B while A is still sliding away
+    await page.keyboard.press('Escape')
+    await expect(state(page, key)).toHaveText('AnimateOut')
+    await page.evaluate(() =>
+      document
+        .querySelector<HTMLElement>('[data-test="trigger-actions-b"]')
+        ?.click(),
+    )
+    await expect(page.locator('[data-test="menu-message"]')).toHaveText(
+      'Message B',
+    )
+
+    // A's folders answer (keyed "A"): dropped, B still has to load its own
+    await page.waitForTimeout(1200)
+    await page.locator('[data-test="action-move-to"]').click()
+    await expect(page.locator('[data-test="folders-loading"]')).toBeVisible()
+    await expect(page.locator('[data-test="folder-Archive"]')).toBeVisible()
+  })
 })

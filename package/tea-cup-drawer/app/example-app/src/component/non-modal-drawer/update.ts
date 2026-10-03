@@ -3,8 +3,8 @@ import { type Cmd } from 'tea-cup-fp'
 
 import { type Model, type Msg } from './type'
 
-const config: Drawer.Config = {
-  ...Drawer.defaultConfig('nonModal'),
+const config: Drawer.Config<null> = {
+  ...Drawer.defaultConfig<null>('nonModal', () => 'nonModal'),
   modal: false,
   dismissible: false,
   snapPoints: [

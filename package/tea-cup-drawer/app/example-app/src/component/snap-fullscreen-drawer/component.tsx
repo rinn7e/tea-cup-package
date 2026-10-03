@@ -26,8 +26,7 @@ export const SnapFullscreenDrawer = ({
       parent={null}
       parentEq={nullEq}
       className='h-full max-h-none'
-    >
-      {(_internal) =>
+      renderContent={(_internal) =>
         drawerBody({
           id,
           dispatch: drawerDispatch,
@@ -53,6 +52,6 @@ export const SnapFullscreenDrawer = ({
           ),
         })
       }
-    </DrawerMemo>
+    />
   )
 }

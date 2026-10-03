@@ -46,8 +46,12 @@ import {
 // Defaults (vaul's)
 // ---------------------------------
 
-export const defaultConfig = (id: string): Config => ({
+export const defaultConfig = <Item>(
+  id: string,
+  uniqueKeyField: (internal: Item) => string,
+): Config<Item> => ({
   id,
+  uniqueKeyField,
   direction: 'bottom',
   modal: true,
   dismissible: true,
@@ -65,7 +69,7 @@ export const defaultConfig = (id: string): Config => ({
   portal: { _tag: 'Body' },
 })
 
-export const defaultModel = <Item>(config: Config): Model<Item> => ({
+export const defaultModel = <Item>(config: Config<Item>): Model<Item> => ({
   animate: { _tag: 'Invisible' },
   gesture: { _tag: 'Idle' },
   activeSnap: config.initialSnap,
@@ -456,13 +460,16 @@ const pointerCancelHandler =
 // Update
 // ---------------------------------
 
-export const update = <Item>(
-  msg: Msg<Item>,
+export const update = <Item, ItemMsg>(
+  msg: Msg<Item, ItemMsg>,
   model: Model<Item>,
-): [Model<Item>, Cmd<Msg<Item>>] => {
+): [Model<Item>, Cmd<Msg<Item, ItemMsg>>] => {
   switch (msg._tag) {
     case 'Open':
       return openHandler(msg.internal)(model)
+    case 'ContentMsg':
+      // The owner intercepts this one (`getContent` / `modifyContent`)
+      return [model, Cmd.none()]
     case 'Close':
       return closeHandler(model)
     case 'Dismiss':

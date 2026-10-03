@@ -8,8 +8,8 @@ import { type Model, type Msg } from './type'
 export const defaultModel = (
   direction: Exclude<Drawer.Direction, 'bottom'>,
 ): Model => ({
-  drawer: Drawer.defaultModel({
-    ...Drawer.defaultConfig(direction),
+  drawer: Drawer.defaultModel<null>({
+    ...Drawer.defaultConfig<null>(direction, () => direction),
     direction,
   }),
 })

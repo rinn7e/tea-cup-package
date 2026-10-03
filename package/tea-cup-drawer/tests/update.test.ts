@@ -31,10 +31,11 @@ import {
   type Props,
   defaultConfig,
   defaultModel,
+  getContent,
   getInternal,
   getPropsEq,
   isOpen,
-  setInternal,
+  modifyContent,
   update,
 } from '../src'
 
@@ -56,11 +57,14 @@ const press = (overrides: Partial<Press> = {}): Press => ({
   ...overrides,
 })
 
-const closed = (config: Config = defaultConfig('test')): M =>
-  defaultModel<string>(config)
+const closed = (
+  config: Config<string> = defaultConfig('test', (s: string) => s),
+): M => defaultModel<string>(config)
 
 // Open and run the enter animation to the end
-const visible = (config: Config = defaultConfig('test')): M => {
+const visible = (
+  config: Config<string> = defaultConfig('test', (s: string) => s),
+): M => {
   const mounting = run(closed(config), { _tag: 'Open', internal: 'apple' })
   return run(
     mounting,
@@ -109,7 +113,7 @@ describe('open', () => {
 
   it('opens at the initial snap point', () => {
     const config = {
-      ...defaultConfig('test'),
+      ...defaultConfig('test', (s: string) => s),
       snapPoints: [
         { _tag: 'Fraction', value: 0.4 },
         { _tag: 'Fraction', value: 1 },
@@ -163,7 +167,10 @@ describe('close', () => {
   })
 
   it('ignores dismiss requests when not dismissible', () => {
-    const config = { ...defaultConfig('test'), dismissible: false }
+    const config = {
+      ...defaultConfig('test', (s: string) => s),
+      dismissible: false,
+    }
     expect(run(visible(config), { _tag: 'Dismiss' }).animate._tag).toBe(
       'Visible',
     )
@@ -174,7 +181,7 @@ describe('close', () => {
 
   it('resets the snap point once closed', () => {
     const config = {
-      ...defaultConfig('test'),
+      ...defaultConfig('test', (s: string) => s),
       snapPoints: [
         { _tag: 'Fraction', value: 0.4 },
         { _tag: 'Fraction', value: 1 },
@@ -201,7 +208,10 @@ describe('drag', () => {
   })
 
   it('ignores presses when it can neither close nor snap', () => {
-    const config = { ...defaultConfig('test'), dismissible: false }
+    const config = {
+      ...defaultConfig('test', (s: string) => s),
+      dismissible: false,
+    }
     expect(
       run(visible(config), { _tag: 'PointerDown', press: press() }).gesture
         ._tag,
@@ -284,7 +294,7 @@ describe('drag', () => {
 
 describe('snap points', () => {
   const config = {
-    ...defaultConfig('test'),
+    ...defaultConfig('test', (s: string) => s),
     snapPoints: [
       { _tag: 'Fraction', value: 0.4 },
       { _tag: 'Fraction', value: 0.7 },
@@ -326,7 +336,7 @@ describe('snap points', () => {
 })
 
 describe('payload helpers', () => {
-  it('reads the payload until the drawer is fully closed', () => {
+  it('reads the current payload until the drawer is fully closed', () => {
     expect(getInternal(closed())).toEqual(O.none)
     expect(getInternal(visible())).toEqual(O.some('apple'))
     const closing = run(visible(), { _tag: 'Close' })
@@ -334,31 +344,75 @@ describe('payload helpers', () => {
     expect(getInternal(run(closing, { _tag: 'TransitionEnd' }))).toEqual(O.none)
   })
 
-  it('replaces the payload without touching the animation', () => {
-    const model = setInternal('banana')(visible())
-    expect(model.animate).toEqual({ _tag: 'Visible', internal: 'banana' })
-    const closing = setInternal('cherry')(run(visible(), { _tag: 'Close' }))
-    expect(closing.animate).toEqual({ _tag: 'AnimateOut', internal: 'cherry' })
+  it('getContent finds the payload by its key, while open and closing', () => {
+    expect(getContent('apple')(visible())).toEqual(O.some('apple'))
+    expect(getContent('apple')(run(visible(), { _tag: 'Close' }))).toEqual(
+      O.some('apple'),
+    )
+    expect(getContent('banana')(visible())).toEqual(O.none)
+    expect(getContent('apple')(closed())).toEqual(O.none)
   })
 
-  it('ignores updates once the drawer is closed', () => {
-    const model = closed()
-    expect(setInternal('banana')(model)).toBe(model)
+  it('a reply for a payload replaced while closing does not reach the new one', () => {
+    // Opened for apple, closing, reopened for banana before it has closed
+    const reopened = run(
+      visible(),
+      { _tag: 'Close' },
+      { _tag: 'Open', internal: 'banana' },
+    )
+    expect(getInternal(reopened)).toEqual(O.some('banana'))
+    // A late reply from apple's content
+    expect(getContent('apple')(reopened)).toEqual(O.none)
+    expect(modifyContent('apple', () => 'apple!')(reopened)).toBe(reopened)
+  })
+
+  it('a reply for a payload replaced while open does not reach the new one', () => {
+    const replaced = run(visible(), { _tag: 'Open', internal: 'cherry' })
+    expect(getContent('apple')(replaced)).toEqual(O.none)
+    expect(getContent('cherry')(replaced)).toEqual(O.some('cherry'))
+  })
+
+  it('modifyContent updates the payload without touching the animation', () => {
+    // Keys are the first letter here, so an update can keep the key
+    const config = defaultConfig('test', (s: string) => s[0])
+    const open = run(closed(config), { _tag: 'Open', internal: 'apple' })
+    const model = modifyContent('a', (s: string) => `${s} pie`)(open)
+    expect(model.animate).toEqual({ _tag: 'Mounting', internal: 'apple pie' })
+  })
+
+  it('modifyContent refuses a key change and does nothing once closed', () => {
+    const model = visible()
+    expect(modifyContent('apple', () => 'banana')(model)).toBe(model)
+    const shut = closed()
+    expect(modifyContent('apple', () => 'apple')(shut)).toBe(shut)
+  })
+
+  it('ContentMsg is left to the owner', () => {
+    const model = visible()
+    expect(
+      update<string, string>(
+        { _tag: 'ContentMsg', key: 'apple', msg: 'hello' },
+        model,
+      )[0],
+    ).toBe(model)
   })
 })
 
 describe('getPropsEq', () => {
-  const props = (internal: string, parent: string): Props<string, string> => ({
-    model: setInternal(internal)(visible()),
+  const props = (
+    internal: string,
+    parent: string,
+  ): Props<string, never, string> => ({
+    model: run(visible(), { _tag: 'Open', internal }),
     dispatch: () => {},
-    children: () => null,
+    renderContent: () => null,
     itemEq: S.Eq,
     parent,
     parentEq: S.Eq,
   })
-  const eq = getPropsEq(S.Eq, S.Eq)
+  const eq = getPropsEq<string, never, string>(S.Eq, S.Eq)
 
-  it('ignores children and dispatch identity', () => {
+  it('ignores renderContent and dispatch identity', () => {
     expect(eq.equals(props('a', 'p'), props('a', 'p'))).toBe(true)
   })
 

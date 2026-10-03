@@ -226,16 +226,30 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
               id: 'actions',
               title: 'TEA content',
               description:
-                'A TEA menu in the payload (resets on open) and a draft outside it (kept on close).',
+                'A TEA menu in the payload, keyed by its message (resets on open), and a draft outside it (kept on close).',
               state: model.actionsDrawer.drawer.animate._tag,
-              children: openButton({
-                id: 'actions',
-                onClick: () =>
-                  dispatch({
-                    _tag: 'ActionsDrawerMsg',
-                    subMsg: { _tag: 'Open' },
-                  }),
-              }),
+              children: (
+                <>
+                  {openButton({
+                    id: 'actions',
+                    label: 'Message A',
+                    onClick: () =>
+                      dispatch({
+                        _tag: 'ActionsDrawerMsg',
+                        subMsg: { _tag: 'Open', messageId: 'A' },
+                      }),
+                  })}
+                  {openButton({
+                    id: 'actions-b',
+                    label: 'Message B',
+                    onClick: () =>
+                      dispatch({
+                        _tag: 'ActionsDrawerMsg',
+                        subMsg: { _tag: 'Open', messageId: 'B' },
+                      }),
+                  })}
+                </>
+              ),
             })}
 
             {demoCard({

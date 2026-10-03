@@ -22,11 +22,10 @@ export const FeedbackDrawer = ({
 }) => {
   const drawerDispatch = map(
     dispatch,
-    (subMsg: Drawer.Msg<null>): Msg => ({ _tag: 'DrawerMsg', subMsg }),
-  )
-  const feedbackDispatch = map(
-    dispatch,
-    (subMsg: FeedbackMsg): Msg => ({ _tag: 'FeedbackMsg', subMsg }),
+    (subMsg: Drawer.Msg<null, FeedbackMsg>): Msg => ({
+      _tag: 'DrawerMsg',
+      subMsg,
+    }),
   )
   return (
     <DrawerMemo
@@ -35,8 +34,7 @@ export const FeedbackDrawer = ({
       itemEq={nullEq}
       parent={model.feedback}
       parentEq={FeedbackModelEq}
-    >
-      {(_, feedback) => (
+      renderContent={(_, contentDispatch, feedback) => (
         <div
           data-test='content-feedback'
           className='flex min-h-0 flex-1 flex-col'
@@ -44,7 +42,7 @@ export const FeedbackDrawer = ({
           <DrawerHandle dispatch={drawerDispatch} />
           <div className='flex flex-col gap-3 px-6 pt-2 pb-8'>
             <h2 className='text-lg font-bold text-slate-900'>Feedback</h2>
-            <FeedbackForm model={feedback} dispatch={feedbackDispatch} />
+            <FeedbackForm model={feedback} dispatch={contentDispatch} />
             <button
               type='button'
               data-test='close-feedback'
@@ -56,6 +54,6 @@ export const FeedbackDrawer = ({
           </div>
         </div>
       )}
-    </DrawerMemo>
+    />
   )
 }

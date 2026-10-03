@@ -25,8 +25,7 @@ export const NonDismissibleDrawer = ({
       itemEq={nullEq}
       parent={null}
       parentEq={nullEq}
-    >
-      {(_internal) =>
+      renderContent={(_internal) =>
         drawerBody({
           id,
           dispatch: drawerDispatch,
@@ -45,6 +44,6 @@ export const NonDismissibleDrawer = ({
           ),
         })
       }
-    </DrawerMemo>
+    />
   )
 }

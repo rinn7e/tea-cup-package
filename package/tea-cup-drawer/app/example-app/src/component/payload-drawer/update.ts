@@ -3,7 +3,11 @@ import { type Cmd } from 'tea-cup-fp'
 
 import { type Model, type Msg } from './type'
 
-const config: Drawer.Config = Drawer.defaultConfig('payload')
+const config: Drawer.Config<string> = Drawer.defaultConfig(
+  'payload',
+  // The fruit is its own key
+  (fruit: string) => fruit,
+)
 
 export const defaultModel = (): Model => ({
   drawer: Drawer.defaultModel(config),

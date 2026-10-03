@@ -25,8 +25,7 @@ export const HandleOnlyDrawer = ({
       itemEq={nullEq}
       parent={null}
       parentEq={nullEq}
-    >
-      {(_internal) =>
+      renderContent={(_internal) =>
         drawerBody({
           id,
           dispatch: drawerDispatch,
@@ -34,6 +33,6 @@ export const HandleOnlyDrawer = ({
           description: 'Only the handle at the top starts a drag.',
         })
       }
-    </DrawerMemo>
+    />
   )
 }

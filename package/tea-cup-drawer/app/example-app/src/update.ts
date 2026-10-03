@@ -190,10 +190,18 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
         toMsg: (subMsg): Msg => ({ _tag: 'ActionsDrawerMsg', subMsg }),
         // The parent also sees what was picked in the menu (a grandchild
         // message), in the same step as the drawer closing
-        intercept: (subMsg) => (m) =>
-          subMsg._tag === 'ActionMenuMsg' && subMsg.subMsg._tag === 'Pick'
-            ? addLog(`moved to ${subMsg.subMsg.folder}`)(m)
-            : m,
+        intercept: (subMsg) => (m) => {
+          if (
+            subMsg._tag === 'DrawerMsg' &&
+            subMsg.subMsg._tag === 'ContentMsg' &&
+            subMsg.subMsg.msg._tag === 'ActionMenuMsg' &&
+            subMsg.subMsg.msg.subMsg._tag === 'Pick'
+          ) {
+            return addLog(`moved to ${subMsg.subMsg.msg.subMsg.folder}`)(m)
+          } else {
+            return m
+          }
+        },
       })(msg.subMsg)(model)
     case 'FeedbackDrawerMsg':
       return childDrawerHandler({

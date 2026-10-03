@@ -3,7 +3,10 @@ import { type Cmd } from 'tea-cup-fp'
 
 import { type Model, type Msg } from './type'
 
-const config: Drawer.Config = Drawer.defaultConfig('basic')
+const config: Drawer.Config<null> = Drawer.defaultConfig<null>(
+  'basic',
+  () => 'basic',
+)
 
 export const defaultModel = (): Model => ({
   drawer: Drawer.defaultModel(config),

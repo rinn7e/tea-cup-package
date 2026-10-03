@@ -25,8 +25,7 @@ export const BasicDrawer = ({
       itemEq={nullEq}
       parent={null}
       parentEq={nullEq}
-    >
-      {(_internal) =>
+      renderContent={(_internal) =>
         drawerBody({
           id,
           dispatch: drawerDispatch,
@@ -35,6 +34,6 @@ export const BasicDrawer = ({
             'Drag it down, tap the overlay or press Escape to close it.',
         })
       }
-    </DrawerMemo>
+    />
   )
 }

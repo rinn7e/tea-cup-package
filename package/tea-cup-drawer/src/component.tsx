@@ -50,14 +50,14 @@ const renderInPortal = (portal: Portal, node: ReactNode): ReactNode => {
   }
 }
 
-export const DrawerComponent = <Item, Parent>({
+export const DrawerComponent = <Item, ItemMsg, Parent>({
   model,
   dispatch,
-  children,
+  renderContent,
   parent,
   className,
   overlayClassName,
-}: Props<Item, Parent>) => {
+}: Props<Item, ItemMsg, Parent>) => {
   const animate = model.animate
   const config = model.config
   if (animate._tag === 'Invisible') {
@@ -73,7 +73,18 @@ export const DrawerComponent = <Item, Parent>({
         {contentView({
           attrs: contentAttrs(model, dispatch),
           direction: config.direction,
-          children: children(animate.internal, parent),
+          children: renderContent(
+            animate.internal,
+            // Bound to this payload: once it is replaced or closed, its
+            // messages no longer match
+            (msg) =>
+              dispatch({
+                _tag: 'ContentMsg',
+                key: config.uniqueKeyField(animate.internal),
+                msg,
+              }),
+            parent,
+          ),
         })}
       </>,
     )
@@ -81,10 +92,13 @@ export const DrawerComponent = <Item, Parent>({
 }
 
 // Re-renders only when the model (`itemEq`) or `parent` (`parentEq`) change.
-// Sound because `children` receives everything it renders from as arguments.
+// Sound because `renderContent` receives everything it renders from as
+// arguments.
 export const DrawerMemo = memo(DrawerComponent, (prev, next) =>
   getPropsEq(prev.itemEq, prev.parentEq).equals(prev, next),
-) as <Item, Parent>(props: Props<Item, Parent>) => ReactElement | null
+) as <Item, ItemMsg, Parent>(
+  props: Props<Item, ItemMsg, Parent>,
+) => ReactElement | null
 
 export type HandleProps<Item> = {
   dispatch: Dispatcher<Msg<Item>>

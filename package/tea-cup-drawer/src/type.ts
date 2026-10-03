@@ -59,9 +59,17 @@ export type Portal =
   | { _tag: 'Inline' }
   | { _tag: 'Container'; get: () => HTMLElement | null }
 
-export type Config = {
+// `Item` is the payload type; it only appears in `uniqueKeyField`, so the
+// rest of the drawer works with any `Config` (`Item` defaults to `unknown`).
+export type Config<Item = unknown> = {
   // Unique id, used to derive DOM ids and to restore focus on close
   id: string
+  // Identifies the payload (like tea-cup-pagination's `uniqueKeyField`).
+  // Content messages carry this key, so a reply from a payload that was
+  // replaced (`Open` while open or closing) or closed is dropped instead of
+  // reaching the new one. A constant for a drawer without payload.
+  // Declared as a method so a `Config<Item>` is usable as a `Config`.
+  uniqueKeyField(internal: Item): string
   direction: Direction
   // Modal drawers render an overlay, lock the body scroll and trap focus.
   // Non-modal drawers leave the page behind them interactive.
@@ -227,7 +235,7 @@ export type Model<Item> = {
   // Incremented whenever an animation starts, so frame and timeout messages
   // of an interrupted animation are ignored
   seq: number
-  config: Config
+  config: Config<Item>
 }
 
 export const getModelEq = <Item>(
@@ -245,9 +253,14 @@ export const getModelEq = <Item>(
 // Msg
 // ---------------------------------
 
-export type Msg<Item> =
+// `ItemMsg`: the messages of the content (`never` when it has none)
+export type Msg<Item, ItemMsg = never> =
   // Open the drawer with a payload, or replace the payload while it is open
   | { _tag: 'Open'; internal: Item }
+  // From the content's view (`contentDispatch`), with the payload's key.
+  // Not handled here: the owner intercepts it and updates the payload with
+  // `getContent` / `modifyContent`.
+  | { _tag: 'ContentMsg'; key: string; msg: ItemMsg }
   // Close the drawer (always honored)
   | { _tag: 'Close' }
   // Close requested by the user (overlay, Escape); ignored when not dismissible
@@ -316,19 +329,25 @@ export type Ui = {
 
 // The drawer content has two sources of data, like link-pagination's `Item`
 // and `Parent`:
-// - `internal` (`Item`): owned by the drawer. Set by `Open` / `setInternal`,
-//   kept while the drawer slides out, dropped once it is closed. Use it for
-//   state that lives and dies with the drawer (the default).
+// - `internal` (`Item`): owned by the drawer. Set by `Open`, kept while the
+//   drawer slides out, dropped once it is closed. Use it for state that lives
+//   and dies with the drawer (the default).
 // - `parent` (`Parent`): owned by the parent and only borrowed for rendering.
 //   Use it for state that must outlive the drawer (a draft) or that the parent
 //   owns anyway (current user, selection).
-// `children` must only use its arguments, the drawer's own `model` and stable
-// values like `dispatch`: anything else it closes over is invisible to
-// `DrawerMemo`.
-export type Props<Item, Parent> = {
+// The content sends its own messages with `contentDispatch` (a
+// `ContentMsg` with the payload's key), like the screen stack's
+// `screenDispatch`. `renderContent` must only use its arguments: don't pass
+// the owner's `dispatch`
+// into it, and anything else it closes over is invisible to `DrawerMemo`.
+export type Props<Item, ItemMsg, Parent> = {
   model: Model<Item>
-  dispatch: Dispatcher<Msg<Item>>
-  children: (internal: Item, parent: Parent) => ReactNode
+  dispatch: Dispatcher<Msg<Item, ItemMsg>>
+  renderContent: (
+    content: Item,
+    contentDispatch: (msg: ItemMsg) => void,
+    parent: Parent,
+  ) => ReactNode
   itemEq: EqClass.Eq<Item>
   parent: Parent
   parentEq: EqClass.Eq<Parent>
@@ -336,14 +355,14 @@ export type Props<Item, Parent> = {
   overlayClassName?: string
 }
 
-export const getPropsEq = <Item, Parent>(
+export const getPropsEq = <Item, ItemMsg, Parent>(
   itemEq: EqClass.Eq<Item>,
   parentEq: EqClass.Eq<Parent>,
-): EqClass.Eq<Props<Item, Parent>> =>
-  EqClass.struct<Props<Item, Parent>>({
+): EqClass.Eq<Props<Item, ItemMsg, Parent>> =>
+  EqClass.struct<Props<Item, ItemMsg, Parent>>({
     model: getModelEq(itemEq),
     dispatch: EqAlways,
-    children: EqAlways,
+    renderContent: EqAlways,
     itemEq: EqAlways,
     parent: parentEq,
     parentEq: EqAlways,

@@ -68,10 +68,13 @@ export type Model = {
   log: string[]
 }
 
+// The stack's messages: the drawer content's messages (sent with the
+// drawer's `contentDispatch`, arriving as its `ContentMsg`)
+export type MenuStackMsg = ScreenStack.Msg<MenuScreen, MenuScreenMsg>
+
 export type Msg =
   | { _tag: 'Open' }
-  | { _tag: 'DrawerMsg'; subMsg: Drawer.Msg<ScreenStack.Model<MenuScreen>> }
   | {
-      _tag: 'ScreenStackMsg'
-      subMsg: ScreenStack.Msg<MenuScreen, MenuScreenMsg>
+      _tag: 'DrawerMsg'
+      subMsg: Drawer.Msg<ScreenStack.Model<MenuScreen>, MenuStackMsg>
     }

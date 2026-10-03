@@ -7,7 +7,10 @@ import * as Feedback from './sub-component/feedback'
 import { type Model, type Msg } from './type'
 
 export const defaultModel = (): Model => ({
-  drawer: Drawer.defaultModel(Drawer.defaultConfig('feedback')),
+  drawer: Drawer.defaultModel(
+    // No payload: a constant key
+    Drawer.defaultConfig<null>('feedback', () => 'feedback'),
+  ),
   feedback: Feedback.defaultModel(),
   clearFeedbackWhenClosed: false,
   lastFeedback: null,
@@ -18,7 +21,7 @@ export const isOpen = (model: Model): boolean =>
   Drawer.isOpen(model.drawer.animate)
 
 const drawerMsgHandler =
-  (subMsg: Drawer.Msg<null>) =>
+  (subMsg: Drawer.Msg<null, Feedback.Msg>) =>
   (model: Model): [Model, Cmd<Msg>] => {
     const [drawer, cmd] = Drawer.update(subMsg, model.drawer)
     return pipe(
@@ -26,6 +29,14 @@ const drawerMsgHandler =
         { ...model, drawer },
         cmd.map((m): Msg => ({ _tag: 'DrawerMsg', subMsg: m })),
       ],
+      // The form's messages, from the content
+      updateAndCmd((m: Model): [Model, Cmd<Msg>] => {
+        if (subMsg._tag === 'ContentMsg') {
+          return feedbackMsgHandler(subMsg.msg)(m)
+        } else {
+          return [m, Cmd.none()]
+        }
+      }),
       updateAndCmd((m: Model): [Model, Cmd<Msg>] => {
         // With side by side state, this component decides when to reset it:
         // only once the drawer has fully closed
@@ -46,8 +57,8 @@ const drawerMsgHandler =
     )
   }
 
-// Option A: the form is routed like any other child. Nothing ties it to the
-// drawer's lifetime.
+// Option A: the form is updated like any other child, outside the payload.
+// Nothing ties it to the drawer's lifetime.
 const feedbackMsgHandler =
   (subMsg: Feedback.Msg) =>
   (model: Model): [Model, Cmd<Msg>] => {
@@ -55,7 +66,12 @@ const feedbackMsgHandler =
     return pipe(
       [
         { ...model, feedback },
-        cmd.map((m): Msg => ({ _tag: 'FeedbackMsg', subMsg: m })),
+        cmd.map(
+          (m): Msg => ({
+            _tag: 'DrawerMsg',
+            subMsg: { _tag: 'ContentMsg', key: 'feedback', msg: m },
+          }),
+        ),
       ],
       updateAndCmd((m: Model): [Model, Cmd<Msg>] => {
         if (subMsg._tag === 'Submit') {
@@ -79,8 +95,6 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
       return drawerMsgHandler({ _tag: 'Open', internal: null })(model)
     case 'DrawerMsg':
       return drawerMsgHandler(msg.subMsg)(model)
-    case 'FeedbackMsg':
-      return feedbackMsgHandler(msg.subMsg)(model)
     case 'FeedbackSent':
       return [{ ...model, lastFeedback: msg.summary }, Cmd.none()]
   }

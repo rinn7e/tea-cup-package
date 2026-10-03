@@ -5,10 +5,14 @@ import { type Dispatcher, map } from 'tea-cup-fp'
 import {
   type Model as ActionMenuModel,
   ModelEq as ActionMenuModelEq,
-  type Msg as ActionMenuMsg,
 } from './sub-component/action-menu'
 import { ActionMenu } from './sub-component/action-menu/component'
-import { ActionsParentEq, type Model, type Msg } from './type'
+import {
+  type ActionsContentMsg,
+  ActionsParentEq,
+  type Model,
+  type Msg,
+} from './type'
 
 // The menu (a TEA component) lives in the payload and resets on every open;
 // the draft lives outside it and survives closing
@@ -21,14 +25,10 @@ export const ActionsDrawer = ({
 }) => {
   const drawerDispatch = map(
     dispatch,
-    (subMsg: Drawer.Msg<ActionMenuModel>): Msg => ({
+    (subMsg: Drawer.Msg<ActionMenuModel, ActionsContentMsg>): Msg => ({
       _tag: 'DrawerMsg',
       subMsg,
     }),
-  )
-  const actionMenuDispatch = map(
-    dispatch,
-    (subMsg: ActionMenuMsg): Msg => ({ _tag: 'ActionMenuMsg', subMsg }),
   )
   return (
     <DrawerMemo
@@ -37,8 +37,7 @@ export const ActionsDrawer = ({
       itemEq={ActionMenuModelEq}
       parent={{ draft: model.draft }}
       parentEq={ActionsParentEq}
-    >
-      {(menu, parent) => (
+      renderContent={(menu, contentDispatch, parent) => (
         <div
           data-test='content-actions'
           className='flex min-h-0 flex-1 flex-col'
@@ -48,14 +47,19 @@ export const ActionsDrawer = ({
             <h2 className='text-lg font-bold text-slate-900'>
               Message actions
             </h2>
-            <ActionMenu model={menu} dispatch={actionMenuDispatch} />
+            <ActionMenu
+              model={menu}
+              dispatch={(subMsg) =>
+                contentDispatch({ _tag: 'ActionMenuMsg', subMsg })
+              }
+            />
             <label className='flex flex-col gap-1 text-sm text-slate-600'>
               Note (kept when the drawer closes)
               <textarea
                 data-test='draft'
                 value={parent.draft}
                 onChange={(e) =>
-                  dispatch({ _tag: 'SetDraft', value: e.target.value })
+                  contentDispatch({ _tag: 'SetDraft', value: e.target.value })
                 }
                 className='rounded-lg border border-slate-300 px-3 py-2 text-sm'
               />
@@ -63,6 +67,6 @@ export const ActionsDrawer = ({
           </div>
         </div>
       )}
-    </DrawerMemo>
+    />
   )
 }

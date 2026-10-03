@@ -11,7 +11,8 @@ A drawer (bottom sheet / side panel) for React and The Elm Architecture, powered
 - **vaul's gestures**: swipe to dismiss with velocity and distance thresholds, rubber-banding past the open position, snap points (fractions or px), handle taps that cycle snap points, `handleOnly`, and drags that leave scrolled content and selected text alone.
 - **Four directions**: `bottom`, `top`, `left`, `right`.
 - **Modal or not**: modal drawers render an overlay, lock the body scroll (with vaul's iOS Safari fix), trap Tab and give focus back on close. Non-modal drawers leave the page interactive.
-- **Memoized, with two data channels**: `DrawerMemo` gets the content data as arguments: `internal` (owned by the drawer, dropped when it closes) and `parent` (owned by the parent), each with its own `Eq`.
+- **Memoized, with two data channels**: `DrawerMemo`'s `renderContent(content, contentDispatch, parent)` gets everything as arguments: the payload (owned by the drawer, dropped when it closes), a dispatch for the content's own messages, and `parent` (owned by the parent), each data channel with its own `Eq`.
+- **Keyed content messages**: the payload is identified by `Config.uniqueKeyField` (like tea-cup-pagination's items and the screen stack's screens), so a reply from a payload that was closed or replaced never reaches the new one.
 - **Pure, tested logic**: the physics (`decideDrag`, `decideRelease`, `dragDistance`, ...) are pure functions in `util.ts`. DOM reads happen at event time and reach `update` as facts inside messages.
 - **Isolated React entrypoint**: types, `update` and `subscriptions` come from `@rinn7e/tea-cup-drawer`; views from `@rinn7e/tea-cup-drawer/component`.
 
@@ -59,7 +60,12 @@ export type Model = {
 export type Msg = { _tag: 'ActionsMsg'; subMsg: Drawer.Msg<Message> }
 
 export const init = (): [Model, Cmd<Msg>] => [
-  { actions: Drawer.defaultModel(Drawer.defaultConfig('message-actions')) },
+  {
+    actions: Drawer.defaultModel(
+      // The payload's key: here, the message's id
+      Drawer.defaultConfig('message-actions', (message: Message) => message.id),
+    ),
+  },
   Cmd.none(),
 ]
 ```
@@ -67,8 +73,9 @@ export const init = (): [Model, Cmd<Msg>] => [
 Customize the config by spreading the defaults:
 
 ```ts
-const config: Drawer.Config = {
-  ...Drawer.defaultConfig('composer'),
+// No payload (`null`): a constant key
+const config: Drawer.Config<null> = {
+  ...Drawer.defaultConfig<null>('composer', () => 'composer'),
   modal: false,
   dismissible: false,
   snapPoints: [
@@ -115,17 +122,16 @@ const actionsDispatch = map(dispatch, (subMsg): Msg => ({
   itemEq={MessageEq}
   parent={{ currentUserId: model.currentUserId }}
   parentEq={ParentEq}
->
-  {(message, parent) => (
+  renderContent={(message, contentDispatch, parent) => (
     <>
       <DrawerHandle dispatch={actionsDispatch} />
       <MessageActions message={message} currentUserId={parent.currentUserId} />
     </>
   )}
-</DrawerMemo>
+/>
 ```
 
-`DrawerMemo` re-renders only when the model (compared with `itemEq`) or `parent` (compared with `parentEq`) change. `children` must therefore only use its arguments, the drawer's own model and stable values like `dispatch`. Use `DrawerComponent` for the unmemoized version.
+`DrawerMemo` re-renders only when the model (compared with `itemEq`) or `parent` (compared with `parentEq`) change. `renderContent` must therefore only use its arguments: the content sends its own messages with `contentDispatch` (see below), never with the owner's `dispatch`. `DrawerHandle` and controls such as a Close button use the drawer's own dispatch. Use `DrawerComponent` for the unmemoized version.
 
 ### `internal` vs `parent`
 
@@ -134,30 +140,47 @@ The content gets two kinds of data, like link-pagination's `Item` and `Parent`. 
 |          | `internal` (`Item`)                                     | `parent` (`Parent`)                                                                            |
 | -------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | Owned by | The drawer                                              | The parent; the drawer only borrows it                                                         |
-| Set by   | `Open { internal }`, `setInternal`                      | Every render (`parent` prop)                                                                   |
+| Set by   | `Open { internal }`, `modifyContent`                    | Every render (`parent` prop)                                                                   |
 | Lifetime | Kept while sliding out, dropped once closed             | Whatever the parent currently has                                                              |
 | Use for  | State that lives and dies with the drawer (the default) | State that must outlive it (a draft), or that the parent owns anyway (current user, selection) |
 
 ### A TEA component as the content
 
-Put the component's model in `internal` and route its messages from the parent with `getInternal` / `setInternal`. The state then resets on every open, survives the close animation, and messages arriving after the drawer closed are dropped:
+Put the component's model in the payload. Its view sends messages with `contentDispatch`; they arrive as the drawer's `ContentMsg { key, msg }` (the payload's `uniqueKeyField`), which the drawer ignores and the owner intercepts with `updateAndCmd`, like tea-cup-pagination's item messages. Read and write the payload with `getContent(key)` / `modifyContent(key, f)`:
 
 ```ts
-case 'MenuMsg':
+type Msg = { _tag: 'ActionsMsg'; subMsg: Drawer.Msg<Menu.Model, Menu.Msg> }
+
+case 'ActionsMsg': {
+  const subMsg = msg.subMsg
+  const [actions, cmd] = Drawer.update(subMsg, model.actions)
   return pipe(
-    Drawer.getInternal(model.actions),
+    [{ ...model, actions }, cmd.map((m): Msg => ({ _tag: 'ActionsMsg', subMsg: m }))],
+    updateAndCmd((m) =>
+      subMsg._tag === 'ContentMsg' ? menuMsgHandler(subMsg.key, subMsg.msg)(m) : [m, Cmd.none()],
+    ),
+  )
+}
+
+const menuMsgHandler = (key: string, menuMsg: Menu.Msg) => (model: Model) =>
+  pipe(
+    Drawer.getContent(key)(model.actions),
     O.fold(
-      () => [model, Cmd.none()], // drawer closed: drop late messages
+      // Closed, or reopened with another payload: drop it
+      () => [model, Cmd.none()],
       (menu) => {
-        const [nextMenu, cmd] = Menu.update(msg.subMsg, menu)
+        const [nextMenu, cmd] = Menu.update(menuMsg, menu)
         return [
-          { ...model, actions: Drawer.setInternal(nextMenu)(model.actions) },
-          cmd.map((subMsg): Msg => ({ _tag: 'MenuMsg', subMsg })),
+          { ...model, actions: Drawer.modifyContent(key, () => nextMenu)(model.actions) },
+          // Replies carry the same key
+          cmd.map((m): Msg => ({ _tag: 'ActionsMsg', subMsg: { _tag: 'ContentMsg', key, msg: m } })),
         ]
       },
     ),
   )
 ```
+
+The state then resets on every open and survives the close animation. **The key matters:** `Open` while the drawer is open or still closing replaces the payload. A reply from the old payload (e.g. a request it started) carries the old key, so `getContent` is `none` and it is dropped instead of being written into the new payload. Reopening for the _same_ entity gives the same key, so its replies are accepted; derive a key per open if even that must not happen.
 
 The parent can still react in the same step with `updateAndCmd` (e.g. close the drawer once the menu picked something). The example app's "TEA content" demo shows the full pattern. Its "Side by side" demo shows the opposite choice: no payload (`Drawer.Model<null>`), a form owned by the parent and passed through `parent`, kept across close and reopen, and cleared only once the drawer reaches `Invisible` (clearing on `Close` would empty it while it slides away).
 

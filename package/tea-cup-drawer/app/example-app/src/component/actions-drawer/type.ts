@@ -19,8 +19,16 @@ export type ActionsParent = { draft: string }
 export const ActionsParentEq: EqClass.Eq<ActionsParent> =
   EqClass.struct<ActionsParent>({ draft: S.Eq })
 
-export type Msg =
-  | { _tag: 'Open' }
-  | { _tag: 'DrawerMsg'; subMsg: Drawer.Msg<ActionMenu.Model> }
+// Messages of the drawer content, sent with `contentDispatch` (the drawer's
+// `ContentMsg`, keyed by the menu's `messageId`)
+export type ActionsContentMsg =
   | { _tag: 'ActionMenuMsg'; subMsg: ActionMenu.Msg }
   | { _tag: 'SetDraft'; value: string }
+
+export type Msg =
+  // Open the menu for a message
+  | { _tag: 'Open'; messageId: string }
+  | {
+      _tag: 'DrawerMsg'
+      subMsg: Drawer.Msg<ActionMenu.Model, ActionsContentMsg>
+    }
