@@ -24,7 +24,7 @@ import { Sub } from 'tea-cup-fp'
 
 import { focusableElements, isTopmostLayer } from './effect'
 import { type Config, type Model, type Msg } from './type'
-import { contentDomId, isOpen } from './util'
+import { contentDomId, isGestureActive, isModal, isOpen } from './util'
 
 export const documentEvents = new DocumentEvents()
 
@@ -102,7 +102,7 @@ const keyboardSubscriptions = <Item>(config: Config): Sub<Msg<Item>> =>
     } else if (e.key === 'Escape') {
       e.preventDefault()
       return { _tag: 'Dismiss' }
-    } else if (e.key === 'Tab' && config.modal) {
+    } else if (e.key === 'Tab' && isModal(config)) {
       trapFocus(content, e)
       return { _tag: 'NoOp' }
     } else {
@@ -111,10 +111,10 @@ const keyboardSubscriptions = <Item>(config: Config): Sub<Msg<Item>> =>
   })
 
 export const subscriptions = <Item>(model: Model<Item>): Sub<Msg<Item>> => {
-  const isGestureActive =
-    model.gesture._tag === 'Pressed' || model.animate._tag === 'Dragging'
   return Sub.batch<Msg<Item>>([
-    isGestureActive ? gestureSubscriptions<Item>() : Sub.none<Msg<Item>>(),
+    isGestureActive(model.animate)
+      ? gestureSubscriptions<Item>()
+      : Sub.none<Msg<Item>>(),
     isOpen(model.animate)
       ? keyboardSubscriptions<Item>(model.config)
       : Sub.none<Msg<Item>>(),

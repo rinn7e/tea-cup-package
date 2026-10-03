@@ -27,7 +27,7 @@ import { cmdFromPromise, performIO_ } from '@rinn7e/tea-cup-prelude'
 import { type Cmd } from 'tea-cup-fp'
 
 import { type Config } from './type'
-import { contentDomId } from './util'
+import { contentDomId, isModal, locksBody } from './util'
 
 // Frames
 // ---------------------------------
@@ -168,8 +168,7 @@ const unlockBodyScroll = (): void => {
   }
 }
 
-const usesBodyLock = (config: Config): boolean =>
-  config.modal && !config.noBodyStyles
+const usesBodyLock = (config: Config): boolean => locksBody(config)
 
 export const lockBodyScrollCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
   performIO_(() => {
@@ -256,7 +255,7 @@ export const focusContentCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
       } else {
         content.focus({ preventScroll: true })
       }
-    } else if (config.modal) {
+    } else if (isModal(config)) {
       content.focus({ preventScroll: true })
     } else {
       // Non-modal drawers don't steal focus

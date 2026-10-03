@@ -41,6 +41,8 @@ import {
 import {
   contentDomId,
   directionMultiplier,
+  hasSnapPoints,
+  isModal,
   isVertical,
   overlayOpacity,
   restDistancePx,
@@ -110,7 +112,7 @@ const measurePress = <Item,>(
     // read from the element
     const startDistance =
       model.animate._tag === 'Visible'
-        ? restDistancePx(config, model.activeSnap, size)
+        ? restDistancePx(model.snap, size)
         : getTranslate(content, config.direction) *
           directionMultiplier(config.direction)
     return O.some({
@@ -138,12 +140,12 @@ export const contentAttrs = <Item,>(
 ): ContentAttrs => ({
   id: contentDomId(model.config.id),
   role: 'dialog',
-  'aria-modal': model.config.modal,
+  'aria-modal': isModal(model.config),
   tabIndex: -1,
   'data-drawer': '',
   'data-drawer-direction': model.config.direction,
   'data-state': model.animate._tag,
-  'data-snap-points': model.config.snapPoints.length > 0 ? 'true' : 'false',
+  'data-snap-points': hasSnapPoints(model.snap) ? 'true' : 'false',
   style: {
     '--drawer-translate': translateCss(model),
     '--drawer-duration': `${model.config.durationMs}ms`,

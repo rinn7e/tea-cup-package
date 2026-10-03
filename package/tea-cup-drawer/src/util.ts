@@ -23,6 +23,8 @@ SOFTWARE.
 The drag, release and snap point logic is ported from vaul
 (https://github.com/emilkowalski/vaul), Copyright (c) 2023 Emil Kowalski,
 MIT License. */
+import * as A from 'fp-ts/lib/Array'
+import * as NEA from 'fp-ts/lib/NonEmptyArray'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 
@@ -32,7 +34,10 @@ import {
   type Direction,
   type Model,
   type Press,
+  type Snap,
+  type SnapConfig,
   type SnapPoint,
+  type SnapPoints,
 } from './type'
 
 // Directions
@@ -81,17 +86,112 @@ export const draggedDistance = (
 
 export const contentDomId = (id: string): string => `tea-cup-drawer-${id}`
 
+// Modality
+// ---------------------------------
+
+export const isModal = (config: Config): boolean =>
+  config.modality._tag === 'Modal'
+
+// Whether opening the drawer locks the body scroll
+export const locksBody = (config: Config): boolean =>
+  config.modality._tag === 'Modal' && config.modality.lockBody
+
 // Snap points
 // ---------------------------------
 
-export const hasSnapPoints = (config: Config): boolean =>
-  config.snapPoints.length > 0
+// The snap points in order (smallest visible size first)
+export const snapList = (points: SnapPoints): NEA.NonEmptyArray<SnapPoint> =>
+  NEA.concat(A.append(points.active)(points.before), points.after)
 
-export const lastSnapIndex = (config: Config): number =>
-  config.snapPoints.length - 1
+// Select the snap point at `index`; `none` when out of range
+export const selectSnapPoint =
+  (index: number) =>
+  (points: SnapPoints): O.Option<SnapPoints> => {
+    const list = snapList(points)
+    return pipe(
+      A.lookup(index)(list),
+      O.map((active) => ({
+        before: list.slice(0, index),
+        active,
+        after: list.slice(index + 1),
+      })),
+    )
+  }
 
-export const fadeFromIndex = (config: Config): number =>
-  O.getOrElse(() => lastSnapIndex(config))(config.fadeFromIndex)
+// The drawer's snap state as configured, resting at the configured point
+// (on init and on every open)
+export const snapFromConfig = (config: SnapConfig): Snap => {
+  switch (config._tag) {
+    case 'NoSnap':
+      return { _tag: 'NoSnap' }
+    case 'Snap':
+      return {
+        _tag: 'Snap',
+        current: config.initial,
+        fadeFrom: config.fadeFrom,
+        sequential: config.sequential,
+      }
+  }
+}
+
+// The snap points in order (empty without snap points). The physics below
+// works on indexes into this list.
+export const snapPointsList = (snap: Snap): SnapPoint[] => {
+  switch (snap._tag) {
+    case 'NoSnap':
+      return []
+    case 'Snap':
+      return snapList(snap.current)
+  }
+}
+
+export const hasSnapPoints = (snap: Snap): boolean => snap._tag === 'Snap'
+
+export const lastSnapIndex = (snap: Snap): number =>
+  snapPointsList(snap).length - 1
+
+// `fadeFrom`, clamped to the snap points (the last one when `none`)
+export const fadeFromIndex = (snap: Snap): number => {
+  switch (snap._tag) {
+    case 'NoSnap':
+      return 0
+    case 'Snap': {
+      const last = lastSnapIndex(snap)
+      const index = O.getOrElse(() => last)(snap.fadeFrom)
+      return Math.min(last, Math.max(0, index))
+    }
+  }
+}
+
+const isSequential = (snap: Snap): boolean =>
+  snap._tag === 'Snap' && snap.sequential
+
+// Index of the snap point the drawer rests at (0 without snap points, where
+// the physics doesn't use it)
+export const activeSnapIndex = (snap: Snap): number => {
+  switch (snap._tag) {
+    case 'NoSnap':
+      return 0
+    case 'Snap':
+      return snap.current.before.length
+  }
+}
+
+// Rest at the snap point at `index`; `none` when out of range or without
+// snap points
+export const selectSnap =
+  (index: number) =>
+  (snap: Snap): O.Option<Snap> => {
+    switch (snap._tag) {
+      case 'NoSnap':
+        return O.none
+      case 'Snap':
+        return pipe(
+          selectSnapPoint(index)(snap.current),
+          O.map((current): Snap => ({ ...snap, current })),
+        )
+    }
+  }
 
 // Distance (px) from the open position to the snap point, for a drawer of
 // `size` px.
@@ -115,30 +215,28 @@ export const snapDistanceCss = (snap: SnapPoint): string => {
   }
 }
 
-const snapDistanceAt = (config: Config, index: number, size: number) =>
-  snapDistancePx(config.snapPoints[index], size)
+const snapDistanceAt = (snap: Snap, index: number, size: number) =>
+  snapDistancePx(snapPointsList(snap)[index], size)
 
 // Distance (px) of the resting position (active snap point, or fully open)
-export const restDistancePx = (
-  config: Config,
-  activeSnap: number,
-  size: number,
-): number => {
-  if (hasSnapPoints(config)) {
-    return snapDistanceAt(config, activeSnap, size)
-  } else {
-    return 0
+export const restDistancePx = (snap: Snap, size: number): number => {
+  switch (snap._tag) {
+    case 'NoSnap':
+      return 0
+    case 'Snap':
+      return snapDistancePx(snap.current.active, size)
   }
 }
 
 // Rendering
 // ---------------------------------
 
-const restDistanceCss = (config: Config, activeSnap: number): string => {
-  if (hasSnapPoints(config)) {
-    return snapDistanceCss(config.snapPoints[activeSnap])
-  } else {
-    return '0px'
+const restDistanceCss = (snap: Snap): string => {
+  switch (snap._tag) {
+    case 'NoSnap':
+      return '0px'
+    case 'Snap':
+      return snapDistanceCss(snap.current.active)
   }
 }
 
@@ -154,7 +252,7 @@ export const translateCss = <Item>(model: Model<Item>): string => {
     case 'AnimateIn':
     case 'Visible':
     case 'Settling':
-      return restDistanceCss(model.config, model.activeSnap)
+      return restDistanceCss(model.snap)
     case 'Dragging':
       return `${animate.distance}px`
   }
@@ -166,15 +264,15 @@ const clamp01 = (n: number): number => Math.min(1, Math.max(0, n))
 // snap point before `fadeFromIndex` (transparent) and `fadeFromIndex` (opaque).
 // Without snap points it fades over the whole drawer size, like vaul.
 export const overlayOpacityAt = (
-  config: Config,
+  snap: Snap,
   size: number,
   distance: number,
 ): number => {
-  if (hasSnapPoints(config)) {
-    const index = fadeFromIndex(config)
-    const opaqueAt = snapDistanceAt(config, index, size)
+  if (hasSnapPoints(snap)) {
+    const index = fadeFromIndex(snap)
+    const opaqueAt = snapDistanceAt(snap, index, size)
     const transparentAt =
-      index > 0 ? snapDistanceAt(config, index - 1, size) : size
+      index > 0 ? snapDistanceAt(snap, index - 1, size) : size
     if (transparentAt === opaqueAt) {
       return distance <= opaqueAt ? 1 : 0
     } else {
@@ -185,9 +283,9 @@ export const overlayOpacityAt = (
   }
 }
 
-const overlayOpacityAtRest = (config: Config, activeSnap: number): number => {
-  if (hasSnapPoints(config)) {
-    return activeSnap >= fadeFromIndex(config) ? 1 : 0
+const overlayOpacityAtRest = (snap: Snap): number => {
+  if (hasSnapPoints(snap)) {
+    return activeSnapIndex(snap) >= fadeFromIndex(snap) ? 1 : 0
   } else {
     return 1
   }
@@ -203,13 +301,25 @@ export const overlayOpacity = <Item>(model: Model<Item>): number => {
     case 'AnimateIn':
     case 'Visible':
     case 'Settling':
-      return overlayOpacityAtRest(model.config, model.activeSnap)
+      return overlayOpacityAtRest(model.snap)
     case 'Dragging':
-      return overlayOpacityAt(
-        model.config,
-        animate.press.size,
-        animate.distance,
-      )
+      return overlayOpacityAt(model.snap, animate.press.size, animate.distance)
+  }
+}
+
+// Whether a pointer is down on the drawer (pressed, or dragging it)
+export const isGestureActive = <Item>(animate: AnimateState<Item>): boolean => {
+  switch (animate._tag) {
+    case 'Dragging':
+      return true
+    case 'Visible':
+    case 'Settling':
+      return animate.gesture._tag === 'Pressed'
+    case 'Invisible':
+    case 'Mounting':
+    case 'AnimateIn':
+    case 'AnimateOut':
+      return false
   }
 }
 
@@ -303,17 +413,18 @@ export const dampenValue = (v: number): number => 8 * (Math.log(v + 1) - 2)
  */
 export const dragDistance = (
   config: Config,
+  snap: Snap,
   press: Press,
   dragged: number,
 ): number => {
   const distance = press.startDistance - dragged
-  if (hasSnapPoints(config)) {
+  if (hasSnapPoints(snap)) {
     // Can't go past the biggest snap point, nor below the smallest one when
     // the drawer can't be dismissed
-    const min = snapDistanceAt(config, lastSnapIndex(config), press.size)
+    const min = snapDistanceAt(snap, lastSnapIndex(snap), press.size)
     const max = config.dismissible
       ? press.size
-      : snapDistanceAt(config, 0, press.size)
+      : snapDistanceAt(snap, 0, press.size)
     return Math.min(max, Math.max(min, distance))
   } else {
     if (distance < 0) {
@@ -424,15 +535,11 @@ export type ReleaseDecision =
   // Spring back to the active snap point / open position
   | { _tag: 'Reset' }
 
-const closestSnapIndex = (
-  config: Config,
-  size: number,
-  distance: number,
-): number =>
-  config.snapPoints.reduce(
-    (best, _snap, index) =>
-      Math.abs(snapDistanceAt(config, index, size) - distance) <
-      Math.abs(snapDistanceAt(config, best, size) - distance)
+const closestSnapIndex = (snap: Snap, size: number, distance: number): number =>
+  snapPointsList(snap).reduce(
+    (best, _point, index) =>
+      Math.abs(snapDistanceAt(snap, index, size) - distance) <
+      Math.abs(snapDistanceAt(snap, best, size) - distance)
         ? index
         : best,
     0,
@@ -440,25 +547,22 @@ const closestSnapIndex = (
 
 const releaseWithSnapPoints = (
   config: Config,
-  activeSnap: number,
+  snap: Snap,
   press: Press,
   args: { dragged: number; distance: number; velocity: number },
 ): ReleaseDecision => {
-  const last = lastSnapIndex(config)
+  const activeSnap = activeSnapIndex(snap)
+  const last = lastSnapIndex(snap)
   const hasDraggedUp = args.dragged > 0
 
-  if (!config.snapToSequentialPoint && args.velocity > 2 && !hasDraggedUp) {
+  if (!isSequential(snap) && args.velocity > 2 && !hasDraggedUp) {
     // Strong flick toward closed
     if (config.dismissible) {
       return { _tag: 'Close' }
     } else {
       return { _tag: 'Snap', index: 0 }
     }
-  } else if (
-    !config.snapToSequentialPoint &&
-    args.velocity > 2 &&
-    hasDraggedUp
-  ) {
+  } else if (!isSequential(snap) && args.velocity > 2 && hasDraggedUp) {
     // Strong flick toward open
     return { _tag: 'Snap', index: last }
   } else if (
@@ -477,7 +581,7 @@ const releaseWithSnapPoints = (
   } else {
     return {
       _tag: 'Snap',
-      index: closestSnapIndex(config, press.size, args.distance),
+      index: closestSnapIndex(snap, press.size, args.distance),
     }
   }
 }
@@ -506,16 +610,16 @@ const releaseWithoutSnapPoints = (
  */
 export const decideRelease = (
   config: Config,
-  activeSnap: number,
+  snap: Snap,
   press: Press,
   release: { x: number; y: number; time: number },
 ): ReleaseDecision => {
   const dragged = draggedDistance(config.direction, press, release.x, release.y)
-  const distance = dragDistance(config, press, dragged)
+  const distance = dragDistance(config, snap, press, dragged)
   const timeTaken = Math.max(release.time - press.startedAt, 1)
   const velocity = Math.abs(dragged) / timeTaken
-  if (hasSnapPoints(config)) {
-    return releaseWithSnapPoints(config, activeSnap, press, {
+  if (hasSnapPoints(snap)) {
+    return releaseWithSnapPoints(config, snap, press, {
       dragged,
       distance,
       velocity,

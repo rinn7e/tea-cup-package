@@ -209,3 +209,35 @@
         heights: Record<string, number> // can hold heights of gone screens
       }
       ```
+
+13. **Mixing Initial Setup and Runtime State in One Type**:
+    - **Why**: For complex state that starts from a setup and then evolves (snap points and the current snap position, a data source and its loaded pages), keep two separate types even when they look alike: a `…Config` type for the initial data, and the runtime type in the `Model`. Reading the same data from both places lets them disagree, for example the physics taking points from the config and the position from the model; with two types, only the model's is read at runtime.
+    - **How**:
+      - `XConfig` lives in `Config`: the initial setup only. It is read in one place, a `xFromConfig` function that creates the runtime value (on init, and on reset such as every open).
+      - `X` lives in the `Model`: the source of truth, holding everything from `XConfig` plus the component's internal state (current position, loaded data, ...). Every update, view and helper reads only this one.
+      - Functions take the runtime `X` (not `Config` plus an index into it).
+      - **Make the two shapes differ.** TypeScript is structurally typed: two types with the same shape are interchangeable, so a function taking `X` would silently accept an `XConfig`. Name the field whose meaning differs after its role (`initial` vs `current`); that documents the difference and makes passing one for the other a compile error. When the runtime type has extra state (loaded data), the shapes already differ.
+      - Changing the setup at runtime means replacing the model's `X` (through a message), never mutating the config. This is how tea-cup-link-pagination treats its data source: `Mode` lives in the model, given at `init` and replaced when switching rooms, while `Config` only holds behaviour.
+    - **Example**: In `@rinn7e/tea-cup-drawer`, the runtime snap state is the setup plus one moving cursor, so the two types are alike except for the zipper's role:
+      ```typescript
+      // Good: different roles, different shapes
+      type SnapConfig = // in Config
+        | { _tag: 'NoSnap' }
+        | { _tag: 'Snap'; initial: SnapPoints; fadeFrom: O.Option<number>; sequential: boolean }
+
+      type Snap = // in Model: `current.active` is where the drawer rests now
+        | { _tag: 'NoSnap' }
+        | { _tag: 'Snap'; current: SnapPoints; fadeFrom: O.Option<number>; sequential: boolean }
+
+      const snapFromConfig = (config: SnapConfig): Snap => ...
+      const restDistancePx = (snap: Snap, size: number): number => ...
+      restDistancePx(config.snap, size) // compile error: `current` is missing
+
+      // Bad: the same shape under two names (TypeScript accepts one for the other)
+      type SnapConfig = { _tag: 'Snap'; points: SnapPoints; ... }
+      type Snap = { _tag: 'Snap'; points: SnapPoints; ... }
+
+      // Bad: the points in the config, the position in the model
+      type Config = { snapPoints: SnapPoint[]; initialSnap: number }
+      type Model = { activeSnap: number } // an index into another place's list
+      ```

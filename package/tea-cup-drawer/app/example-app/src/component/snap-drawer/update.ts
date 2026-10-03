@@ -1,16 +1,22 @@
 import * as Drawer from '@rinn7e/tea-cup-drawer'
+import * as O from 'fp-ts/lib/Option'
 import { type Cmd } from 'tea-cup-fp'
 
 import { type Model, type Msg } from './type'
 
 const config: Drawer.Config<null> = {
   ...Drawer.defaultConfig<null>('snap', () => 'snap'),
-  snapPoints: [
-    { _tag: 'Pixel', value: 148 },
-    { _tag: 'Fraction', value: 0.5 },
-    { _tag: 'Fraction', value: 1 },
-  ],
-  initialSnap: 1,
+  snap: {
+    _tag: 'Snap',
+    // Opens at 50% (the active point)
+    initial: {
+      before: [{ _tag: 'Pixel', value: 148 }],
+      active: { _tag: 'Fraction', value: 0.5 },
+      after: [{ _tag: 'Fraction', value: 1 }],
+    },
+    fadeFrom: O.none,
+    sequential: false,
+  },
 }
 
 export const defaultModel = (): Model => ({

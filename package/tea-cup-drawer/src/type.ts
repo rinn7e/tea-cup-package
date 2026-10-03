@@ -20,6 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { EqAlways, UndefinableEq } from '@rinn7e/tea-cup-prelude'
+import * as A from 'fp-ts/lib/Array'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as O from 'fp-ts/lib/Option'
 import * as B from 'fp-ts/lib/boolean'
@@ -53,6 +54,45 @@ export const SnapPointEq: EqClass.Eq<SnapPoint> = {
   equals: (x, y) => x._tag === y._tag && x.value === y.value,
 }
 
+// The snap points in order (smallest visible size first), with one of them
+// selected: a zipper, so the selection always exists and is always one of
+// the points.
+export type SnapPoints = {
+  before: SnapPoint[]
+  active: SnapPoint
+  after: SnapPoint[]
+}
+
+export const SnapPointsEq: EqClass.Eq<SnapPoints> = EqClass.struct<SnapPoints>({
+  before: A.getEq(SnapPointEq),
+  active: SnapPointEq,
+  after: A.getEq(SnapPointEq),
+})
+
+// Initial snap setup, read only to create the model's `Snap` (on init and
+// on every open). Without snap points the drawer rests fully open, and none
+// of the snap settings exist.
+export type SnapConfig =
+  | { _tag: 'NoSnap' }
+  | {
+      _tag: 'Snap'
+      // `active`: the snap point the drawer opens at
+      initial: SnapPoints
+      // Index of the snap point from which the overlay is fully visible
+      // (`none` = the last one; clamped to the snap points)
+      fadeFrom: O.Option<number>
+      // Release a flick on the next snap point instead of skipping to the
+      // edge
+      sequential: boolean
+    }
+
+// Modal drawers render an overlay, trap focus and (with `lockBody`) lock
+// the body scroll. Non-modal drawers leave the page behind them interactive.
+export type Modality =
+  | { _tag: 'NonModal' }
+  // `lockBody: false`: don't touch `document.body` styles
+  | { _tag: 'Modal'; lockBody: boolean }
+
 // Where the drawer is rendered in the DOM.
 export type Portal =
   | { _tag: 'Body' }
@@ -71,19 +111,11 @@ export type Config<Item = unknown> = {
   // Declared as a method so a `Config<Item>` is usable as a `Config`.
   uniqueKeyField(internal: Item): string
   direction: Direction
-  // Modal drawers render an overlay, lock the body scroll and trap focus.
-  // Non-modal drawers leave the page behind them interactive.
-  modal: boolean
+  modality: Modality
   // When false, only a programmatic `Close` closes the drawer: overlay
   // clicks, Escape and swipes are ignored.
   dismissible: boolean
-  snapPoints: SnapPoint[]
-  // Index of the snap point the drawer opens at
-  initialSnap: number
-  // Snap index from which the overlay is fully visible (`none` = the last one)
-  fadeFromIndex: O.Option<number>
-  // Release a flick on the next snap point instead of skipping to the edge
-  snapToSequentialPoint: boolean
+  snap: SnapConfig
   // Only elements inside `DrawerHandle` start a drag
   handleOnly: boolean
   // Focus the first focusable element on open instead of the drawer itself
@@ -97,8 +129,6 @@ export type Config<Item = unknown> = {
   scrollLockTimeout: number
   // Duration (ms) of the open, close and snap transitions
   durationMs: number
-  // Don't touch `document.body` styles (scroll lock) when open
-  noBodyStyles: boolean
   portal: Portal
   ui?: Ui
 }
@@ -148,59 +178,6 @@ export type PointerPosition = { x: number; y: number }
 export const PointerPositionEq: EqClass.Eq<PointerPosition> =
   EqClass.struct<PointerPosition>({ x: N.Eq, y: N.Eq })
 
-// Every phase the drawer can be in. `internal` is the payload the drawer was
-// opened with; it is kept until the drawer is fully closed, so the content
-// still renders while it animates out.
-//
-// Invisible  ─Open→  Mounting ─(next frame)→ AnimateIn ─(transitionend)→ Visible
-// Visible    ─Close→ AnimateOut ─(transitionend)→ Invisible
-// Visible    ─drag→  Dragging ─release→ Settling (snap/spring back) | AnimateOut
-export type AnimateState<Item> =
-  | { _tag: 'Invisible' }
-  // Rendered at the closed position, waiting one frame so the transition to
-  // the open position runs
-  | { _tag: 'Mounting'; internal: Item }
-  | { _tag: 'AnimateIn'; internal: Item }
-  | { _tag: 'Visible'; internal: Item }
-  // The pointer controls the position; no CSS transition
-  | {
-      _tag: 'Dragging'
-      internal: Item
-      press: Press
-      // Current distance (px) toward the closed position (negative while
-      // pulled past the open position)
-      distance: number
-      last: PointerPosition
-    }
-  // Transitioning to the active snap point after a release
-  | { _tag: 'Settling'; internal: Item }
-  | { _tag: 'AnimateOut'; internal: Item }
-
-export const getAnimateStateEq = <Item>(
-  itemEq: EqClass.Eq<Item>,
-): EqClass.Eq<AnimateState<Item>> => ({
-  equals: (x, y) => {
-    switch (x._tag) {
-      case 'Invisible':
-        return y._tag === 'Invisible'
-      case 'Mounting':
-      case 'AnimateIn':
-      case 'Visible':
-      case 'Settling':
-      case 'AnimateOut':
-        return y._tag === x._tag && itemEq.equals(x.internal, y.internal)
-      case 'Dragging':
-        return (
-          y._tag === 'Dragging' &&
-          itemEq.equals(x.internal, y.internal) &&
-          PressEq.equals(x.press, y.press) &&
-          x.distance === y.distance &&
-          PointerPositionEq.equals(x.last, y.last)
-        )
-    }
-  },
-})
-
 // A pointer is down on the drawer but it is not known yet whether the
 // gesture is a drag, a tap or a scroll of the content.
 export type Gesture =
@@ -222,13 +199,105 @@ export const GestureEq: EqClass.Eq<Gesture> = {
   },
 }
 
+// Every phase the drawer can be in. `internal` is the payload the drawer was
+// opened with; it is kept until the drawer is fully closed, so the content
+// still renders while it animates out. A press can only start at rest
+// (`Visible`, `Settling`), so only those carry a `gesture`; once it becomes a
+// drag, `Dragging` holds the press.
+//
+// Invisible  ─Open→  Mounting ─(next frame)→ AnimateIn ─(transitionend)→ Visible
+// Visible    ─Close→ AnimateOut ─(transitionend)→ Invisible
+// Visible    ─drag→  Dragging ─release→ Settling (snap/spring back) | AnimateOut
+export type AnimateState<Item> =
+  | { _tag: 'Invisible' }
+  // Rendered at the closed position, waiting one frame so the transition to
+  // the open position runs
+  | { _tag: 'Mounting'; internal: Item }
+  | { _tag: 'AnimateIn'; internal: Item }
+  | { _tag: 'Visible'; internal: Item; gesture: Gesture }
+  // The pointer controls the position; no CSS transition
+  | {
+      _tag: 'Dragging'
+      internal: Item
+      press: Press
+      // Current distance (px) toward the closed position (negative while
+      // pulled past the open position)
+      distance: number
+      last: PointerPosition
+    }
+  // Transitioning to the active snap point after a release
+  | { _tag: 'Settling'; internal: Item; gesture: Gesture }
+  | { _tag: 'AnimateOut'; internal: Item }
+
+export const getAnimateStateEq = <Item>(
+  itemEq: EqClass.Eq<Item>,
+): EqClass.Eq<AnimateState<Item>> => ({
+  equals: (x, y) => {
+    switch (x._tag) {
+      case 'Invisible':
+        return y._tag === 'Invisible'
+      case 'Mounting':
+      case 'AnimateIn':
+      case 'AnimateOut':
+        return y._tag === x._tag && itemEq.equals(x.internal, y.internal)
+      case 'Visible':
+      case 'Settling':
+        return (
+          y._tag === x._tag &&
+          itemEq.equals(x.internal, y.internal) &&
+          GestureEq.equals(x.gesture, y.gesture)
+        )
+      case 'Dragging':
+        return (
+          y._tag === 'Dragging' &&
+          itemEq.equals(x.internal, y.internal) &&
+          PressEq.equals(x.press, y.press) &&
+          x.distance === y.distance &&
+          PointerPositionEq.equals(x.last, y.last)
+        )
+    }
+  },
+})
+
 // Model
 // ---------------------------------
 
+// The snap state of the drawer, created from a `SnapConfig`. `current.active`
+// is where the drawer rests now (a zipper: always one of the points). Its
+// zipper is named differently from `SnapConfig`'s (`current` / `initial`):
+// with the same shape, TypeScript would accept one for the other.
+export type Snap =
+  | { _tag: 'NoSnap' }
+  | {
+      _tag: 'Snap'
+      current: SnapPoints
+      // Index of the snap point from which the overlay is fully visible
+      // (`none` = the last one; clamped to the snap points)
+      fadeFrom: O.Option<number>
+      sequential: boolean
+    }
+
+export const SnapEq: EqClass.Eq<Snap> = {
+  equals: (x, y) => {
+    switch (x._tag) {
+      case 'NoSnap':
+        return y._tag === 'NoSnap'
+      case 'Snap':
+        return (
+          y._tag === 'Snap' &&
+          SnapPointsEq.equals(x.current, y.current) &&
+          O.getEq(N.Eq).equals(x.fadeFrom, y.fadeFrom) &&
+          x.sequential === y.sequential
+        )
+    }
+  },
+}
+
 export type Model<Item> = {
   animate: AnimateState<Item>
-  gesture: Gesture
-  activeSnap: number
+  // The snap state: created from `config.snap` on init and on every open;
+  // the physics, the overlay and the view read only this
+  snap: Snap
   // `Event.timeStamp` of the last time a gesture scrolled the content
   // instead of dragging the drawer
   lastDragPreventedAt: O.Option<number>
@@ -243,8 +312,7 @@ export const getModelEq = <Item>(
 ): EqClass.Eq<Model<Item>> =>
   EqClass.struct<Model<Item>>({
     animate: getAnimateStateEq(itemEq),
-    gesture: GestureEq,
-    activeSnap: N.Eq,
+    snap: SnapEq,
     lastDragPreventedAt: O.getEq(N.Eq),
     seq: N.Eq,
     config: ConfigEq,

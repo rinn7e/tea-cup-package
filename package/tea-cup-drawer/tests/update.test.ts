@@ -29,6 +29,7 @@ import {
   type Msg,
   type Press,
   type Props,
+  activeSnapIndex,
   defaultConfig,
   defaultModel,
   getContent,
@@ -40,6 +41,22 @@ import {
 } from '../src'
 
 type M = Model<string>
+
+// The press state of a drawer at rest; `None` for states that can't hold one
+const gestureTag = (model: M): 'Idle' | 'Pressed' | 'None' => {
+  const animate = model.animate
+  switch (animate._tag) {
+    case 'Visible':
+    case 'Settling':
+      return animate.gesture._tag
+    case 'Invisible':
+    case 'Mounting':
+    case 'AnimateIn':
+    case 'Dragging':
+    case 'AnimateOut':
+      return 'None'
+  }
+}
 
 const run = (model: M, ...msgs: Msg<string>[]): M =>
   msgs.reduce((m, msg) => update(msg, m)[0], model)
@@ -108,20 +125,32 @@ describe('open', () => {
 
   it('only replaces the payload when already open', () => {
     const model = run(visible(), { _tag: 'Open', internal: 'banana' })
-    expect(model.animate).toEqual({ _tag: 'Visible', internal: 'banana' })
+    expect(model.animate).toEqual({
+      _tag: 'Visible',
+      internal: 'banana',
+      gesture: { _tag: 'Idle' },
+    })
   })
 
   it('opens at the initial snap point', () => {
     const config = {
       ...defaultConfig('test', (s: string) => s),
-      snapPoints: [
-        { _tag: 'Fraction', value: 0.4 },
-        { _tag: 'Fraction', value: 1 },
-      ],
-      initialSnap: 1,
-    } satisfies Config
+      snap: {
+        _tag: 'Snap',
+        // Opens at the second one
+        initial: {
+          before: [{ _tag: 'Fraction', value: 0.4 }],
+          active: { _tag: 'Fraction', value: 1 },
+          after: [],
+        },
+        fadeFrom: O.none,
+        sequential: false,
+      },
+    } satisfies Config<string>
     expect(
-      run(closed(config), { _tag: 'Open', internal: 'a' }).activeSnap,
+      activeSnapIndex(
+        run(closed(config), { _tag: 'Open', internal: 'a' }).snap,
+      ),
     ).toBe(1)
   })
 })
@@ -182,11 +211,17 @@ describe('close', () => {
   it('resets the snap point once closed', () => {
     const config = {
       ...defaultConfig('test', (s: string) => s),
-      snapPoints: [
-        { _tag: 'Fraction', value: 0.4 },
-        { _tag: 'Fraction', value: 1 },
-      ],
-    } satisfies Config
+      snap: {
+        _tag: 'Snap',
+        initial: {
+          before: [],
+          active: { _tag: 'Fraction', value: 0.4 },
+          after: [{ _tag: 'Fraction', value: 1 }],
+        },
+        fadeFrom: O.none,
+        sequential: false,
+      },
+    } satisfies Config<string>
     const model = run(
       visible(config),
       { _tag: 'SetSnap', index: 1 },
@@ -194,7 +229,7 @@ describe('close', () => {
       { _tag: 'Close' },
       { _tag: 'TransitionEnd' },
     )
-    expect(model.activeSnap).toBe(0)
+    expect(activeSnapIndex(model.snap)).toBe(0)
   })
 })
 
@@ -202,9 +237,10 @@ describe('drag', () => {
   it('ignores presses while animating in', () => {
     const mounting = run(closed(), { _tag: 'Open', internal: 'apple' })
     const animating = run(mounting, { _tag: 'MountFrame', seq: mounting.seq })
-    expect(
-      run(animating, { _tag: 'PointerDown', press: press() }).gesture._tag,
-    ).toBe('Idle')
+    // `AnimateIn` can't hold a press at all
+    const pressed = run(animating, { _tag: 'PointerDown', press: press() })
+    expect(pressed.animate._tag).toBe('AnimateIn')
+    expect(gestureTag(pressed)).toBe('None')
   })
 
   it('ignores presses when it can neither close nor snap', () => {
@@ -213,8 +249,7 @@ describe('drag', () => {
       dismissible: false,
     }
     expect(
-      run(visible(config), { _tag: 'PointerDown', press: press() }).gesture
-        ._tag,
+      gestureTag(run(visible(config), { _tag: 'PointerDown', press: press() })),
     ).toBe('Idle')
   })
 
@@ -224,7 +259,8 @@ describe('drag', () => {
       { _tag: 'PointerDown', press: press() },
       { _tag: 'PointerMove', x: 0, y: 600, time: 100, hasSelection: false },
     )
-    expect(model.gesture._tag).toBe('Idle')
+    // `Dragging` holds the press; there is no separate gesture any more
+    expect(gestureTag(model)).toBe('None')
     expect(model.animate).toMatchObject({ _tag: 'Dragging', distance: 100 })
   })
 
@@ -235,7 +271,7 @@ describe('drag', () => {
       { _tag: 'PointerMove', x: 4, y: 501, time: 10, hasSelection: false },
       { _tag: 'PointerMove', x: 40, y: 502, time: 20, hasSelection: false },
     )
-    expect(model.gesture._tag).toBe('Idle')
+    expect(gestureTag(model)).toBe('Idle')
     expect(model.animate._tag).toBe('Visible')
   })
 
@@ -246,7 +282,7 @@ describe('drag', () => {
       { _tag: 'PointerMove', x: 0, y: 600, time: 100, hasSelection: false },
     )
     expect(model.animate._tag).toBe('Visible')
-    expect(model.gesture._tag).toBe('Pressed')
+    expect(gestureTag(model)).toBe('Pressed')
     expect(model.lastDragPreventedAt).toEqual(O.some(100))
   })
 
@@ -288,38 +324,46 @@ describe('drag', () => {
       { _tag: 'PointerUp', x: 0, y: 500, time: 60 },
     )
     expect(model.animate._tag).toBe('Visible')
-    expect(model.gesture._tag).toBe('Idle')
+    expect(gestureTag(model)).toBe('Idle')
   })
 })
 
 describe('snap points', () => {
   const config = {
     ...defaultConfig('test', (s: string) => s),
-    snapPoints: [
-      { _tag: 'Fraction', value: 0.4 },
-      { _tag: 'Fraction', value: 0.7 },
-      { _tag: 'Fraction', value: 1 },
-    ],
-  } satisfies Config
+    snap: {
+      _tag: 'Snap',
+      initial: {
+        before: [],
+        active: { _tag: 'Fraction', value: 0.4 },
+        after: [
+          { _tag: 'Fraction', value: 0.7 },
+          { _tag: 'Fraction', value: 1 },
+        ],
+      },
+      fadeFrom: O.none,
+      sequential: false,
+    },
+  } satisfies Config<string>
 
   it('settles on a new snap point', () => {
     const model = run(visible(config), { _tag: 'SetSnap', index: 2 })
-    expect(model.activeSnap).toBe(2)
+    expect(activeSnapIndex(model.snap)).toBe(2)
     expect(model.animate._tag).toBe('Settling')
   })
 
   it('ignores invalid snap points', () => {
-    expect(run(visible(config), { _tag: 'SetSnap', index: 5 }).activeSnap).toBe(
-      0,
-    )
+    const model = visible(config)
+    expect(run(model, { _tag: 'SetSnap', index: 5 })).toBe(model)
+    expect(run(model, { _tag: 'SetSnap', index: -1 })).toBe(model)
   })
 
   it('cycles through the snap points from the handle', () => {
     const settle = (m: M) => run(m, { _tag: 'TransitionEnd' })
     const once = settle(run(visible(config), { _tag: 'CycleSnap' }))
-    expect(once.activeSnap).toBe(1)
+    expect(activeSnapIndex(once.snap)).toBe(1)
     const twice = settle(run(once, { _tag: 'CycleSnap' }))
-    expect(twice.activeSnap).toBe(2)
+    expect(activeSnapIndex(twice.snap)).toBe(2)
     expect(run(twice, { _tag: 'CycleSnap' }).animate._tag).toBe('AnimateOut')
   })
 
@@ -330,8 +374,44 @@ describe('snap points', () => {
       { _tag: 'PointerMove', x: 0, y: 200, time: 2000, hasSelection: false },
       { _tag: 'PointerUp', x: 0, y: 200, time: 4000 },
     )
-    expect(model.activeSnap).toBe(1)
+    expect(activeSnapIndex(model.snap)).toBe(1)
     expect(model.animate._tag).toBe('Settling')
+  })
+})
+
+describe('impossible states', () => {
+  it('has no snap position without snap points, and ignores SetSnap', () => {
+    const model = visible()
+    expect(model.snap).toEqual({ _tag: 'NoSnap' })
+    expect(run(model, { _tag: 'SetSnap', index: 0 })).toBe(model)
+  })
+
+  it('keeps a press made while settling once it has settled', () => {
+    const reopened = run(
+      visible(),
+      { _tag: 'Close' },
+      { _tag: 'Open', internal: 'apple' },
+    )
+    const config = {
+      ...defaultConfig('test', (s: string) => s),
+      snap: {
+        _tag: 'Snap',
+        initial: {
+          before: [],
+          active: { _tag: 'Fraction', value: 0.5 },
+          after: [{ _tag: 'Fraction', value: 1 }],
+        },
+        fadeFrom: O.none,
+        sequential: false,
+      },
+    } satisfies Config<string>
+    const snapping = run(visible(config), { _tag: 'SetSnap', index: 1 })
+    expect(snapping.animate._tag).toBe('Settling')
+    const pressed = run(snapping, { _tag: 'PointerDown', press: press() })
+    expect(gestureTag(pressed)).toBe('Pressed')
+    expect(gestureTag(run(pressed, { _tag: 'TransitionEnd' }))).toBe('Pressed')
+    // A reopened drawer animates in, which holds no press
+    expect(gestureTag(reopened)).toBe('None')
   })
 })
 

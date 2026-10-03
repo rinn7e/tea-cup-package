@@ -20,23 +20,33 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as O from 'fp-ts/lib/Option'
+import { pipe } from 'fp-ts/lib/function'
 import { describe, expect, it } from 'vitest'
 
 import {
   type Config,
   type Model,
   type Press,
+  type Snap,
+  type SnapPoints,
   decideDrag,
   decideRelease,
   defaultConfig,
   defaultModel,
   dragDistance,
   draggedDistance,
+  fadeFromIndex,
   isDeltaInDirection,
+  isModal,
+  locksBody,
   overlayOpacity,
   overlayOpacityAt,
+  selectSnap,
+  selectSnapPoint,
   snapDistanceCss,
   snapDistancePx,
+  snapFromConfig,
+  snapList,
   translateCss,
 } from '../src'
 
@@ -55,12 +65,25 @@ const press = (overrides: Partial<Press> = {}): Press => ({
 
 const snapConfig = (overrides: Partial<Config> = {}): Config => ({
   ...defaultConfig('snap', () => 'snap'),
-  snapPoints: [
-    { _tag: 'Fraction', value: 0.4 },
-    { _tag: 'Fraction', value: 1 },
-  ],
+  snap: {
+    _tag: 'Snap',
+    initial: {
+      before: [],
+      active: { _tag: 'Fraction', value: 0.4 },
+      after: [{ _tag: 'Fraction', value: 1 }],
+    },
+    fadeFrom: O.none,
+    sequential: false,
+  },
   ...overrides,
 })
+
+// The drawer's snap state for `config`, resting at the snap point `index`
+const snapOf = (config: Config, index: number = 0): Snap =>
+  pipe(
+    selectSnap(index)(snapFromConfig(config.snap)),
+    O.getOrElse(() => snapFromConfig(config.snap)),
+  )
 
 describe('draggedDistance', () => {
   it('is positive when pulling a bottom drawer up (open)', () => {
@@ -90,28 +113,37 @@ describe('dragDistance', () => {
   const config = defaultConfig('basic', () => 'basic')
 
   it('follows the pointer toward the closed position', () => {
-    expect(dragDistance(config, press(), -100)).toBe(100)
+    expect(dragDistance(config, snapOf(config), press(), -100)).toBe(100)
   })
 
   it('rubber-bands past the open position', () => {
-    const distance = dragDistance(config, press(), 50)
+    const distance = dragDistance(config, snapOf(config), press(), 50)
     expect(distance).toBeLessThan(0)
     expect(distance).toBeGreaterThan(-50)
     // Tiny pulls don't move the drawer at all
-    expect(dragDistance(config, press(), 3)).toBe(-0)
+    expect(dragDistance(config, snapOf(config), press(), 3)).toBe(-0)
   })
 
   it('starts from where the drawer was when pressed', () => {
-    expect(dragDistance(config, press({ startDistance: 200 }), -100)).toBe(300)
+    expect(
+      dragDistance(config, snapOf(config), press({ startDistance: 200 }), -100),
+    ).toBe(300)
   })
 
   it('clamps between the snap points', () => {
     const start = press({ startDistance: 600 })
-    expect(dragDistance(snapConfig(), start, 700)).toBe(0)
-    expect(dragDistance(snapConfig(), start, -200)).toBe(800)
-    expect(dragDistance(snapConfig({ dismissible: false }), start, -200)).toBe(
-      600,
+    expect(dragDistance(snapConfig(), snapOf(snapConfig()), start, 700)).toBe(0)
+    expect(dragDistance(snapConfig(), snapOf(snapConfig()), start, -200)).toBe(
+      800,
     )
+    expect(
+      dragDistance(
+        snapConfig({ dismissible: false }),
+        snapOf(snapConfig({ dismissible: false })),
+        start,
+        -200,
+      ),
+    ).toBe(600)
   })
 })
 
@@ -207,25 +239,41 @@ describe('decideRelease without snap points', () => {
 
   it('closes after a slow drag past the threshold', () => {
     expect(
-      decideRelease(config, 0, press(), { x: 0, y: 800, time: 3000 }),
+      decideRelease(config, snapOf(config, 0), press(), {
+        x: 0,
+        y: 800,
+        time: 3000,
+      }),
     ).toEqual({ _tag: 'Close' })
   })
 
   it('springs back after a short slow drag', () => {
     expect(
-      decideRelease(config, 0, press(), { x: 0, y: 600, time: 3000 }),
+      decideRelease(config, snapOf(config, 0), press(), {
+        x: 0,
+        y: 600,
+        time: 3000,
+      }),
     ).toEqual({ _tag: 'Reset' })
   })
 
   it('closes on a flick', () => {
     expect(
-      decideRelease(config, 0, press(), { x: 0, y: 600, time: 50 }),
+      decideRelease(config, snapOf(config, 0), press(), {
+        x: 0,
+        y: 600,
+        time: 50,
+      }),
     ).toEqual({ _tag: 'Close' })
   })
 
   it('springs back when dragged toward open', () => {
     expect(
-      decideRelease(config, 0, press(), { x: 0, y: 100, time: 50 }),
+      decideRelease(config, snapOf(config, 0), press(), {
+        x: 0,
+        y: 100,
+        time: 50,
+      }),
     ).toEqual({ _tag: 'Reset' })
   })
 })
@@ -236,38 +284,67 @@ describe('decideRelease with snap points', () => {
 
   it('snaps to the closest point after a slow drag', () => {
     expect(
-      decideRelease(snapConfig(), 0, atFirst, { x: 0, y: 0, time: 5000 }),
+      decideRelease(snapConfig(), snapOf(snapConfig(), 0), atFirst, {
+        x: 0,
+        y: 0,
+        time: 5000,
+      }),
     ).toEqual({ _tag: 'Snap', index: 1 })
     expect(
-      decideRelease(snapConfig(), 1, atLast, { x: 0, y: 700, time: 5000 }),
+      decideRelease(snapConfig(), snapOf(snapConfig(), 1), atLast, {
+        x: 0,
+        y: 700,
+        time: 5000,
+      }),
     ).toEqual({ _tag: 'Snap', index: 1 })
   })
 
   it('closes on a strong flick down when dismissible', () => {
     expect(
-      decideRelease(snapConfig(), 1, atLast, { x: 0, y: 700, time: 50 }),
-    ).toEqual({ _tag: 'Close' })
-    expect(
-      decideRelease(snapConfig({ dismissible: false }), 1, atLast, {
+      decideRelease(snapConfig(), snapOf(snapConfig(), 1), atLast, {
         x: 0,
         y: 700,
         time: 50,
       }),
+    ).toEqual({ _tag: 'Close' })
+    expect(
+      decideRelease(
+        snapConfig({ dismissible: false }),
+        snapOf(snapConfig({ dismissible: false }), 1),
+        atLast,
+        {
+          x: 0,
+          y: 700,
+          time: 50,
+        },
+      ),
     ).toEqual({ _tag: 'Snap', index: 0 })
   })
 
   it('jumps to the last point on a strong flick up', () => {
     expect(
-      decideRelease(snapConfig(), 0, atFirst, { x: 0, y: 400, time: 50 }),
+      decideRelease(snapConfig(), snapOf(snapConfig(), 0), atFirst, {
+        x: 0,
+        y: 400,
+        time: 50,
+      }),
     ).toEqual({ _tag: 'Snap', index: 1 })
   })
 
   it('moves one point on a medium flick', () => {
     expect(
-      decideRelease(snapConfig(), 0, atFirst, { x: 0, y: 300, time: 400 }),
+      decideRelease(snapConfig(), snapOf(snapConfig(), 0), atFirst, {
+        x: 0,
+        y: 300,
+        time: 400,
+      }),
     ).toEqual({ _tag: 'Snap', index: 1 })
     expect(
-      decideRelease(snapConfig(), 0, atFirst, { x: 0, y: 700, time: 400 }),
+      decideRelease(snapConfig(), snapOf(snapConfig(), 0), atFirst, {
+        x: 0,
+        y: 700,
+        time: 400,
+      }),
     ).toEqual({ _tag: 'Close' })
   })
 })
@@ -275,23 +352,26 @@ describe('decideRelease with snap points', () => {
 describe('overlay opacity', () => {
   it('fades over the drawer size without snap points', () => {
     const config = defaultConfig('basic', () => 'basic')
-    expect(overlayOpacityAt(config, 1000, 0)).toBe(1)
-    expect(overlayOpacityAt(config, 1000, 250)).toBe(0.75)
-    expect(overlayOpacityAt(config, 1000, 2000)).toBe(0)
+    expect(overlayOpacityAt(snapOf(config), 1000, 0)).toBe(1)
+    expect(overlayOpacityAt(snapOf(config), 1000, 250)).toBe(0.75)
+    expect(overlayOpacityAt(snapOf(config), 1000, 2000)).toBe(0)
   })
 
   it('fades in between the snap point before fadeFromIndex and it', () => {
-    expect(overlayOpacityAt(snapConfig(), 1000, 600)).toBe(0)
-    expect(overlayOpacityAt(snapConfig(), 1000, 300)).toBe(0.5)
-    expect(overlayOpacityAt(snapConfig(), 1000, 0)).toBe(1)
+    expect(overlayOpacityAt(snapOf(snapConfig()), 1000, 600)).toBe(0)
+    expect(overlayOpacityAt(snapOf(snapConfig()), 1000, 300)).toBe(0.5)
+    expect(overlayOpacityAt(snapOf(snapConfig()), 1000, 0)).toBe(1)
   })
 })
 
 describe('rendering', () => {
   const visible = (config: Config, activeSnap: number): Model<string> => ({
     ...defaultModel<string>(config),
-    activeSnap,
-    animate: { _tag: 'Visible', internal: 'x' },
+    snap: pipe(
+      selectSnap(activeSnap)(snapFromConfig(config.snap)),
+      O.getOrElse(() => snapFromConfig(config.snap)),
+    ),
+    animate: { _tag: 'Visible', internal: 'x', gesture: { _tag: 'Idle' } },
   })
 
   it('renders closed states fully translated', () => {
@@ -327,5 +407,67 @@ describe('rendering', () => {
     }
     expect(translateCss(model)).toBe('120px')
     expect(overlayOpacity(model)).toBe(0.88)
+  })
+})
+
+describe('snap points', () => {
+  const points: SnapPoints = {
+    before: [{ _tag: 'Pixel', value: 100 }],
+    active: { _tag: 'Fraction', value: 0.5 },
+    after: [{ _tag: 'Fraction', value: 1 }],
+  }
+
+  it('lists the points in order, the active one at its index', () => {
+    expect(snapList(points)).toEqual([
+      { _tag: 'Pixel', value: 100 },
+      { _tag: 'Fraction', value: 0.5 },
+      { _tag: 'Fraction', value: 1 },
+    ])
+  })
+
+  it('selects a point by index, none out of range', () => {
+    expect(selectSnapPoint(2)(points)).toEqual(
+      O.some({
+        before: [
+          { _tag: 'Pixel', value: 100 },
+          { _tag: 'Fraction', value: 0.5 },
+        ],
+        active: { _tag: 'Fraction', value: 1 },
+        after: [],
+      }),
+    )
+    expect(selectSnapPoint(3)(points)).toEqual(O.none)
+    expect(selectSnapPoint(-1)(points)).toEqual(O.none)
+  })
+
+  it('clamps fadeFrom to the snap points', () => {
+    expect(fadeFromIndex(snapOf(snapConfig()))).toBe(1)
+    expect(
+      fadeFromIndex(
+        snapFromConfig({
+          _tag: 'Snap',
+          initial: points,
+          fadeFrom: O.some(9),
+          sequential: false,
+        }),
+      ),
+    ).toBe(2)
+  })
+})
+
+describe('modality', () => {
+  it('only modal drawers with lockBody lock the body', () => {
+    const base = defaultConfig('a', () => 'a')
+    expect(isModal(base)).toBe(true)
+    expect(locksBody(base)).toBe(true)
+    const noLock: Config = {
+      ...base,
+      modality: { _tag: 'Modal', lockBody: false },
+    }
+    expect(isModal(noLock)).toBe(true)
+    expect(locksBody(noLock)).toBe(false)
+    const nonModal: Config = { ...base, modality: { _tag: 'NonModal' } }
+    expect(isModal(nonModal)).toBe(false)
+    expect(locksBody(nonModal)).toBe(false)
   })
 })

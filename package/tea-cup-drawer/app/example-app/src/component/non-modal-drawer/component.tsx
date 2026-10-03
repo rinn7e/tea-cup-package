@@ -1,4 +1,4 @@
-import type * as Drawer from '@rinn7e/tea-cup-drawer'
+import * as Drawer from '@rinn7e/tea-cup-drawer'
 import { DrawerMemo } from '@rinn7e/tea-cup-drawer/component'
 import { nullEq } from '@rinn7e/tea-cup-prelude'
 import { type Dispatcher, map } from 'tea-cup-fp'
@@ -37,7 +37,7 @@ export const NonModalDrawer = ({
             <span className='text-sm text-slate-600'>
               Active snap:{' '}
               <span data-test='non-modal-snap-index' className='font-bold'>
-                {model.drawer.activeSnap}
+                {Drawer.activeSnapIndex(model.drawer.snap)}
               </span>
             </span>
           ),

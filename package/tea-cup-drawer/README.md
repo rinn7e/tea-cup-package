@@ -76,12 +76,19 @@ Customize the config by spreading the defaults:
 // No payload (`null`): a constant key
 const config: Drawer.Config<null> = {
   ...Drawer.defaultConfig<null>('composer', () => 'composer'),
-  modal: false,
+  modality: { _tag: 'NonModal' },
   dismissible: false,
-  snapPoints: [
-    { _tag: 'Pixel', value: 120 },
-    { _tag: 'Fraction', value: 1 },
-  ],
+  snap: {
+    _tag: 'Snap',
+    // A zipper: `active` is the snap point it opens at
+    initial: {
+      before: [],
+      active: { _tag: 'Pixel', value: 120 },
+      after: [{ _tag: 'Fraction', value: 1 }],
+    },
+    fadeFrom: O.none,
+    sequential: false,
+  },
 }
 ```
 
@@ -241,31 +248,29 @@ AnimateIn  ─Close→ AnimateOut    (reverse from the current position)
 
 Each animation bumps `model.seq`; `AnimationTimeout` (sent `durationMs + 50` after it starts) settles the state if `transitionend` never fires, and is ignored once a newer animation has started.
 
-Before a drag starts, a press lives in `model.gesture` (`Pressed`). It becomes `Dragging` once the pointer moves along the axis and `decideDrag` allows it; otherwise the gesture belongs to the content (scrolling, horizontal swipes, text selection).
+A press can only start at rest, so only `Visible` and `Settling` carry a `gesture` (`Idle` / `Pressed`). It becomes `Dragging` once the pointer moves along the axis and `decideDrag` allows it; `Dragging` then holds the press, so it exists in one place. Otherwise the gesture belongs to the content (scrolling, horizontal swipes, text selection).
+
+The model can't represent impossible states (see the code convention): no press while invisible, opening or closing; no active snap point without snap points (`model.snap` is `NoSnap` or a zipper of the points, so the active one always exists); no snap settings without snap points; no body-lock setting on a non-modal drawer. `config.snap` (`SnapConfig`, zipper `initial`) is only the setup; `model.snap` (`Snap`, zipper `current`) is created from it on init and on every open, and is the only snap state the physics, overlay and view read.
 
 ---
 
 ## Config
 
-| Field                   | Default            | Description                                                                                                 |
-| ----------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `id`                    | —                  | Unique id; the content element gets `id="tea-cup-drawer-<id>"`                                              |
-| `direction`             | `'bottom'`         | Edge the drawer is attached to                                                                              |
-| `modal`                 | `true`             | Overlay, body scroll lock, focus trap                                                                       |
-| `dismissible`           | `true`             | When `false`, only `Close` closes the drawer                                                                |
-| `snapPoints`            | `[]`               | `{ _tag: 'Fraction', value }` or `{ _tag: 'Pixel', value }`; the drawer must span the screen along its axis |
-| `initialSnap`           | `0`                | Snap index the drawer opens at                                                                              |
-| `fadeFromIndex`         | `O.none`           | Snap index from which the overlay is opaque (`none` = last)                                                 |
-| `snapToSequentialPoint` | `false`            | Flicks move one snap point instead of jumping to the edge                                                   |
-| `handleOnly`            | `false`            | Only `DrawerHandle` starts a drag                                                                           |
-| `autoFocus`             | `false`            | Focus the first focusable element on open (instead of the drawer)                                           |
-| `closeThreshold`        | `0.25`             | Fraction of the drawer a slow swipe must cover to close                                                     |
-| `velocityThreshold`     | `0.4`              | px/ms above which a swipe is a flick                                                                        |
-| `scrollLockTimeout`     | `100`              | ms after a content scroll during which dragging stays off                                                   |
-| `durationMs`            | `500`              | Transition duration                                                                                         |
-| `noBodyStyles`          | `false`            | Don't touch `document.body` (scroll lock)                                                                   |
-| `portal`                | `{ _tag: 'Body' }` | `Body`, `Inline` or `{ _tag: 'Container', get }`                                                            |
-| `ui`                    | —                  | `{ content?, overlay? }` view overrides                                                                     |
+| Field               | Default                    | Description                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                | —                          | Unique id; the content element gets `id="tea-cup-drawer-<id>"`                                                                                                                                                                                                                                                                                                         |
+| `direction`         | `'bottom'`                 | Edge the drawer is attached to                                                                                                                                                                                                                                                                                                                                         |
+| `modality`          | `Modal { lockBody: true }` | `Modal` (overlay, focus trap, body scroll lock when `lockBody`) or `NonModal`                                                                                                                                                                                                                                                                                          |
+| `dismissible`       | `true`                     | When `false`, only `Close` closes the drawer                                                                                                                                                                                                                                                                                                                           |
+| `snap`              | `NoSnap`                   | `NoSnap`, or `Snap { initial, fadeFrom, sequential }`: `initial` is a zipper of `{ _tag: 'Fraction' \| 'Pixel', value }` whose `active` is where it opens (the drawer must span the screen along its axis); `fadeFrom` is the index from which the overlay is opaque (`none` = last, clamped); `sequential` makes flicks move one point instead of jumping to the edge |
+| `handleOnly`        | `false`                    | Only `DrawerHandle` starts a drag                                                                                                                                                                                                                                                                                                                                      |
+| `autoFocus`         | `false`                    | Focus the first focusable element on open (instead of the drawer)                                                                                                                                                                                                                                                                                                      |
+| `closeThreshold`    | `0.25`                     | Fraction of the drawer a slow swipe must cover to close                                                                                                                                                                                                                                                                                                                |
+| `velocityThreshold` | `0.4`                      | px/ms above which a swipe is a flick                                                                                                                                                                                                                                                                                                                                   |
+| `scrollLockTimeout` | `100`                      | ms after a content scroll during which dragging stays off                                                                                                                                                                                                                                                                                                              |
+| `durationMs`        | `500`                      | Transition duration                                                                                                                                                                                                                                                                                                                                                    |
+| `portal`            | `{ _tag: 'Body' }`         | `Body`, `Inline` or `{ _tag: 'Container', get }`                                                                                                                                                                                                                                                                                                                       |
+| `ui`                | —                          | `{ content?, overlay? }` view overrides                                                                                                                                                                                                                                                                                                                                |
 
 Escape and the Tab trap apply to the topmost open drawer only (the most recently opened), like Radix's layer stack.
 

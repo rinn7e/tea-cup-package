@@ -6,11 +6,17 @@ import { type Model, type Msg } from './type'
 
 const config: Drawer.Config<null> = {
   ...Drawer.defaultConfig<null>('snapFullscreen', () => 'snapFullscreen'),
-  snapPoints: [
-    { _tag: 'Pixel', value: 260 },
-    { _tag: 'Fraction', value: 1 },
-  ],
-  fadeFromIndex: O.some(0),
+  snap: {
+    _tag: 'Snap',
+    initial: {
+      before: [],
+      active: { _tag: 'Pixel', value: 260 },
+      after: [{ _tag: 'Fraction', value: 1 }],
+    },
+    // The overlay is fully visible from the short sheet on, like Basic
+    fadeFrom: O.some(0),
+    sequential: false,
+  },
 }
 
 export const defaultModel = (): Model => ({

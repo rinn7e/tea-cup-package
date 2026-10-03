@@ -26,6 +26,7 @@ import { type Dispatcher } from 'tea-cup-fp'
 
 import './drawer.css'
 import { type Msg, type Portal, type Props, getPropsEq } from './type'
+import { isModal } from './util'
 import {
   contentAttrs,
   defaultContentView,
@@ -69,7 +70,8 @@ export const DrawerComponent = <Item, ItemMsg, Parent>({
     return renderInPortal(
       config.portal,
       <>
-        {config.modal && overlayView({ attrs: overlayAttrs(model, dispatch) })}
+        {isModal(config) &&
+          overlayView({ attrs: overlayAttrs(model, dispatch) })}
         {contentView({
           attrs: contentAttrs(model, dispatch),
           direction: config.direction,

@@ -21,6 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { delayCmd } from '@rinn7e/tea-cup-prelude'
 import * as O from 'fp-ts/lib/Option'
+import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
 import {
@@ -31,8 +32,16 @@ import {
   pushLayerCmd,
   unlockBodyScrollCmd,
 } from './effect'
-import { type Config, type Model, type Msg, type Press } from './type'
 import {
+  type AnimateState,
+  type Config,
+  type Gesture,
+  type Model,
+  type Msg,
+  type Press,
+} from './type'
+import {
+  activeSnapIndex,
   decideDrag,
   decideRelease,
   dragDistance,
@@ -40,6 +49,8 @@ import {
   hasSnapPoints,
   isDeltaInDirection,
   lastSnapIndex,
+  selectSnap,
+  snapFromConfig,
   swipeStartThreshold,
 } from './util'
 
@@ -53,26 +64,21 @@ export const defaultConfig = <Item>(
   id,
   uniqueKeyField,
   direction: 'bottom',
-  modal: true,
+  modality: { _tag: 'Modal', lockBody: true },
   dismissible: true,
-  snapPoints: [],
-  initialSnap: 0,
-  fadeFromIndex: O.none,
-  snapToSequentialPoint: false,
+  snap: { _tag: 'NoSnap' },
   handleOnly: false,
   autoFocus: false,
   closeThreshold: 0.25,
   velocityThreshold: 0.4,
   scrollLockTimeout: 100,
   durationMs: 500,
-  noBodyStyles: false,
   portal: { _tag: 'Body' },
 })
 
 export const defaultModel = <Item>(config: Config<Item>): Model<Item> => ({
   animate: { _tag: 'Invisible' },
-  gesture: { _tag: 'Idle' },
-  activeSnap: config.initialSnap,
+  snap: snapFromConfig(config.snap),
   lastDragPreventedAt: O.none,
   seq: 0,
   config,
@@ -97,11 +103,7 @@ const animationTimeoutCmd = <Item>(model: Model<Item>): Cmd<Msg<Item>> =>
 const startAnimation = <Item>(
   model: Model<Item>,
 ): [Model<Item>, Cmd<Msg<Item>>] => {
-  const next: Model<Item> = {
-    ...model,
-    seq: model.seq + 1,
-    gesture: { _tag: 'Idle' },
-  }
+  const next: Model<Item> = { ...model, seq: model.seq + 1 }
   return [next, animationTimeoutCmd(next)]
 }
 
@@ -119,7 +121,7 @@ export const openHandler =
           {
             ...model,
             animate: { _tag: 'Mounting', internal },
-            activeSnap: model.config.initialSnap,
+            snap: snapFromConfig(model.config.snap),
             seq,
           },
           Cmd.batch([
@@ -155,8 +157,7 @@ const finishClose = <Item>(
   {
     ...model,
     animate: { _tag: 'Invisible' },
-    gesture: { _tag: 'Idle' },
-    activeSnap: model.config.initialSnap,
+    snap: snapFromConfig(model.config.snap),
     seq: model.seq + 1,
   },
   Cmd.batch([
@@ -209,9 +210,28 @@ const animationEndHandler = <Item>(
   const animate = model.animate
   switch (animate._tag) {
     case 'AnimateIn':
-    case 'Settling':
       return [
-        { ...model, animate: { _tag: 'Visible', internal: animate.internal } },
+        {
+          ...model,
+          animate: {
+            _tag: 'Visible',
+            internal: animate.internal,
+            gesture: { _tag: 'Idle' },
+          },
+        },
+        Cmd.none(),
+      ]
+    case 'Settling':
+      // A press made while settling carries on
+      return [
+        {
+          ...model,
+          animate: {
+            _tag: 'Visible',
+            internal: animate.internal,
+            gesture: animate.gesture,
+          },
+        },
         Cmd.none(),
       ]
     case 'AnimateOut':
@@ -244,34 +264,43 @@ export const setSnapHandler =
   (index: number) =>
   <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const animate = model.animate
-    const isValid = index >= 0 && index <= lastSnapIndex(model.config)
-    if (!isValid || index === model.activeSnap) {
-      return [model, Cmd.none()]
-    } else {
-      switch (animate._tag) {
-        case 'AnimateIn':
-        case 'Visible':
-        case 'Settling': {
-          const [next, cmd] = startAnimation(model)
-          return [
-            {
-              ...next,
-              activeSnap: index,
-              animate: { _tag: 'Settling', internal: animate.internal },
-            },
-            cmd,
-          ]
-        }
-        case 'Invisible':
-        case 'Mounting':
-          // Not on screen yet: just pick the snap point
-          return [{ ...model, activeSnap: index }, Cmd.none()]
-        case 'Dragging':
-        case 'AnimateOut':
-          // The pointer or the close animation is in control
-          return [model, Cmd.none()]
-      }
-    }
+    return pipe(
+      selectSnap(index)(model.snap),
+      O.filter(() => index !== activeSnapIndex(model.snap)),
+      O.fold(
+        // Out of range, no snap points, or already there
+        (): [Model<Item>, Cmd<Msg<Item>>] => [model, Cmd.none()],
+        (snap): [Model<Item>, Cmd<Msg<Item>>] => {
+          switch (animate._tag) {
+            case 'AnimateIn':
+            case 'Visible':
+            case 'Settling': {
+              const [next, cmd] = startAnimation(model)
+              return [
+                {
+                  ...next,
+                  snap,
+                  animate: {
+                    _tag: 'Settling',
+                    internal: animate.internal,
+                    gesture: { _tag: 'Idle' },
+                  },
+                },
+                cmd,
+              ]
+            }
+            case 'Invisible':
+            case 'Mounting':
+              // Not on screen yet: just pick the snap point
+              return [{ ...model, snap }, Cmd.none()]
+            case 'Dragging':
+            case 'AnimateOut':
+              // The pointer or the close animation is in control
+              return [model, Cmd.none()]
+          }
+        },
+      ),
+    )
   }
 
 // Port of vaul's handle tap: cycle to the next snap point, closing from the
@@ -279,8 +308,8 @@ export const setSnapHandler =
 const cycleSnapHandler = <Item>(
   model: Model<Item>,
 ): [Model<Item>, Cmd<Msg<Item>>] => {
-  const isLast = model.activeSnap === lastSnapIndex(model.config)
-  if (model.animate._tag !== 'Visible' || !hasSnapPoints(model.config)) {
+  const isLast = activeSnapIndex(model.snap) === lastSnapIndex(model.snap)
+  if (model.animate._tag !== 'Visible' || !hasSnapPoints(model.snap)) {
     // Ignore taps during animations and right after a drag
     return [model, Cmd.none()]
   } else if (isLast && model.config.dismissible) {
@@ -288,30 +317,44 @@ const cycleSnapHandler = <Item>(
   } else if (isLast) {
     return [model, Cmd.none()]
   } else {
-    return setSnapHandler(model.activeSnap + 1)(model)
+    return setSnapHandler(activeSnapIndex(model.snap) + 1)(model)
   }
 }
+
+// Replace the gesture of a drawer at rest; any other state has none
+const withGesture =
+  (gesture: Gesture) =>
+  <Item>(model: Model<Item>): Model<Item> => {
+    const animate = model.animate
+    switch (animate._tag) {
+      case 'Visible':
+      case 'Settling':
+        return { ...model, animate: { ...animate, gesture } }
+      case 'Invisible':
+      case 'Mounting':
+      case 'AnimateIn':
+      case 'Dragging':
+      case 'AnimateOut':
+        return model
+    }
+  }
 
 const pointerDownHandler =
   (press: Press) =>
   <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
-    const canDrag = model.config.dismissible || hasSnapPoints(model.config)
-    const isAtRest =
-      model.animate._tag === 'Visible' || model.animate._tag === 'Settling'
-    if (canDrag && isAtRest) {
+    const canDrag = model.config.dismissible || hasSnapPoints(model.snap)
+    if (canDrag) {
+      // Only taken by a drawer at rest (`withGesture`)
       return [
-        {
-          ...model,
-          gesture: {
-            _tag: 'Pressed',
-            press,
-            last: { x: press.startX, y: press.startY },
-          },
-        },
+        withGesture({
+          _tag: 'Pressed',
+          press,
+          last: { x: press.startX, y: press.startY },
+        })(model),
         Cmd.none(),
       ]
     } else {
-      // Can't be dragged, or still animating in / out
+      // Can't be dragged
       return [model, Cmd.none()]
     }
   }
@@ -319,11 +362,14 @@ const pointerDownHandler =
 // The pointer moved while pressed: decide whether the gesture is a drag of
 // the drawer, a scroll of the content, or a swipe across the drawer axis.
 const pressedMoveHandler =
-  (press: Press, move: { x: number; y: number; time: number }) =>
-  (hasSelection: boolean) =>
-  <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
+  <Item>(
+    animate: Extract<AnimateState<Item>, { _tag: 'Visible' | 'Settling' }>,
+    press: Press,
+    move: { x: number; y: number; time: number },
+    hasSelection: boolean,
+  ) =>
+  (model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const config = model.config
-    const animate = model.animate
     const dx = move.x - press.startX
     const dy = move.y - press.startY
     const threshold = swipeStartThreshold(press.pointerType)
@@ -334,14 +380,14 @@ const pressedMoveHandler =
     if (!isDeltaInDirection(config.direction, dx, dy, threshold)) {
       if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
         // Swiping across the drawer axis: leave the gesture to the content
-        return [{ ...model, gesture: { _tag: 'Idle' } }, Cmd.none()]
+        return [withGesture({ _tag: 'Idle' })(model), Cmd.none()]
       } else {
         return [
-          { ...model, gesture: { _tag: 'Pressed', press, last } },
+          withGesture({ _tag: 'Pressed', press, last })(model),
           Cmd.none(),
         ]
       }
-    } else if (animate._tag === 'Visible' || animate._tag === 'Settling') {
+    } else {
       const decision = decideDrag(config, press, {
         isDraggingInDirection,
         hasSelection,
@@ -349,16 +395,16 @@ const pressedMoveHandler =
         lastDragPreventedAt: model.lastDragPreventedAt,
       })
       if (decision.allow) {
+        // `Dragging` now holds the press
         return [
           {
             ...model,
-            gesture: { _tag: 'Idle' },
             lastDragPreventedAt: decision.lastDragPreventedAt,
             animate: {
               _tag: 'Dragging',
               internal: animate.internal,
               press,
-              distance: dragDistance(config, press, dragged),
+              distance: dragDistance(config, model.snap, press, dragged),
               last,
             },
           },
@@ -367,17 +413,13 @@ const pressedMoveHandler =
       } else {
         // Not a drag (yet): the content scrolls. Re-evaluated on the next move.
         return [
-          {
+          withGesture({ _tag: 'Pressed', press, last })({
             ...model,
-            gesture: { _tag: 'Pressed', press, last },
             lastDragPreventedAt: decision.lastDragPreventedAt,
-          },
+          }),
           Cmd.none(),
         ]
       }
-    } else {
-      // Started closing in the meantime
-      return [{ ...model, gesture: { _tag: 'Idle' } }, Cmd.none()]
     }
   }
 
@@ -385,29 +427,48 @@ const pointerMoveHandler =
   (move: { x: number; y: number; time: number }, hasSelection: boolean) =>
   <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const animate = model.animate
-    const gesture = model.gesture
-    if (animate._tag === 'Dragging') {
-      const dragged = draggedDistance(
-        model.config.direction,
-        animate.press,
-        move.x,
-        move.y,
-      )
-      return [
-        {
-          ...model,
-          animate: {
-            ...animate,
-            distance: dragDistance(model.config, animate.press, dragged),
-            last: { x: move.x, y: move.y },
+    switch (animate._tag) {
+      case 'Dragging': {
+        const dragged = draggedDistance(
+          model.config.direction,
+          animate.press,
+          move.x,
+          move.y,
+        )
+        return [
+          {
+            ...model,
+            animate: {
+              ...animate,
+              distance: dragDistance(
+                model.config,
+                model.snap,
+                animate.press,
+                dragged,
+              ),
+              last: { x: move.x, y: move.y },
+            },
           },
-        },
-        Cmd.none(),
-      ]
-    } else if (gesture._tag === 'Pressed') {
-      return pressedMoveHandler(gesture.press, move)(hasSelection)(model)
-    } else {
-      return [model, Cmd.none()]
+          Cmd.none(),
+        ]
+      }
+      case 'Visible':
+      case 'Settling':
+        if (animate.gesture._tag === 'Pressed') {
+          return pressedMoveHandler(
+            animate,
+            animate.gesture.press,
+            move,
+            hasSelection,
+          )(model)
+        } else {
+          return [model, Cmd.none()]
+        }
+      case 'Invisible':
+      case 'Mounting':
+      case 'AnimateIn':
+      case 'AnimateOut':
+        return [model, Cmd.none()]
     }
   }
 
@@ -418,7 +479,7 @@ const releaseHandler =
     if (animate._tag === 'Dragging') {
       const decision = decideRelease(
         model.config,
-        model.activeSnap,
+        model.snap,
         animate.press,
         release,
       )
@@ -431,9 +492,18 @@ const releaseHandler =
           return [
             {
               ...next,
-              activeSnap:
-                decision._tag === 'Snap' ? decision.index : model.activeSnap,
-              animate: { _tag: 'Settling', internal: animate.internal },
+              snap:
+                decision._tag === 'Snap'
+                  ? pipe(
+                      selectSnap(decision.index)(model.snap),
+                      O.getOrElse(() => model.snap),
+                    )
+                  : model.snap,
+              animate: {
+                _tag: 'Settling',
+                internal: animate.internal,
+                gesture: { _tag: 'Idle' },
+              },
             },
             cmd,
           ]
@@ -441,7 +511,7 @@ const releaseHandler =
       }
     } else {
       // A tap, or a gesture that scrolled the content
-      return [{ ...model, gesture: { _tag: 'Idle' } }, Cmd.none()]
+      return [withGesture({ _tag: 'Idle' })(model), Cmd.none()]
     }
   }
 
@@ -453,7 +523,7 @@ const pointerCancelHandler =
       // Release where the pointer was last seen, like vaul
       return releaseHandler({ ...animate.last, time })(model)
     } else {
-      return [{ ...model, gesture: { _tag: 'Idle' } }, Cmd.none()]
+      return [withGesture({ _tag: 'Idle' })(model), Cmd.none()]
     }
   }
 
