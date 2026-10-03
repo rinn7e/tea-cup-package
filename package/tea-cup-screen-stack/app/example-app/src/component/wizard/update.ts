@@ -19,7 +19,7 @@ const withStack = ([steps, cmd]: [
   Cmd<ScreenStack.Msg<Step>>,
 ]): [Model, Cmd<Msg>] => [
   { steps },
-  cmd.map((subMsg): Msg => ({ _tag: 'StackMsg', subMsg })),
+  cmd.map((subMsg): Msg => ({ _tag: 'ScreenStackMsg', subMsg })),
 ]
 
 // The email typed in the first step, for the summary
@@ -59,7 +59,7 @@ const nextHandler = (model: Model): [Model, Cmd<Msg>] => {
 export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
   const top = ScreenStack.getTop(model.steps)
   switch (msg._tag) {
-    case 'StackMsg':
+    case 'ScreenStackMsg':
       return withStack(ScreenStack.update(msg.subMsg, model.steps))
     // Edits only apply to the step on show
     case 'SetEmail':

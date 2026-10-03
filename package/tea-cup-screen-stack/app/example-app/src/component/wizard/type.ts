@@ -28,7 +28,7 @@ export type Model = {
 }
 
 export type Msg =
-  | { _tag: 'StackMsg'; subMsg: ScreenStack.Msg<Step> }
+  | { _tag: 'ScreenStackMsg'; subMsg: ScreenStack.Msg<Step> }
   | { _tag: 'SetEmail'; email: string }
   | { _tag: 'SetPlan'; plan: Plan }
   | { _tag: 'Next' }

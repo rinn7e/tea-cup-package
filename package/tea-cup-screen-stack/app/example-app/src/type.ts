@@ -4,6 +4,7 @@ import * as EqClass from 'fp-ts/lib/Eq'
 
 import * as MoveTo from './component/move-to'
 import * as NewFolder from './component/new-folder'
+import type * as Settings from './component/settings'
 import type * as Wizard from './component/wizard'
 
 // The screens of the "More settings" menu: one union, each case carries its
@@ -43,6 +44,8 @@ export type Model = {
   // every open and is dropped once the drawer has closed
   menuDrawer: Drawer.Model<ScreenStack.Model<MenuScreen>>
   wizard: Wizard.Model
+  // Free navigation: no step blocks going forward or back
+  settings: ScreenStack.Model<Settings.Page>
   // What the parent did, newest first
   log: string[]
 }
@@ -56,3 +59,4 @@ export type Msg =
   | { _tag: 'SelectMultiple' }
   | { _tag: 'PushMoveTo' }
   | { _tag: 'WizardMsg'; subMsg: Wizard.Msg }
+  | { _tag: 'SettingsMsg'; subMsg: ScreenStack.Msg<Settings.Page> }

@@ -28,7 +28,9 @@ const stepView = (
         type='button'
         data-test='wizard-back'
         className={secondaryClassName}
-        onClick={() => dispatch({ _tag: 'StackMsg', subMsg: { _tag: 'Pop' } })}
+        onClick={() =>
+          dispatch({ _tag: 'ScreenStackMsg', subMsg: { _tag: 'Pop' } })
+        }
       >
         Back
       </button>
@@ -126,7 +128,10 @@ export const Wizard = ({
     model={model.steps}
     dispatch={map(
       dispatch,
-      (subMsg: ScreenStack.Msg<Step>): Msg => ({ _tag: 'StackMsg', subMsg }),
+      (subMsg: ScreenStack.Msg<Step>): Msg => ({
+        _tag: 'ScreenStackMsg',
+        subMsg,
+      }),
     )}
     itemEq={StepEq}
     parent={null}

@@ -51,7 +51,7 @@ export type WizardStep =
 export type Model = { steps: ScreenStack.Model<WizardStep> }
 
 export type Msg =
-  | { _tag: 'StackMsg'; subMsg: ScreenStack.Msg<WizardStep> }
+  | { _tag: 'ScreenStackMsg'; subMsg: ScreenStack.Msg<WizardStep> }
   | { _tag: 'SetEmail'; email: string }
   | { _tag: 'Next' }
 
@@ -80,10 +80,10 @@ const withStack =
     Cmd<Msg>,
   ] => [
     { ...model, steps },
-    cmd.map((subMsg): Msg => ({ _tag: 'StackMsg', subMsg })),
+    cmd.map((subMsg): Msg => ({ _tag: 'ScreenStackMsg', subMsg })),
   ]
 
-case 'StackMsg':
+case 'ScreenStackMsg':
   return withStack(model)(ScreenStack.update(msg.subMsg, model.steps))
 case 'Next':
   return withStack(model)(
@@ -115,7 +115,10 @@ import { ScreenStackMemo } from '@rinn7e/tea-cup-screen-stack/component'
 
 ;<ScreenStackMemo
   model={model.steps}
-  dispatch={map(dispatch, (subMsg): Msg => ({ _tag: 'StackMsg', subMsg }))}
+  dispatch={map(
+    dispatch,
+    (subMsg): Msg => ({ _tag: 'ScreenStackMsg', subMsg }),
+  )}
   itemEq={WizardStepEq}
   parent={null}
   parentEq={nullEq}
@@ -273,7 +276,7 @@ pnpm --filter tea-cup-screen-stack-example dev             # kitchen sink on htt
 pnpm --filter tea-cup-screen-stack-example-e2e test        # Playwright suite
 ```
 
-The example app shows both uses: a drawer menu with a "Move to" screen (its own TEA model with a simulated request) and a "New folder" screen, and a standalone sign-up wizard.
+The example app shows both uses: a drawer menu with a "Move to" screen (its own TEA model with a simulated request) and a "New folder" screen, a standalone sign-up wizard, and a settings menu with free navigation (the screen is just a string and the view dispatches stack messages directly).
 
 ## License
 

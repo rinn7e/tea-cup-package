@@ -10,6 +10,7 @@ import { type Dispatcher, map } from 'tea-cup-fp'
 
 import { MoveTo } from './component/move-to/component'
 import { NewFolder } from './component/new-folder/component'
+import { Settings } from './component/settings/component'
 import { Wizard } from './component/wizard/component'
 import {
   type MenuScreen,
@@ -244,6 +245,42 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
                     )}
                   />
                 </div>
+              ),
+            })}
+
+            {card({
+              title: 'Settings',
+              description:
+                'Free navigation: every row goes deeper, Back goes up, Top jumps to the root in one slide. Nothing blocks.',
+              badges: (
+                <span
+                  data-test='stack-state-settings'
+                  className={badgeClassName}
+                >
+                  {stackStateText(model.settings)}
+                </span>
+              ),
+              children: (
+                <>
+                  <p
+                    data-test='settings-path'
+                    className='font-mono text-xs text-slate-500'
+                  >
+                    {ScreenStack.screens(model.settings).join(' › ')}
+                  </p>
+                  <div
+                    data-test='settings'
+                    className='rounded-xl border border-slate-200 bg-white p-3'
+                  >
+                    <Settings
+                      model={model.settings}
+                      dispatch={map(
+                        dispatch,
+                        (subMsg): Msg => ({ _tag: 'SettingsMsg', subMsg }),
+                      )}
+                    />
+                  </div>
+                </>
               ),
             })}
           </div>

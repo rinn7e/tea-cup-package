@@ -7,6 +7,7 @@ import { Cmd } from 'tea-cup-fp'
 
 import * as MoveTo from './component/move-to'
 import * as NewFolder from './component/new-folder'
+import type * as Settings from './component/settings'
 import * as Wizard from './component/wizard'
 import {
   type MenuScreen,
@@ -25,6 +26,10 @@ export const init = (): [Model, Cmd<Msg>] => [
   {
     menuDrawer: Drawer.defaultModel(menuDrawerConfig),
     wizard: Wizard.defaultModel(),
+    settings: ScreenStack.defaultModel<Settings.Page>(
+      ScreenStack.defaultConfig('settings'),
+      'Settings',
+    ),
     log: [],
   },
   Cmd.none(),
@@ -221,6 +226,13 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
       return pipe(model, addLog('select multiple'), closeMenu)
     case 'PushMoveTo':
       return pushMoveTo(model)
+    case 'SettingsMsg': {
+      const [settings, cmd] = ScreenStack.update(msg.subMsg, model.settings)
+      return [
+        { ...model, settings },
+        cmd.map((subMsg): Msg => ({ _tag: 'SettingsMsg', subMsg })),
+      ]
+    }
     case 'WizardMsg': {
       const [wizard, cmd] = Wizard.update(msg.subMsg, model.wizard)
       return [
