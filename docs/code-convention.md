@@ -170,3 +170,42 @@
       export const modifyRouteMsg = (func) => ({ _tag: 'ModifyRoute', func })
       export const modifyRoute = modifyRouteMsg // Redundant alias
       ```
+
+12. **Modelling a Component Without Making Impossible States Impossible**:
+    - **Why**: When designing a component, model its data **and** its operations (`Model` + `Msg`) so that a state that cannot happen cannot be written down. A runtime guard (`if (index < length)`, "the code never sets this field in that phase") only hides an impossible state; the type should rule it out. Two components are the same thing only if both their data and their operations match (or one is a superset of the other in both).
+    - **How**:
+      - Model phases as a sum type and attach each piece of data to the phase that owns it, instead of optional fields that are "only set in state X" or a separate field that must agree with the phase.
+      - Don't store what can be derived (a direction from the tag, a depth from the structure); stored copies can disagree.
+      - Keep each piece of state in exactly one place: no copy of a value that also lives elsewhere.
+      - Store a value with what it belongs to (a height with its screen), so they appear and disappear together.
+      - Replace free indexes with structure (`NonEmptyArray`, a zipper `{ before, selected, after }`) and loose config fields with sum types (`NoSnap | Snap { points, initial }`).
+      - Identify children by a key (`uniqueKeyField`), not by position or by "whatever is there now", also in components with a single child slot that can be refilled (a drawer reopened with another payload).
+      - When a type cannot express an invariant (key uniqueness), enforce it in every constructor and handler that could break it, document it, and test it.
+    - **Example**: In `@rinn7e/tea-cup-screen-stack`, the screens in flight live in the transition, so a push always has a screen to slide over, depths are derived, and heights leave with their screens:
+      ```typescript
+      // Good: impossible states can't be represented
+      type Transition<Item> =
+        | { _tag: 'Idle' }
+        | { _tag: 'Pushing'; previous: Entry<Item>; phase: Phase }
+        | { _tag: 'Popping'; popped: NonEmptyArray<Entry<Item>>; phase: Phase }
+
+      type Model<Item> = {
+        below: Entry<Item>[]
+        top: Entry<Item> // there is always a screen on show
+        transition: Transition<Item>
+      }
+
+      // Bad: free numbers and copies that can disagree with the stack
+      type Model<Item> = {
+        stack: NonEmptyArray<Item>
+        transition:
+          | { _tag: 'Idle' }
+          | {
+              _tag: 'Sliding'
+              from: Item // a copy of the screen below the top on a push
+              fromDepth: number // can be out of range
+              direction: 'Forward' | 'Back' // can disagree with fromDepth
+            }
+        heights: Record<string, number> // can hold heights of gone screens
+      }
+      ```

@@ -186,6 +186,26 @@ The parent can still react in the same step with `updateAndCmd` (e.g. close the 
 
 For a drawer with several screens (a menu whose "Move to ›" slides in a second screen with a back button), make the payload a screen stack from [`@rinn7e/tea-cup-screen-stack`](../tea-cup-screen-stack): `Drawer.Model<ScreenStack.Model<MenuScreen>>`. Its example app shows the full recipe.
 
+### Why a key when the drawer holds only one content?
+
+A drawer holds at most one content **at a time**, but not the same one **over time**. The key does not tell siblings apart (there are none); it tells the content _now_ apart from the content _before_ it, while a reply of the old one may still be in flight. Take one drawer shared by a list of messages, opened by a long press:
+
+```
+1. Open for message A    key 'A'   A's content starts a request
+2. Open for message B    key 'B'   the drawer now holds B (even if A was still sliding away)
+3. A's result arrives    ContentMsg { key: 'A' } → getContent('A') is none → dropped
+4. B is untouched; B's own result arrives with key 'B' → applied
+```
+
+Without a key, "the content" would mean "whatever the drawer holds when the message arrives", and A's result would be written into B.
+
+- `Config.id` identifies the **drawer** (`'actions'`: DOM ids, focus, the layer stack) and never changes; `uniqueKeyField` identifies its **content** (`'A'`, then `'B'`).
+- Protection only covers replies routed back as a `ContentMsg` with the content's key, i.e. the content's commands mapped with the same key as in the recipe above.
+- Reopening for the same entity (A, then A again) gives the same key, so the earlier open's result is accepted by the new one, the same rule as tea-cup-link-pagination's `dataSourceId`, which guards its single current data source the same way. Put a per-open id in the payload and key on it if every open must start fresh.
+- A drawer without payload (`Drawer.Model<null>`) uses a constant key (`() => 'basic'`): there is nothing to tell apart.
+
+The same reasoning applies to any component with a single child slot that can be refilled: identify the child by a key, not by "whatever is there now".
+
 ### Reacting to open changes
 
 The drawer closes itself on swipes, overlay taps and Escape. To react like vaul's `onOpenChange`, compare `isOpen` before and after the update:
