@@ -107,6 +107,36 @@
   touch-action: pan-y;
 }
 
+/* The handle sits on the drawer's inner edge (the one dragged), along it.
+   A bottom drawer keeps it in the flow at the top (vaul's only layout); the
+   others place it on their inner edge, out of the flow. */
+[data-drawer][data-drawer-direction='top'] [data-drawer-handle] {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 50%;
+  margin: 0;
+  transform: translateX(-50%);
+}
+
+[data-drawer][data-drawer-direction='left'] [data-drawer-handle],
+[data-drawer][data-drawer-direction='right'] [data-drawer-handle] {
+  position: absolute;
+  top: 50%;
+  width: 5px;
+  height: 2.25rem;
+  margin: 0;
+  transform: translateY(-50%);
+  touch-action: pan-x;
+}
+
+[data-drawer][data-drawer-direction='left'] [data-drawer-handle] {
+  right: 0.75rem;
+}
+
+[data-drawer][data-drawer-direction='right'] [data-drawer-handle] {
+  left: 0.75rem;
+}
+
 /* 44px touch target around the small handle */
 [data-drawer-handle-hitarea] {
   position: absolute;

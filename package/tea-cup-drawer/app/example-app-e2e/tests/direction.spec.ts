@@ -52,4 +52,45 @@ test.describe('Directions', () => {
     await drag(page, await pointIn(page, 'right'), { dx: 250, dy: 0 })
     await expectClosed(page, 'right')
   })
+  test('the handle sits on the inner edge, along it', async ({ page }) => {
+    // Distance (px) between the handle and the edge it should sit on
+    const handleGap = async (key: string) => {
+      await openDrawer(page, key)
+      const d = await drawer(page, key).boundingBox()
+      const h = await drawer(page, key)
+        .locator('[data-drawer-handle]')
+        .boundingBox()
+      if (d === null || h === null) {
+        throw new Error(`${key}: not rendered`)
+      } else {
+        return {
+          top: h.y - d.y,
+          bottom: d.y + d.height - (h.y + h.height),
+          left: h.x - d.x,
+          right: d.x + d.width - (h.x + h.width),
+          isVertical: h.height > h.width,
+        }
+      }
+    }
+
+    // Bottom (basic): horizontal, at the top
+    const basic = await handleGap('basic')
+    expect(basic.isVertical).toBe(false)
+    expect(basic.top).toBeLessThan(20)
+    await page.keyboard.press('Escape')
+
+    const top = await handleGap('top')
+    expect(top.isVertical).toBe(false)
+    expect(top.bottom).toBeLessThan(20)
+    await page.keyboard.press('Escape')
+
+    const left = await handleGap('left')
+    expect(left.isVertical).toBe(true)
+    expect(left.right).toBeLessThan(20)
+    await page.keyboard.press('Escape')
+
+    const right = await handleGap('right')
+    expect(right.isVertical).toBe(true)
+    expect(right.left).toBeLessThan(20)
+  })
 })

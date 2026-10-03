@@ -273,6 +273,8 @@ Style per phase with the `data-state` attribute (e.g. `data-[state=Dragging]:sha
 
 ## Differences from vaul
 
+`DrawerHandle` sits on the drawer's inner edge for every direction: at the top of a bottom drawer (in the flow, as in vaul), at the bottom of a top drawer, and as a vertical bar on the inner side of a left or right drawer (vaul always draws a horizontal handle at the top). It is placed by `drawer.css` from `data-drawer-direction`, so the content layout doesn't change.
+
 Not ported (yet): background scaling (`shouldScaleBackground`), nested drawers, keyboard-aware repositioning (`repositionInputs`, `fixed`), vaul's iOS touch-move scroll prevention (the body lock and Safari `position: fixed` are ported), `preventScrollRestoration`, and the handle's double-tap / long-press timing. `onDrag` / `onRelease` / `onAnimationEnd` callbacks are replaced by intercepting the drawer's messages.
 
 ---
