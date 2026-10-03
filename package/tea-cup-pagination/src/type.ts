@@ -49,6 +49,10 @@ export type Config<Item, ItemMsg, Err, Parent> = {
     onPageChange: (page: number) => void,
     parent: Parent,
   ) => ReactNode
+  // Identifies an item across fetches and edits (e.g. its id). Item
+  // messages carry this key, not a copy of the item, so they always act on
+  // the item's current value.
+  uniqueKeyField: (item: Item) => string
   limit: number
   scrollContainerId?: string
 }
@@ -76,7 +80,10 @@ export type Msg<Item, ItemMsg, Err> =
       page: number
       result: RD.RemoteData<Err, { items: Item[]; totalCount: number }>
     }
-  | { _tag: 'ItemMsg'; msg: ItemMsg; item: Item }
+  // From an item's view, identified by `uniqueKeyField`. Not handled here:
+  // the parent intercepts it and updates the item with `getItem` /
+  // `modifyItem`.
+  | { _tag: 'ItemMsg'; key: string; msg: ItemMsg }
   | { _tag: 'NoOp' }
 
 export type Props<Item, ItemMsg, Err, Parent> = {

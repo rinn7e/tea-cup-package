@@ -469,4 +469,44 @@ test.describe('Tea-Cup Pagination Showcase E2E', () => {
       await expect(catTab).toContainText(String(initialCatCount - 1))
     }
   })
+  test('Test 18: Rapid double favorite toggle ends where it started (item messages act on the current product by key)', async ({
+    page,
+  }) => {
+    const firstCard = page.locator('[data-test^="product-card-"]').first()
+    const favBtn = firstCard.locator('[data-test^="favorite-btn-"]')
+    const initialLabel = (await favBtn.getAttribute('aria-label')) ?? 'Favorite'
+
+    // Two toggles before any response arrives: each one flips the current
+    // value, and each response sets the server's value
+    await favBtn.dblclick()
+    await expect(favBtn).toHaveAttribute('aria-label', initialLabel)
+    await page.waitForTimeout(300)
+    await expect(favBtn).toHaveAttribute('aria-label', initialLabel)
+
+    // The modal reads the same current product
+    await firstCard.locator('[data-test^="view-details-"]').click()
+    const modalFavBtn = page.locator('[data-test="modal-favorite-btn"]')
+    await expect(modalFavBtn).toContainText(
+      initialLabel === 'Favorite' ? 'Add to Wishlist' : 'Favorited',
+    )
+  })
+
+  test('Test 19: The modal opens with the current product after an in-place toggle', async ({
+    page,
+  }) => {
+    const firstCard = page.locator('[data-test^="product-card-"]').first()
+    const favBtn = firstCard.locator('[data-test^="favorite-btn-"]')
+    const initialLabel = (await favBtn.getAttribute('aria-label')) ?? 'Favorite'
+
+    await favBtn.click()
+    const toggledLabel = initialLabel === 'Favorite' ? 'Unfavorite' : 'Favorite'
+    await expect(favBtn).toHaveAttribute('aria-label', toggledLabel)
+
+    await firstCard.locator('[data-test^="view-details-"]').click()
+    await expect(
+      page.locator('[data-test="modal-favorite-btn"]'),
+    ).toContainText(
+      toggledLabel === 'Unfavorite' ? 'Favorited' : 'Add to Wishlist',
+    )
+  })
 })

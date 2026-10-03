@@ -13,7 +13,7 @@ import React from 'react'
 import { type Dispatcher } from 'tea-cup-fp'
 
 import { ProductModal } from './component/product-modal'
-import { mkPaginationConfig } from './helper'
+import { mkPaginationConfig, productKey } from './helper'
 import {
   CATEGORY_TABS,
   LIMIT_OPTIONS,
@@ -278,7 +278,7 @@ export const App: React.FC<Props> = ({ model, dispatch }) => {
               _tag: 'PaginationMsg',
               subMsg: {
                 _tag: 'ItemMsg',
-                item: model.selectedProduct,
+                key: productKey(model.selectedProduct),
                 msg: { _tag: 'ToggleFavorite' },
               },
             })

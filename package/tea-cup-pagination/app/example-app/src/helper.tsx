@@ -17,9 +17,15 @@ import {
   type ProductMsg,
 } from './type'
 
+// Products are identified by their id
+export const productKey = (product: Product): string => product.id
+
+export const productKeyConfig = { uniqueKeyField: productKey }
+
 export const mkPaginationConfig = (
   model: Model,
 ): Pagination.Config<Product, ProductMsg, string, ParentContext> => ({
+  uniqueKeyField: productKey,
   limit: model.limit,
   scrollContainerId: 'product-scroll-container',
 

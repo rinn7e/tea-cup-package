@@ -59,6 +59,8 @@ export const ParentContextEq: Eq<ParentContext> = EqClass.struct({
 export const mkPaginationConfig = (
   model: AppModel,
 ): Pagination.Config<Product, ProductMsg, string, ParentContext> => ({
+  // Item messages carry this key, never a copy of the item
+  uniqueKeyField: (product) => product.id,
   limit: 6,
   scrollContainerId: 'product-scroll-container',
 
@@ -175,7 +177,7 @@ export const update = (
         ] satisfies [AppModel, Cmd<AppMsg>],
         updateAndCmd((m) => {
           if (msg.subMsg._tag === 'ItemMsg') {
-            return handleProductItemMsg(msg.subMsg.item, msg.subMsg.msg)(m)
+            return handleProductItemMsg(msg.subMsg.key, msg.subMsg.msg)(m)
           }
           return [m, Cmd.none()]
         }),
@@ -184,6 +186,8 @@ export const update = (
   }
 }
 ```
+
+Item messages identify the item by its **key** (`uniqueKeyField`), not by a copy of it. In the handler, read the item's current value with `Pagination.getItem(config, key)(model.pagination)` and write it back with `Pagination.modifyItem(config, key, f)`. A reply that arrives later (an API response) carries the same key, so it acts on whatever the item is by then, and does nothing if the item has left the page.
 
 ---
 
@@ -228,13 +232,14 @@ export const AppView: React.FC<Props> = ({ model, dispatch }) => {
 
 Configuration object for the pagination engine. `Parent` is the parent state the render functions receive (from `Props.parent`); they must only use their arguments, since anything they close over is invisible to `PaginationMemo`.
 
-| Property            | Type                                                                                                                 | Description                                                    |
-| :------------------ | :------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------- |
-| `limit`             | `number`                                                                                                             | Maximum number of items per page.                              |
-| `handler`           | `(offset: number, limit: number) => TE.TaskEither<Err, { items: Item[]; totalCount: number }>`                       | TaskEither endpoint handler to fetch items.                    |
-| `renderItems`       | `(items: RD.RemoteData<Err, Item[]>, itemDispatch: (item: Item, msg: ItemMsg) => void, parent: Parent) => ReactNode` | Item list renderer for the current RemoteData state.           |
-| `renderPagination`  | `(currentPage: number, pageAmount: number, onPageChange: (page: number) => void, parent: Parent) => ReactNode`       | Navigation bar renderer.                                       |
-| `scrollContainerId` | `string?`                                                                                                            | Optional container element ID to scroll to top on page change. |
+| Property            | Type                                                                                                                 | Description                                                     |
+| :------------------ | :------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------- |
+| `uniqueKeyField`    | `(item: Item) => string`                                                                                             | Identifies an item (e.g. its id). Item messages carry this key. |
+| `limit`             | `number`                                                                                                             | Maximum number of items per page.                               |
+| `handler`           | `(offset: number, limit: number) => TE.TaskEither<Err, { items: Item[]; totalCount: number }>`                       | TaskEither endpoint handler to fetch items.                     |
+| `renderItems`       | `(items: RD.RemoteData<Err, Item[]>, itemDispatch: (item: Item, msg: ItemMsg) => void, parent: Parent) => ReactNode` | Item list renderer for the current RemoteData state.            |
+| `renderPagination`  | `(currentPage: number, pageAmount: number, onPageChange: (page: number) => void, parent: Parent) => ReactNode`       | Navigation bar renderer.                                        |
+| `scrollContainerId` | `string?`                                                                                                            | Optional container element ID to scroll to top on page change.  |
 
 #### `Model<Item, Err>`
 
@@ -256,7 +261,8 @@ export type Msg<Item, ItemMsg, Err> =
       page: number
       result: RD.RemoteData<Err, { items: Item[]; totalCount: number }>
     }
-  | { _tag: 'ItemMsg'; item: Item; msg: ItemMsg }
+  // From an item's view; handled by the parent (see `getItem` / `modifyItem`)
+  | { _tag: 'ItemMsg'; key: string; msg: ItemMsg }
   | { _tag: 'NoOp' }
 ```
 
@@ -269,6 +275,12 @@ export type Msg<Item, ItemMsg, Err> =
 
 - **`update<Item, ItemMsg, Err, Parent>(config)(msg, model): [Model<Item, Err>, Cmd<Msg<Item, ItemMsg, Err>>]`**  
   Reduces pagination messages and emits commands (data fetch, smooth scroll).
+
+- **`getItem(config, key)(model): Option<Item>`**  
+  The current value of the item with `key` on the loaded page; `none` when the page isn't loaded or the item isn't on it (any more).
+
+- **`modifyItem(config, key, f)(model): Model<Item, Err>`**  
+  Updates the item with `key` on the loaded page; returns the same model when it isn't there. Use these two in the parent's `ItemMsg` handler instead of reaching into `model.items`.
 
 - **`mkModelEq(itemEq, errEq): Eq<Model<Item, Err>>`**  
   Constructs an `fp-ts` `Eq` instance for deep model equality checking.

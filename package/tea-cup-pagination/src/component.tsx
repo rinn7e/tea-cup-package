@@ -36,7 +36,7 @@ export const PaginationComponent = <Item, ItemMsg, Err, Parent>({
       {config.renderItems(
         model.items,
         (item, msg) => {
-          dispatch({ _tag: 'ItemMsg', item, msg })
+          dispatch({ _tag: 'ItemMsg', key: config.uniqueKeyField(item), msg })
         },
         parent,
       )}

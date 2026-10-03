@@ -48,7 +48,9 @@
     "check-circular": "madge --circular --ts-config ./tsconfig.json --extensions ts,tsx src/",
     "format": "prettier --write .",
     "lint": "eslint src",
-    "staged": "pnpm run format && pnpm run check && pnpm run check-circular && pnpm run lint"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "staged": "pnpm run format && pnpm run check && pnpm run check-circular && pnpm run lint && pnpm run test"
   },
   "peerDependencies": {
     "@devexperts/remote-data-ts": "^2.1.1",
@@ -62,10 +64,10 @@
   "devDependencies": {
     "@devexperts/remote-data-ts": "^2.1.1",
     "@eslint/js": "^9.29.0",
+    "@rinn7e/tea-cup-prelude": "workspace:*",
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "@rinn7e/tea-cup-prelude": "workspace:*",
     "eslint": "^9.29.0",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react-dom": "^1.52.2",
@@ -80,6 +82,7 @@
     "rimraf": "^6.1.2",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.34.1"
+    "typescript-eslint": "^8.34.1",
+    "vitest": "^4.1.11"
   }
 }
