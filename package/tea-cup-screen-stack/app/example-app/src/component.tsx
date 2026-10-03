@@ -1,8 +1,8 @@
 import * as Drawer from '@rinn7e/tea-cup-drawer'
 import { DrawerHandle, DrawerMemo } from '@rinn7e/tea-cup-drawer/component'
 import { nullEq } from '@rinn7e/tea-cup-prelude'
-import * as Screen from '@rinn7e/tea-cup-screen'
-import { ScreenStackComponent } from '@rinn7e/tea-cup-screen/component'
+import * as ScreenStack from '@rinn7e/tea-cup-screen-stack'
+import { ScreenStackComponent } from '@rinn7e/tea-cup-screen-stack/component'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import { type ReactNode } from 'react'
@@ -28,14 +28,15 @@ const rowClassName =
 const badgeClassName =
   'rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600'
 
-// "Idle @ 1", "Sliding Forward Run @ 2", ...
-const stackStateText = <Item,>(stack: Screen.Stack<Item>): string => {
+// "Idle @ 1", "Pushing Run @ 2", ...
+const stackStateText = <Item,>(stack: ScreenStack.Model<Item>): string => {
   const transition = stack.transition
   switch (transition._tag) {
     case 'Idle':
-      return `Idle @ ${Screen.depth(stack)}`
-    case 'Sliding':
-      return `Sliding ${transition.direction} ${transition.phase} @ ${Screen.depth(stack)}`
+      return `Idle @ ${ScreenStack.depth(stack)}`
+    case 'Pushing':
+    case 'Popping':
+      return `${transition._tag} ${transition.phase} @ ${ScreenStack.depth(stack)}`
   }
 }
 
@@ -160,14 +161,14 @@ const card = (args: {
 export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
   const menuDrawerDispatch = map(
     dispatch,
-    (subMsg: Drawer.Msg<Screen.Stack<MenuScreen>>): Msg => ({
+    (subMsg: Drawer.Msg<ScreenStack.Model<MenuScreen>>): Msg => ({
       _tag: 'MenuDrawerMsg',
       subMsg,
     }),
   )
   const menuStackDispatch = map(
     dispatch,
-    (subMsg: Screen.Msg<MenuScreen>): Msg => ({
+    (subMsg: ScreenStack.Msg<MenuScreen>): Msg => ({
       _tag: 'MenuStackMsg',
       subMsg,
     }),

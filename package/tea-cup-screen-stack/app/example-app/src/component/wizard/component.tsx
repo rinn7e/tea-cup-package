@@ -1,6 +1,6 @@
 import { nullEq } from '@rinn7e/tea-cup-prelude'
-import * as Screen from '@rinn7e/tea-cup-screen'
-import { ScreenStackMemo } from '@rinn7e/tea-cup-screen/component'
+import * as ScreenStack from '@rinn7e/tea-cup-screen-stack'
+import { ScreenStackMemo } from '@rinn7e/tea-cup-screen-stack/component'
 import { type ReactNode } from 'react'
 import { type Dispatcher, map } from 'tea-cup-fp'
 
@@ -126,7 +126,7 @@ export const Wizard = ({
     model={model.steps}
     dispatch={map(
       dispatch,
-      (subMsg: Screen.Msg<Step>): Msg => ({ _tag: 'StackMsg', subMsg }),
+      (subMsg: ScreenStack.Msg<Step>): Msg => ({ _tag: 'StackMsg', subMsg }),
     )}
     itemEq={StepEq}
     parent={null}

@@ -29,7 +29,7 @@ import {
   useRef,
 } from 'react'
 
-import { type Stack } from './type'
+import { type Model } from './type'
 import {
   type PanelRole,
   containerHeight,
@@ -40,11 +40,11 @@ import {
 // The mechanics (positions, transforms, heights) are inline styles: they are
 // dynamic, and the package ships no stylesheet. The screens style themselves.
 
-export const containerStyle = <Item,>(model: Stack<Item>): CSSProperties => {
+export const containerStyle = <Item,>(model: Model<Item>): CSSProperties => {
   const transition = model.transition
   // Pinned at the start height (an interrupted transition snaps to it),
   // animated otherwise
-  const isStart = transition._tag === 'Sliding' && transition.phase === 'Start'
+  const isStart = transition._tag !== 'Idle' && transition.phase === 'Start'
   return {
     position: 'relative',
     overflow: 'hidden',
@@ -62,12 +62,12 @@ export const containerStyle = <Item,>(model: Stack<Item>): CSSProperties => {
 }
 
 export const panelStyle = <Item,>(
-  model: Stack<Item>,
+  model: Model<Item>,
   role: PanelRole,
 ): CSSProperties => {
   const transition = model.transition
   const offset = panelOffsetPercent(transition, role)
-  const isRunning = transition._tag === 'Sliding' && transition.phase === 'Run'
+  const isRunning = transition._tag !== 'Idle' && transition.phase === 'Run'
   // The screen on show stays in the flow, so the container falls back to
   // its natural height; the outgoing one is laid over it
   const position: CSSProperties =

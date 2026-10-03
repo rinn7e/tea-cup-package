@@ -22,8 +22,8 @@ SOFTWARE. */
 import { EqAlways, UndefinableEq } from '@rinn7e/tea-cup-prelude'
 import * as A from 'fp-ts/lib/Array'
 import * as EqClass from 'fp-ts/lib/Eq'
-import { type NonEmptyArray } from 'fp-ts/lib/NonEmptyArray'
-import * as R from 'fp-ts/lib/Record'
+import * as NEA from 'fp-ts/lib/NonEmptyArray'
+import * as O from 'fp-ts/lib/Option'
 import * as N from 'fp-ts/lib/number'
 import * as S from 'fp-ts/lib/string'
 import { type ReactNode } from 'react'
@@ -42,79 +42,97 @@ export type Config = {
 
 export const ConfigEq: EqClass.Eq<Config> = EqAlways
 
-// Transition
+// Entry
 // ---------------------------------
 
-// Which way the screens move: `Forward` slides the new screen in from the
-// end edge (push), `Back` slides the outgoing screen out to it (pop).
-export type Direction = 'Forward' | 'Back'
+// A screen and its last measured height (px), used to animate the container
+// height. The height lives and dies with its screen; `none` until the
+// screen's first measurement.
+export type Entry<Item> = {
+  screen: Item
+  height: O.Option<number>
+}
+
+export const getEntryEq = <Item>(
+  itemEq: EqClass.Eq<Item>,
+): EqClass.Eq<Entry<Item>> =>
+  EqClass.struct<Entry<Item>>({
+    screen: itemEq,
+    height: O.getEq(N.Eq),
+  })
+
+// Transition
+// ---------------------------------
 
 // `Start`: both screens are rendered at their start positions without a CSS
 // transition, waiting one paint. `Run`: switched to their end positions, so
 // the CSS transition runs.
 export type Phase = 'Start' | 'Run'
 
-// The switch between two screens. `from` is the outgoing screen, kept until
-// it has slid away (a popped screen is already removed from the stack), so
-// the view renders the same way for a push and a pop. `fromDepth` is its
-// index: one below the top on a push, any depth above it on a pop (popping
-// several screens at once slides straight from the old top).
+// The screens in flight live in the transition, so they exist in exactly
+// one place and their depths follow from the structure:
+// - `Pushing`: `previous` (the old top, at depth `depth - 1`) slides back
+//   while `top` slides in; it joins `below` once done.
+// - `Popping`: the popped screens (last = the one that was on show, at depth
+//   `depth + popped.length`) slide away; dropped once done. Several screens
+//   are popped at once by `PopTo`, in one slide from the old top.
 //
-// Idle ─Push/Pop→ Sliding Start ─(next paint)→ Sliding Run ─(transitionend)→ Idle
+// Idle ─Push→ Pushing Start ─(next paint)→ Pushing Run ─(transitionend)→ Idle
+// Idle ─Pop─→ Popping Start ─(next paint)→ Popping Run ─(transitionend)→ Idle
 export type Transition<Item> =
   | { _tag: 'Idle' }
-  | {
-      _tag: 'Sliding'
-      from: Item
-      fromDepth: number
-      direction: Direction
-      phase: Phase
-    }
+  | { _tag: 'Pushing'; previous: Entry<Item>; phase: Phase }
+  | { _tag: 'Popping'; popped: NEA.NonEmptyArray<Entry<Item>>; phase: Phase }
 
 export const getTransitionEq = <Item>(
   itemEq: EqClass.Eq<Item>,
-): EqClass.Eq<Transition<Item>> => ({
-  equals: (x, y) => {
-    switch (x._tag) {
-      case 'Idle':
-        return y._tag === 'Idle'
-      case 'Sliding':
-        return (
-          y._tag === 'Sliding' &&
-          itemEq.equals(x.from, y.from) &&
-          x.fromDepth === y.fromDepth &&
-          x.direction === y.direction &&
-          x.phase === y.phase
-        )
-    }
-  },
-})
+): EqClass.Eq<Transition<Item>> => {
+  const entryEq = getEntryEq(itemEq)
+  return {
+    equals: (x, y) => {
+      switch (x._tag) {
+        case 'Idle':
+          return y._tag === 'Idle'
+        case 'Pushing':
+          return (
+            y._tag === 'Pushing' &&
+            entryEq.equals(x.previous, y.previous) &&
+            x.phase === y.phase
+          )
+        case 'Popping':
+          return (
+            y._tag === 'Popping' &&
+            NEA.getEq(entryEq).equals(x.popped, y.popped) &&
+            x.phase === y.phase
+          )
+      }
+    },
+  }
+}
 
 // Model
 // ---------------------------------
 
-// A history of screens; the last one is on show. `Item` is the user's own
-// union of screens (e.g. `MenuScreen`), each case may carry a TEA model.
-export type Stack<Item> = {
-  stack: NonEmptyArray<Item>
+// A history of screens; `top` is on show. `Item` is the user's own union of
+// screens (e.g. `MenuScreen`), each case may carry a TEA model.
+export type Model<Item> = {
+  // Screens underneath, root first (while pushing, underneath `previous`)
+  below: Entry<Item>[]
+  top: Entry<Item>
   transition: Transition<Item>
-  // Measured height (px) of each rendered screen, keyed by its depth (index
-  // in `stack`). Used to animate the container height; unknown until the
-  // screen's first measurement.
-  heights: Record<string, number>
   // Incremented whenever an animation starts, so frame and timeout messages
   // of an interrupted animation are ignored
   seq: number
   config: Config
 }
 
-export const getStackEq = <Item>(
+export const getModelEq = <Item>(
   itemEq: EqClass.Eq<Item>,
-): EqClass.Eq<Stack<Item>> =>
-  EqClass.struct<Stack<Item>>({
-    stack: A.getEq(itemEq),
+): EqClass.Eq<Model<Item>> =>
+  EqClass.struct<Model<Item>>({
+    below: A.getEq(getEntryEq(itemEq)),
+    top: getEntryEq(itemEq),
     transition: getTransitionEq(itemEq),
-    heights: R.getEq(N.Eq),
     seq: N.Eq,
     config: ConfigEq,
   })
@@ -138,6 +156,7 @@ export type Msg<Item> =
   | { _tag: 'TransitionEnd' }
   // Fallback for a `transitionend` that never fires
   | { _tag: 'TransitionTimeout'; seq: number }
+  // Reported by the view for a rendered screen (ignored for any other depth)
   | { _tag: 'HeightMeasured'; depth: number; height: number }
   | { _tag: 'NoOp' }
 
@@ -148,7 +167,7 @@ export type Msg<Item> =
 // stable values like `dispatch`: anything else it closes over is invisible
 // to `ScreenStackMemo`. Pass parent-owned state through `parent`.
 export type Props<Item, Parent> = {
-  model: Stack<Item>
+  model: Model<Item>
   dispatch: Dispatcher<Msg<Item>>
   // `depth` is the screen's index in the stack (0 = the root), e.g. to show
   // a back button when it is above 0. Give each screen an opaque
@@ -165,7 +184,7 @@ export const getPropsEq = <Item, Parent>(
   parentEq: EqClass.Eq<Parent>,
 ): EqClass.Eq<Props<Item, Parent>> =>
   EqClass.struct<Props<Item, Parent>>({
-    model: getStackEq(itemEq),
+    model: getModelEq(itemEq),
     dispatch: EqAlways,
     renderScreen: EqAlways,
     itemEq: EqAlways,

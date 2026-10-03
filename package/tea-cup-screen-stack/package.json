@@ -1,5 +1,5 @@
 {
-  "name": "@rinn7e/tea-cup-screen",
+  "name": "@rinn7e/tea-cup-screen-stack",
   "version": "1.0.0",
   "type": "module",
   "description": "Screen stack with animated transitions for React Tea-Cup applications",

@@ -19,50 +19,12 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
+import * as O from 'fp-ts/lib/Option'
 import { type ReactElement, memo } from 'react'
 
 import { type Props, getPropsEq } from './type'
-import { type PanelRole, containerDomId, depth, panelDomId } from './util'
+import { containerDomId, panelDomId, panels } from './util'
 import { MeasuredPanel, containerStyle, panelStyle } from './view'
-
-type Panel<Item> = { index: number; screen: Item; role: PanelRole }
-
-// The screens to render, ordered by depth: the top one, plus the outgoing
-// one while sliding. Keyed by depth, so the screen that stays (the new
-// `from` on a push) keeps its DOM and state.
-const panelsOf = <Item, Parent>(props: Props<Item, Parent>): Panel<Item>[] => {
-  const model = props.model
-  const transition = model.transition
-  const top: Panel<Item> = {
-    index: depth(model),
-    screen: model.stack[depth(model)],
-    role: 'Top',
-  }
-  switch (transition._tag) {
-    case 'Idle':
-      return [top]
-    case 'Sliding':
-      if (transition.direction === 'Forward') {
-        return [
-          {
-            index: transition.fromDepth,
-            screen: transition.from,
-            role: 'From',
-          },
-          top,
-        ]
-      } else {
-        return [
-          top,
-          {
-            index: transition.fromDepth,
-            screen: transition.from,
-            role: 'From',
-          },
-        ]
-      }
-  }
-}
 
 export const ScreenStackComponent = <Item, Parent>(
   props: Props<Item, Parent>,
@@ -74,22 +36,21 @@ export const ScreenStackComponent = <Item, Parent>(
       id={containerDomId(model.config.id)}
       data-screen-stack=''
       data-state={transition._tag}
-      data-direction={
-        transition._tag === 'Sliding' ? transition.direction : undefined
-      }
-      data-phase={transition._tag === 'Sliding' ? transition.phase : undefined}
+      data-phase={transition._tag === 'Idle' ? undefined : transition.phase}
       className={className}
       style={containerStyle(model)}
     >
-      {panelsOf(props).map((panel) => (
+      {/* Ordered by depth and keyed by it, so the screen that stays keeps
+          its DOM and state */}
+      {panels(model).map((panel) => (
         <MeasuredPanel
-          key={panel.index}
-          id={panelDomId(model.config.id, panel.index)}
-          index={panel.index}
+          key={panel.depth}
+          id={panelDomId(model.config.id, panel.depth)}
+          index={panel.depth}
           role={panel.role}
-          knownHeight={model.heights[String(panel.index)]}
+          knownHeight={O.toUndefined(panel.entry.height)}
           onHeight={(height) =>
-            dispatch({ _tag: 'HeightMeasured', depth: panel.index, height })
+            dispatch({ _tag: 'HeightMeasured', depth: panel.depth, height })
           }
           // Only the incoming screen's own transform ends the transition,
           // not a transition bubbling up from inside the screen
@@ -109,7 +70,7 @@ export const ScreenStackComponent = <Item, Parent>(
           }
           style={panelStyle(model, panel.role)}
         >
-          {renderScreen(panel.screen, panel.index, parent)}
+          {renderScreen(panel.entry.screen, panel.depth, parent)}
         </MeasuredPanel>
       ))}
     </div>

@@ -1,6 +1,6 @@
 import * as Drawer from '@rinn7e/tea-cup-drawer'
 import { updateAndCmd } from '@rinn7e/tea-cup-prelude'
-import * as Screen from '@rinn7e/tea-cup-screen'
+import * as ScreenStack from '@rinn7e/tea-cup-screen-stack'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
@@ -15,11 +15,11 @@ import {
   type Msg,
 } from './type'
 
-type MenuStack = Screen.Stack<MenuScreen>
+type MenuStack = ScreenStack.Model<MenuScreen>
 
 const menuDrawerConfig = Drawer.defaultConfig('menu')
 
-const menuStackConfig = Screen.defaultConfig('menu')
+const menuStackConfig = ScreenStack.defaultConfig('menu')
 
 export const init = (): [Model, Cmd<Msg>] => [
   {
@@ -52,7 +52,7 @@ const closeMenu = menuDrawerMsgHandler({ _tag: 'Close' })
 // Screen stack
 // ---------------------------------
 
-const toMenuStackMsg = (subMsg: Screen.Msg<MenuScreen>): Msg => ({
+const toMenuStackMsg = (subMsg: ScreenStack.Msg<MenuScreen>): Msg => ({
   _tag: 'MenuStackMsg',
   subMsg,
 })
@@ -90,29 +90,31 @@ const withMenuStack =
       ),
     )
 
-const liftStack = ([stack, cmd]: [MenuStack, Cmd<Screen.Msg<MenuScreen>>]): [
+const liftStack = ([stack, cmd]: [
   MenuStack,
-  Cmd<Msg>,
-] => [stack, cmd.map(toMenuStackMsg)]
+  Cmd<ScreenStack.Msg<MenuScreen>>,
+]): [MenuStack, Cmd<Msg>] => [stack, cmd.map(toMenuStackMsg)]
 
 const pushMoveTo = withMenuStack((stack) => {
   const [moveTo, moveToCmd] = MoveTo.init()
   const [next, stackCmd] = liftStack(
-    Screen.pushHandler<MenuScreen>({ _tag: 'MoveTo', moveTo })(stack),
+    ScreenStack.pushHandler<MenuScreen>({ _tag: 'MoveTo', moveTo })(stack),
   )
   return [next, Cmd.batch([stackCmd, moveToCmd.map(toMoveToMsg)])]
 })
 
 const pushNewFolder = withMenuStack((stack) =>
   liftStack(
-    Screen.pushHandler<MenuScreen>({
+    ScreenStack.pushHandler<MenuScreen>({
       _tag: 'NewFolder',
       newFolder: NewFolder.defaultModel(),
     })(stack),
   ),
 )
 
-const popMenu = withMenuStack((stack) => liftStack(Screen.popHandler(stack)))
+const popMenu = withMenuStack((stack) =>
+  liftStack(ScreenStack.popHandler(stack)),
+)
 
 // Screens
 // ---------------------------------
@@ -123,7 +125,7 @@ const moveToMsgHandler =
     const [nextMoveTo, cmd] = MoveTo.update(msg, moveTo)
     return pipe(
       withMenuStack((stack) => [
-        Screen.setTop<MenuScreen>({ _tag: 'MoveTo', moveTo: nextMoveTo })(
+        ScreenStack.setTop<MenuScreen>({ _tag: 'MoveTo', moveTo: nextMoveTo })(
           stack,
         ),
         cmd.map(toMoveToMsg),
@@ -147,7 +149,7 @@ const newFolderMsgHandler =
     const [nextNewFolder, cmd] = NewFolder.update(msg, newFolder)
     return pipe(
       withMenuStack((stack) => [
-        Screen.setTop<MenuScreen>({
+        ScreenStack.setTop<MenuScreen>({
           _tag: 'NewFolder',
           newFolder: nextNewFolder,
         })(stack),
@@ -177,7 +179,7 @@ const menuScreenMsgHandler =
           Cmd.none(),
         ],
         (stack): [Model, Cmd<Msg>] => {
-          const top = Screen.getTop(stack)
+          const top = ScreenStack.getTop(stack)
           if (subMsg._tag === 'MoveToMsg' && top._tag === 'MoveTo') {
             return moveToMsgHandler(subMsg.msg, top.moveTo)(model)
           } else if (
@@ -201,7 +203,7 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
       // Every open starts from the first screen
       return menuDrawerMsgHandler({
         _tag: 'Open',
-        internal: Screen.defaultModel<MenuScreen>(menuStackConfig, {
+        internal: ScreenStack.defaultModel<MenuScreen>(menuStackConfig, {
           _tag: 'Main',
         }),
       })(model)
@@ -209,7 +211,7 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
       return menuDrawerMsgHandler(msg.subMsg)(model)
     case 'MenuStackMsg':
       return withMenuStack((stack) =>
-        liftStack(Screen.update(msg.subMsg, stack)),
+        liftStack(ScreenStack.update(msg.subMsg, stack)),
       )(model)
     case 'MenuScreenMsg':
       return menuScreenMsgHandler(msg.subMsg)(model)

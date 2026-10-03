@@ -59,7 +59,7 @@ test.describe('Standalone wizard', () => {
     await clickInTop(page, key, 'wizard-restart')
     // One back slide from the summary to the first step; the plan step in
     // between is never shown
-    await expect(container(page, key)).toHaveAttribute('data-direction', 'Back')
+    await expect(container(page, key)).toHaveAttribute('data-state', 'Popping')
     await expect(panels(page, key)).toHaveCount(2)
     await expect(
       panels(page, key).evaluateAll((elements) =>

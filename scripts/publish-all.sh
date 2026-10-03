@@ -27,7 +27,7 @@ PACKAGES=(
   "package/tea-cup-link-pagination"
   "package/tea-cup-form"
   "package/tea-cup-drawer"
-  "package/tea-cup-screen"
+  "package/tea-cup-screen-stack"
 )
 
 echo "🚀 Publishing packages to GitHub Packages (https://npm.pkg.github.com)..."

@@ -161,7 +161,7 @@ case 'MenuMsg':
 
 The parent can still react in the same step with `updateAndCmd` (e.g. close the drawer once the menu picked something). The example app's "TEA content" demo shows the full pattern. Its "Side by side" demo shows the opposite choice: no payload (`Drawer.Model<null>`), a form owned by the parent and passed through `parent`, kept across close and reopen, and cleared only once the drawer reaches `Invisible` (clearing on `Close` would empty it while it slides away).
 
-For a drawer with several screens (a menu whose "Move to ›" slides in a second screen with a back button), make the payload a screen stack from [`@rinn7e/tea-cup-screen`](../tea-cup-screen): `Drawer.Model<Screen.Stack<MenuScreen>>`. Its example app shows the full recipe.
+For a drawer with several screens (a menu whose "Move to ›" slides in a second screen with a back button), make the payload a screen stack from [`@rinn7e/tea-cup-screen-stack`](../tea-cup-screen-stack): `Drawer.Model<ScreenStack.Model<MenuScreen>>`. Its example app shows the full recipe.
 
 ### Reacting to open changes
 

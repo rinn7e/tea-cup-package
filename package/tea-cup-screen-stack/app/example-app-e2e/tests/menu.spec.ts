@@ -26,11 +26,7 @@ test.describe('Drawer + screen stack', () => {
     await expect(page.locator('[data-test="screen-back"]')).toHaveCount(0)
     await clickInTop(page, key, 'move-to')
     // Both screens are rendered while sliding
-    await expect(container(page, key)).toHaveAttribute('data-state', 'Sliding')
-    await expect(container(page, key)).toHaveAttribute(
-      'data-direction',
-      'Forward',
-    )
+    await expect(container(page, key)).toHaveAttribute('data-state', 'Pushing')
     await expect(panels(page, key)).toHaveCount(2)
     await expectIdleAt(page, key, 1)
     await expect(topPanel(page, key)).toHaveAttribute('data-screen-depth', '1')
@@ -43,7 +39,7 @@ test.describe('Drawer + screen stack', () => {
     await clickInTop(page, key, 'move-to')
     await expectIdleAt(page, key, 1)
     await clickInTop(page, key, 'screen-back')
-    await expect(container(page, key)).toHaveAttribute('data-direction', 'Back')
+    await expect(container(page, key)).toHaveAttribute('data-state', 'Popping')
     await expectIdleAt(page, key, 0)
     await expect(page.locator('[data-test="screen-main"]')).toBeVisible()
     await expect(page.locator('[data-test="screen-back"]')).toHaveCount(0)

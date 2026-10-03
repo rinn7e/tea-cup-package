@@ -1,4 +1,4 @@
-import type * as Screen from '@rinn7e/tea-cup-screen'
+import type * as ScreenStack from '@rinn7e/tea-cup-screen-stack'
 import * as EqClass from 'fp-ts/lib/Eq'
 
 // A sign-up wizard: a screen stack without a drawer. Each step keeps what
@@ -24,11 +24,11 @@ export const StepEq: EqClass.Eq<Step> = {
 }
 
 export type Model = {
-  steps: Screen.Stack<Step>
+  steps: ScreenStack.Model<Step>
 }
 
 export type Msg =
-  | { _tag: 'StackMsg'; subMsg: Screen.Msg<Step> }
+  | { _tag: 'StackMsg'; subMsg: ScreenStack.Msg<Step> }
   | { _tag: 'SetEmail'; email: string }
   | { _tag: 'SetPlan'; plan: Plan }
   | { _tag: 'Next' }

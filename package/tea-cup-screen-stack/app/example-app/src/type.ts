@@ -1,5 +1,5 @@
 import type * as Drawer from '@rinn7e/tea-cup-drawer'
-import * as Screen from '@rinn7e/tea-cup-screen'
+import * as ScreenStack from '@rinn7e/tea-cup-screen-stack'
 import * as EqClass from 'fp-ts/lib/Eq'
 
 import * as MoveTo from './component/move-to'
@@ -29,8 +29,8 @@ export const MenuScreenEq: EqClass.Eq<MenuScreen> = {
   },
 }
 
-export const MenuStackEq: EqClass.Eq<Screen.Stack<MenuScreen>> =
-  Screen.getStackEq(MenuScreenEq)
+export const MenuStackEq: EqClass.Eq<ScreenStack.Model<MenuScreen>> =
+  ScreenStack.getModelEq(MenuScreenEq)
 
 // Messages of the screens that have a TEA model, routed by the parent to
 // the screen on show
@@ -41,7 +41,7 @@ export type MenuScreenMsg =
 export type Model = {
   // The whole screen stack is the drawer's payload: it starts at "Main" on
   // every open and is dropped once the drawer has closed
-  menuDrawer: Drawer.Model<Screen.Stack<MenuScreen>>
+  menuDrawer: Drawer.Model<ScreenStack.Model<MenuScreen>>
   wizard: Wizard.Model
   // What the parent did, newest first
   log: string[]
@@ -49,8 +49,8 @@ export type Model = {
 
 export type Msg =
   | { _tag: 'OpenMenu' }
-  | { _tag: 'MenuDrawerMsg'; subMsg: Drawer.Msg<Screen.Stack<MenuScreen>> }
-  | { _tag: 'MenuStackMsg'; subMsg: Screen.Msg<MenuScreen> }
+  | { _tag: 'MenuDrawerMsg'; subMsg: Drawer.Msg<ScreenStack.Model<MenuScreen>> }
+  | { _tag: 'MenuStackMsg'; subMsg: ScreenStack.Msg<MenuScreen> }
   | { _tag: 'MenuScreenMsg'; subMsg: MenuScreenMsg }
   | { _tag: 'MarkAsRead' }
   | { _tag: 'SelectMultiple' }

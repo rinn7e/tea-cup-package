@@ -26,23 +26,25 @@ import { describe, expect, it } from 'vitest'
 
 import {
   type Config,
+  type Model,
   type Msg,
   type Props,
-  type Stack,
   canPop,
   containerHeight,
   defaultConfig,
   defaultModel,
   depth,
-  fromDepth,
+  fromPanel,
   getPropsEq,
   getTop,
   panelOffsetPercent,
+  panels,
+  screens,
   setTop,
   update,
 } from '../src'
 
-type M = Stack<string>
+type M = Model<string>
 
 const run = (model: M, ...msgs: Msg<string>[]): M =>
   msgs.reduce((m, msg) => update(msg, m)[0], model)
@@ -50,20 +52,24 @@ const run = (model: M, ...msgs: Msg<string>[]): M =>
 const root = (config: Config = defaultConfig('test')): M =>
   defaultModel(config, 'main')
 
-// Push and run the transition to the end
-const pushed = (model: M, screen: string): M => {
-  const start = run(model, { _tag: 'Push', screen })
-  return run(
-    start,
-    { _tag: 'Frame', seq: start.seq },
-    { _tag: 'TransitionEnd' },
-  )
-}
+// Run the started transition to the end
+const finish = (model: M): M =>
+  run(model, { _tag: 'Frame', seq: model.seq }, { _tag: 'TransitionEnd' })
+
+const pushed = (model: M, screen: string): M =>
+  finish(run(model, { _tag: 'Push', screen }))
+
+const measure = (model: M, index: number, height: number): M =>
+  run(model, { _tag: 'HeightMeasured', depth: index, height })
+
+// Screen and depth of the rendered panels, in DOM order
+const rendered = (model: M) =>
+  panels(model).map((p) => `${p.depth}:${p.entry.screen}:${p.role}`)
 
 describe('defaults', () => {
   it('starts idle on the root screen', () => {
     const model = root()
-    expect(model.stack).toEqual(['main'])
+    expect(screens(model)).toEqual(['main'])
     expect(model.transition).toEqual({ _tag: 'Idle' })
     expect(model.config.durationMs).toBe(300)
     expect(depth(model)).toBe(0)
@@ -72,28 +78,31 @@ describe('defaults', () => {
 })
 
 describe('Push', () => {
-  it('adds the screen and starts sliding forward from the previous top', () => {
+  it('holds the previous top in the transition while the new one slides in', () => {
     const model = run(root(), { _tag: 'Push', screen: 'moveTo' })
-    expect(model.stack).toEqual(['main', 'moveTo'])
+    expect(getTop(model)).toBe('moveTo')
+    expect(model.below).toEqual([])
     expect(model.transition).toEqual({
-      _tag: 'Sliding',
-      from: 'main',
-      fromDepth: 0,
-      direction: 'Forward',
+      _tag: 'Pushing',
+      previous: { screen: 'main', height: O.none },
       phase: 'Start',
     })
+    expect(depth(model)).toBe(1)
+    expect(screens(model)).toEqual(['main', 'moveTo'])
+    expect(rendered(model)).toEqual(['0:main:From', '1:moveTo:Top'])
     expect(model.seq).toBe(1)
-    expect(fromDepth(model)).toEqual(O.some(0))
   })
 
-  it('runs after the start frame and settles on transitionend', () => {
+  it('runs after the start frame; the previous top joins `below` once done', () => {
     const start = run(root(), { _tag: 'Push', screen: 'moveTo' })
     const running = run(start, { _tag: 'Frame', seq: start.seq })
     expect(running.transition).toMatchObject({ phase: 'Run' })
     const done = run(running, { _tag: 'TransitionEnd' })
     expect(done.transition).toEqual({ _tag: 'Idle' })
-    expect(getTop(done)).toBe('moveTo')
+    expect(done.below.map((e) => e.screen)).toEqual(['main'])
+    expect(depth(done)).toBe(1)
     expect(canPop(done)).toBe(true)
+    expect(rendered(done)).toEqual(['1:moveTo:Top'])
   })
 
   it('ignores transitionend before the transition runs', () => {
@@ -113,7 +122,7 @@ describe('Push', () => {
       _tag: 'Push',
       screen: 'moveTo',
     })
-    expect(model.stack).toEqual(['main', 'moveTo'])
+    expect(screens(model)).toEqual(['main', 'moveTo'])
     expect(model.transition).toEqual({ _tag: 'Idle' })
   })
 })
@@ -121,45 +130,35 @@ describe('Push', () => {
 describe('Pop', () => {
   it('is a no-op on the root screen', () => {
     const model = root()
-    const [next, cmd] = update({ _tag: 'Pop' }, model)
-    expect(next).toBe(model)
-    expect(cmd).toBeDefined()
+    expect(run(model, { _tag: 'Pop' })).toBe(model)
   })
 
-  it('removes the top screen but keeps it as `from` while it slides away', () => {
+  it('removes the top screen but keeps it in the transition while it slides away', () => {
     const model = run(pushed(root(), 'moveTo'), { _tag: 'Pop' })
-    expect(model.stack).toEqual(['main'])
+    expect(screens(model)).toEqual(['main'])
     expect(model.transition).toEqual({
-      _tag: 'Sliding',
-      from: 'moveTo',
-      fromDepth: 1,
-      direction: 'Back',
+      _tag: 'Popping',
+      popped: [{ screen: 'moveTo', height: O.none }],
       phase: 'Start',
     })
-    expect(fromDepth(model)).toEqual(O.some(1))
+    expect(rendered(model)).toEqual(['0:main:Top', '1:moveTo:From'])
+    expect(finish(model).transition).toEqual({ _tag: 'Idle' })
+    expect(rendered(finish(model))).toEqual(['0:main:Top'])
   })
 
   it('keeps the state of the screen it returns to', () => {
     const edited = setTop('main (edited)')(root())
-    const back = pushed(edited, 'moveTo')
-    const start = run(back, { _tag: 'Pop' })
-    const done = run(
-      start,
-      { _tag: 'Frame', seq: start.seq },
-      { _tag: 'TransitionEnd' },
-    )
-    expect(done.stack).toEqual(['main (edited)'])
-    expect(done.transition).toEqual({ _tag: 'Idle' })
+    const done = finish(run(pushed(edited, 'moveTo'), { _tag: 'Pop' }))
+    expect(screens(done)).toEqual(['main (edited)'])
   })
 
   it('switches at once with durationMs 0', () => {
-    const config = { id: 'test', durationMs: 0 }
     const model = run(
-      root(config),
+      root({ id: 'test', durationMs: 0 }),
       { _tag: 'Push', screen: 'moveTo' },
       { _tag: 'Pop' },
     )
-    expect(model.stack).toEqual(['main'])
+    expect(screens(model)).toEqual(['main'])
     expect(model.transition).toEqual({ _tag: 'Idle' })
   })
 })
@@ -167,38 +166,16 @@ describe('Pop', () => {
 describe('PopTo', () => {
   const deep = (): M => pushed(pushed(root(), 'a'), 'b')
 
-  it('slides straight from the top to the target, discarding the screens in between', () => {
+  it('slides straight from the top to the target, the screens in between ride along unseen', () => {
     const model = run(deep(), { _tag: 'PopTo', depth: 0 })
-    expect(model.stack).toEqual(['main'])
-    expect(model.transition).toEqual({
-      _tag: 'Sliding',
-      from: 'b',
-      fromDepth: 2,
-      direction: 'Back',
-      phase: 'Start',
-    })
-    expect(fromDepth(model)).toEqual(O.some(2))
-  })
-
-  it('keeps the height of the outgoing screen until it has slid away', () => {
-    const measured = run(deep(), {
-      _tag: 'HeightMeasured',
-      depth: 2,
-      height: 300,
-    })
-    const popping = run(measured, { _tag: 'PopTo', depth: 0 })
-    expect(popping.heights['2']).toBe(300)
-    expect(
-      run(popping, { _tag: 'HeightMeasured', depth: 2, height: 310 }).heights[
-        '2'
-      ],
-    ).toBe(310)
-    const done = run(
-      popping,
-      { _tag: 'Frame', seq: popping.seq },
-      { _tag: 'TransitionEnd' },
+    expect(screens(model)).toEqual(['main'])
+    expect(model.transition).toMatchObject({ _tag: 'Popping' })
+    // Only the old top is rendered, at its own depth
+    expect(rendered(model)).toEqual(['0:main:Top', '2:b:From'])
+    expect(O.map((p: { depth: number }) => p.depth)(fromPanel(model))).toEqual(
+      O.some(2),
     )
-    expect(done.heights['2']).toBeUndefined()
+    expect(screens(finish(model))).toEqual(['main'])
   })
 
   it('is a no-op for the current depth, deeper or negative depths', () => {
@@ -222,55 +199,43 @@ describe('Replace', () => {
       _tag: 'Replace',
       screen: 'confirm',
     })
-    expect(model.stack).toEqual(['main', 'confirm'])
+    expect(screens(model)).toEqual(['main', 'confirm'])
     expect(model.transition).toEqual({ _tag: 'Idle' })
   })
 
   it('keeps a running transition', () => {
     const start = run(root(), { _tag: 'Push', screen: 'moveTo' })
     const model = run(start, { _tag: 'Replace', screen: 'confirm' })
-    expect(model.stack).toEqual(['main', 'confirm'])
+    expect(screens(model)).toEqual(['main', 'confirm'])
     expect(model.transition).toEqual(start.transition)
   })
 })
 
 describe('interruptions', () => {
-  it('Push while sliding finishes the running transition first', () => {
+  it('Push while pushing finishes the running push first', () => {
     const first = run(root(), { _tag: 'Push', screen: 'a' })
     const second = run(first, { _tag: 'Push', screen: 'b' })
-    expect(second.stack).toEqual(['main', 'a', 'b'])
-    expect(second.transition).toEqual({
-      _tag: 'Sliding',
-      from: 'a',
-      fromDepth: 1,
-      direction: 'Forward',
-      phase: 'Start',
+    expect(screens(second)).toEqual(['main', 'a', 'b'])
+    expect(second.below.map((e) => e.screen)).toEqual(['main'])
+    expect(second.transition).toMatchObject({
+      _tag: 'Pushing',
+      previous: { screen: 'a' },
     })
     expect(second.seq).toBe(first.seq + 1)
   })
 
   it('Pop while pushing slides back from the pushed screen', () => {
     const pushing = run(root(), { _tag: 'Push', screen: 'a' })
-    const running = run(pushing, { _tag: 'Frame', seq: pushing.seq })
-    const popping = run(running, { _tag: 'Pop' })
-    expect(popping.stack).toEqual(['main'])
-    expect(popping.transition).toEqual({
-      _tag: 'Sliding',
-      from: 'a',
-      fromDepth: 1,
-      direction: 'Back',
-      phase: 'Start',
-    })
+    const popping = run(pushing, { _tag: 'Pop' })
+    expect(screens(popping)).toEqual(['main'])
+    expect(rendered(popping)).toEqual(['0:main:Top', '1:a:From'])
   })
 
   it('Push while popping drops the popped screen', () => {
     const popping = run(pushed(root(), 'a'), { _tag: 'Pop' })
     const model = run(popping, { _tag: 'Push', screen: 'b' })
-    expect(model.stack).toEqual(['main', 'b'])
-    expect(model.transition).toMatchObject({
-      from: 'main',
-      direction: 'Forward',
-    })
+    expect(screens(model)).toEqual(['main', 'b'])
+    expect(rendered(model)).toEqual(['0:main:From', '1:b:Top'])
   })
 
   it('ignores the frame and timeout of an interrupted transition', () => {
@@ -294,123 +259,108 @@ describe('interruptions', () => {
       { _tag: 'Pop' },
       { _tag: 'Pop' },
     )
-    const done = run(
-      model,
-      { _tag: 'Frame', seq: model.seq },
-      { _tag: 'TransitionEnd' },
-    )
-    expect(done.stack).toEqual(['main'])
+    const done = finish(model)
+    expect(screens(done)).toEqual(['main'])
+    expect(done.below).toEqual([])
     expect(done.transition).toEqual({ _tag: 'Idle' })
   })
 })
 
 describe('HeightMeasured', () => {
-  it('stores the height of a rendered screen', () => {
-    const model = run(root(), { _tag: 'HeightMeasured', depth: 0, height: 120 })
-    expect(model.heights).toEqual({ '0': 120 })
+  it('stores the height with the screen', () => {
+    expect(measure(root(), 0, 120).top.height).toEqual(O.some(120))
   })
 
   it('returns the same model when the height is unchanged', () => {
-    const model = run(root(), { _tag: 'HeightMeasured', depth: 0, height: 120 })
-    expect(run(model, { _tag: 'HeightMeasured', depth: 0, height: 120 })).toBe(
-      model,
-    )
+    const model = measure(root(), 0, 120)
+    expect(measure(model, 0, 120)).toBe(model)
   })
 
   it('ignores screens that are not rendered', () => {
     const model = root()
-    expect(run(model, { _tag: 'HeightMeasured', depth: 3, height: 80 })).toBe(
-      model,
-    )
+    expect(measure(model, 3, 80)).toBe(model)
+    // `main` is underneath, not rendered
+    const deeper = pushed(model, 'a')
+    expect(measure(deeper, 0, 80)).toBe(deeper)
   })
 
-  it('accepts the outgoing screen while it slides away, drops it after', () => {
-    // Each screen is measured while it is rendered
-    const measured = run(
-      pushed(
-        run(root(), { _tag: 'HeightMeasured', depth: 0, height: 120 }),
-        'a',
-      ),
-      { _tag: 'HeightMeasured', depth: 1, height: 300 },
-    )
-    const popping = run(measured, { _tag: 'Pop' })
-    expect(popping.heights).toEqual({ '0': 120, '1': 300 })
-    const updated = run(popping, {
-      _tag: 'HeightMeasured',
-      depth: 1,
-      height: 310,
+  it('measures the screen being pushed over and keeps its height', () => {
+    const pushing = run(measure(root(), 0, 120), { _tag: 'Push', screen: 'a' })
+    const measured = measure(pushing, 0, 125)
+    expect(measured.transition).toMatchObject({
+      previous: { height: O.some(125) },
     })
-    expect(updated.heights).toEqual({ '0': 120, '1': 310 })
-    const done = run(
-      updated,
-      { _tag: 'Frame', seq: updated.seq },
-      { _tag: 'TransitionEnd' },
-    )
-    expect(done.heights).toEqual({ '0': 120 })
+    expect(finish(measured).below[0].height).toEqual(O.some(125))
+  })
+
+  it('measures the screen sliding away; its height leaves with it', () => {
+    const popping = run(measure(pushed(root(), 'a'), 1, 300), { _tag: 'Pop' })
+    const measured = measure(popping, 1, 310)
+    expect(measured.transition).toMatchObject({
+      popped: [{ height: O.some(310) }],
+    })
+    expect(finish(measured).top.height).toEqual(O.none)
   })
 })
 
 describe('view helpers', () => {
-  const measured = (model: M): M =>
-    run(
-      model,
-      { _tag: 'HeightMeasured', depth: 0, height: 120 },
-      { _tag: 'HeightMeasured', depth: 1, height: 300 },
-    )
-
   it('animates the container from the outgoing to the incoming height', () => {
-    const start = measured(run(root(), { _tag: 'Push', screen: 'a' }))
+    const start = run(measure(root(), 0, 120), { _tag: 'Push', screen: 'a' })
     expect(containerHeight(start)).toEqual(O.some(120))
-    const running = run(start, { _tag: 'Frame', seq: start.seq })
+    const running = measure(
+      run(start, { _tag: 'Frame', seq: start.seq }),
+      1,
+      300,
+    )
     expect(containerHeight(running)).toEqual(O.some(300))
-    const done = run(running, { _tag: 'TransitionEnd' })
-    expect(containerHeight(done)).toEqual(O.some(300))
+    expect(containerHeight(run(running, { _tag: 'TransitionEnd' }))).toEqual(
+      O.some(300),
+    )
   })
 
   it('follows the height of the screen on show while idle', () => {
-    const model = run(root(), { _tag: 'HeightMeasured', depth: 0, height: 120 })
-    expect(containerHeight(model)).toEqual(O.some(120))
-    const grown = run(model, { _tag: 'HeightMeasured', depth: 0, height: 200 })
-    expect(containerHeight(grown)).toEqual(O.some(200))
+    expect(containerHeight(measure(root(), 0, 200))).toEqual(O.some(200))
   })
 
   it('falls back to the natural height when a height is unknown', () => {
     expect(containerHeight(root())).toEqual(O.none)
-    const start = run(root(), { _tag: 'Push', screen: 'a' })
-    expect(containerHeight(start)).toEqual(O.none)
+    expect(containerHeight(run(root(), { _tag: 'Push', screen: 'a' }))).toEqual(
+      O.none,
+    )
   })
 
   it('places the panels for each phase', () => {
-    const forward = run(root(), { _tag: 'Push', screen: 'a' })
-    expect(panelOffsetPercent(forward.transition, 'Top')).toBe(100)
-    expect(panelOffsetPercent(forward.transition, 'From')).toBe(0)
-    const forwardRun = run(forward, { _tag: 'Frame', seq: forward.seq })
-    expect(panelOffsetPercent(forwardRun.transition, 'Top')).toBe(0)
-    expect(panelOffsetPercent(forwardRun.transition, 'From')).toBe(-30)
+    const push = run(root(), { _tag: 'Push', screen: 'a' })
+    expect(panelOffsetPercent(push.transition, 'Top')).toBe(100)
+    expect(panelOffsetPercent(push.transition, 'From')).toBe(0)
+    const pushRun = run(push, { _tag: 'Frame', seq: push.seq })
+    expect(panelOffsetPercent(pushRun.transition, 'Top')).toBe(0)
+    expect(panelOffsetPercent(pushRun.transition, 'From')).toBe(-30)
 
-    const back = run(pushed(root(), 'a'), { _tag: 'Pop' })
-    expect(panelOffsetPercent(back.transition, 'Top')).toBe(-30)
-    expect(panelOffsetPercent(back.transition, 'From')).toBe(0)
-    const backRun = run(back, { _tag: 'Frame', seq: back.seq })
-    expect(panelOffsetPercent(backRun.transition, 'Top')).toBe(0)
-    expect(panelOffsetPercent(backRun.transition, 'From')).toBe(100)
+    const pop = run(pushed(root(), 'a'), { _tag: 'Pop' })
+    expect(panelOffsetPercent(pop.transition, 'Top')).toBe(-30)
+    expect(panelOffsetPercent(pop.transition, 'From')).toBe(0)
+    const popRun = run(pop, { _tag: 'Frame', seq: pop.seq })
+    expect(panelOffsetPercent(popRun.transition, 'Top')).toBe(0)
+    expect(panelOffsetPercent(popRun.transition, 'From')).toBe(100)
   })
 })
 
 describe('setTop', () => {
-  it('replaces only the top screen', () => {
-    const model = setTop('a2')(pushed(root(), 'a'))
-    expect(model.stack).toEqual(['main', 'a2'])
+  it('replaces only the top screen and keeps its height', () => {
+    const model = setTop('a2')(measure(pushed(root(), 'a'), 1, 50))
+    expect(screens(model)).toEqual(['main', 'a2'])
+    expect(model.top.height).toEqual(O.some(50))
   })
 })
 
 describe('getPropsEq', () => {
-  const props = (model: M, parent: null = null): Props<string, null> => ({
+  const props = (model: M): Props<string, null> => ({
     model,
     dispatch: () => {},
     renderScreen: () => null,
     itemEq: S.Eq,
-    parent,
+    parent: null,
     parentEq: nullEq,
   })
   const eq = getPropsEq(S.Eq, nullEq)
@@ -419,17 +369,12 @@ describe('getPropsEq', () => {
     expect(eq.equals(props(root()), props(root()))).toBe(true)
   })
 
-  it('differs when the stack or the transition change', () => {
+  it('differs when a screen, the transition or a height change', () => {
     const model = pushed(root(), 'a')
     expect(eq.equals(props(model), props(setTop('b')(model)))).toBe(false)
     expect(eq.equals(props(model), props(run(model, { _tag: 'Pop' })))).toBe(
       false,
     )
-  })
-
-  it('differs when a height changes', () => {
-    const model = root()
-    const measured = run(model, { _tag: 'HeightMeasured', depth: 0, height: 1 })
-    expect(eq.equals(props(model), props(measured))).toBe(false)
+    expect(eq.equals(props(model), props(measure(model, 1, 1)))).toBe(false)
   })
 })
