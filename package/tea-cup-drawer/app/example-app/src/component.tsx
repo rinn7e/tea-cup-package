@@ -1,262 +1,42 @@
-import * as Drawer from '@rinn7e/tea-cup-drawer'
-import { DrawerHandle, DrawerMemo } from '@rinn7e/tea-cup-drawer/component'
-import { cn, nullEq } from '@rinn7e/tea-cup-prelude'
-import * as S from 'fp-ts/lib/string'
 import { type ReactNode } from 'react'
 import { type Dispatcher, map } from 'tea-cup-fp'
 
-import {
-  type Model as ActionMenuModel,
-  ModelEq as ActionMenuModelEq,
-  type Msg as ActionMenuMsg,
-  defaultModel as defaultActionMenu,
-} from './component/action-menu'
-import { ActionMenu } from './component/action-menu/component'
-import {
-  ModelEq as FeedbackModelEq,
-  type Msg as FeedbackMsg,
-} from './component/feedback'
-import { FeedbackForm } from './component/feedback/component'
-import { ActionsParentEq, type DemoKey, type Model, type Msg } from './type'
+import { ActionsDrawer } from './component/actions-drawer/component'
+import { BasicDrawer } from './component/basic-drawer/component'
+import { DirectionDrawer } from './component/direction-drawer/component'
+import { FeedbackDrawer } from './component/feedback-drawer/component'
+import { HandleOnlyDrawer } from './component/handle-only-drawer/component'
+import { NonDismissibleDrawer } from './component/non-dismissible-drawer/component'
+import { NonModalDrawer } from './component/non-modal-drawer/component'
+import { PayloadDrawer } from './component/payload-drawer/component'
+import { ScrollDrawer } from './component/scroll-drawer/component'
+import { SnapDrawer } from './component/snap-drawer/component'
+import { SnapFullscreenDrawer } from './component/snap-fullscreen-drawer/component'
+import { type Model, type Msg } from './type'
+import { buttonClassName, secondaryButtonClassName } from './view/drawer-body'
 
 const fruits = ['Apple', 'Banana', 'Cherry']
 
-const buttonClassName =
-  'rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700'
-
-const secondaryButtonClassName =
-  'rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100'
-
-// Shared content layout: handle, title, description and actions
-const drawerBody = (args: {
-  key: DemoKey
-  dispatch: Dispatcher<Drawer.Msg<string>>
-  title: string
-  description: string
-  children?: ReactNode
-}) => (
-  <div
-    data-test={`content-${args.key}`}
-    className='flex min-h-0 flex-1 flex-col'
-  >
-    <DrawerHandle dispatch={args.dispatch} />
-    <div className='flex min-h-0 flex-1 flex-col gap-3 px-6 pt-2 pb-8'>
-      <h2 className='text-lg font-bold text-slate-900'>{args.title}</h2>
-      <p className='text-sm text-slate-600'>{args.description}</p>
-      {args.children}
-      <div className='flex gap-2'>
-        <button
-          type='button'
-          data-test={`close-${args.key}`}
-          className={secondaryButtonClassName}
-          onClick={() => args.dispatch({ _tag: 'Close' })}
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  </div>
-)
-
-// Content and drawer class names per scenario
-const drawerContent = (
-  key: DemoKey,
-  model: Drawer.Model<string>,
-  dispatch: Dispatcher<Drawer.Msg<string>>,
-  internal: string,
-): ReactNode => {
-  switch (key) {
-    case 'basic':
-      return drawerBody({
-        key,
-        dispatch,
-        title: 'Basic drawer',
-        description:
-          'Drag it down, tap the overlay or press Escape to close it.',
-      })
-    case 'nonDismissible':
-      return drawerBody({
-        key,
-        dispatch,
-        title: 'Non-dismissible',
-        description:
-          'Overlay taps, Escape and swipes are ignored; only the button closes it.',
-        children: (
-          <button
-            type='button'
-            data-test='dismiss-button'
-            className={buttonClassName}
-            onClick={() => dispatch({ _tag: 'Close' })}
-          >
-            Dismiss
-          </button>
-        ),
-      })
-    case 'snap':
-      return drawerBody({
-        key,
-        dispatch,
-        title: 'Snap points',
-        description:
-          'Rests at 148px, 50% or 100%. Drag between them or tap the handle.',
-        children: (
-          <div className='flex flex-wrap items-center gap-2'>
-            <span className='text-sm text-slate-600'>
-              Active snap:{' '}
-              <span data-test='active-snap-index' className='font-bold'>
-                {model.activeSnap}
-              </span>
-            </span>
-            {[0, 1, 2].map((index) => (
-              <button
-                key={index}
-                type='button'
-                data-test={`set-snap-${index}`}
-                className={secondaryButtonClassName}
-                onClick={() => dispatch({ _tag: 'SetSnap', index })}
-              >
-                Snap {index}
-              </button>
-            ))}
-          </div>
-        ),
-      })
-    case 'snapFullscreen':
-      return drawerBody({
-        key,
-        dispatch,
-        title: 'Snap to full screen',
-        description:
-          'Starts as a short sheet. Drag it up or tap the handle to go full screen; drag down or tap the overlay to close.',
-        children: (
-          <>
-            <span className='text-sm text-slate-600'>
-              Active snap:{' '}
-              <span data-test='fullscreen-snap-index' className='font-bold'>
-                {model.activeSnap}
-              </span>
-            </span>
-            <div className='flex flex-col gap-3 text-sm text-slate-600'>
-              {Array.from({ length: 12 }, (_, i) => (
-                <p key={i}>
-                  Paragraph {i + 1}: only visible once the drawer is expanded.
-                </p>
-              ))}
-            </div>
-          </>
-        ),
-      })
-    case 'top':
-    case 'left':
-    case 'right':
-      return drawerBody({
-        key,
-        dispatch,
-        title: `From the ${key}`,
-        description: `Swipe it ${key === 'top' ? 'up' : key} to close.`,
-      })
-    case 'scroll':
-      return drawerBody({
-        key,
-        dispatch,
-        title: 'Scrollable content',
-        description:
-          'Scrolled content scrolls back first; only at the top does a swipe drag the drawer.',
-        children: (
-          <ul
-            data-test='scroll-area'
-            className='max-h-[40dvh] overflow-y-auto rounded-lg border border-slate-200'
-          >
-            {Array.from({ length: 60 }, (_, i) => (
-              <li
-                key={i}
-                className='border-b border-slate-100 px-4 py-3 text-sm last:border-b-0'
-              >
-                Item {i + 1}
-              </li>
-            ))}
-          </ul>
-        ),
-      })
-    case 'nonModal':
-      return drawerBody({
-        key,
-        dispatch,
-        title: 'Non-modal sheet',
-        description:
-          'No overlay: the page behind stays interactive. Drag it up to expand.',
-        children: (
-          <span className='text-sm text-slate-600'>
-            Active snap:{' '}
-            <span data-test='non-modal-snap-index' className='font-bold'>
-              {model.activeSnap}
-            </span>
-          </span>
-        ),
-      })
-    case 'payload':
-      return drawerBody({
-        key,
-        dispatch,
-        title: 'Payload',
-        description:
-          'The drawer keeps the payload it was opened with until it has fully slid away.',
-        children: (
-          <p className='text-2xl font-bold'>
-            <span data-test='payload-text'>{internal}</span>
-          </p>
-        ),
-      })
-    case 'handleOnly':
-      return drawerBody({
-        key,
-        dispatch,
-        title: 'Handle only',
-        description: 'Only the handle at the top starts a drag.',
-      })
-  }
-}
-
-const drawerClassName = (key: DemoKey): string | undefined => {
-  switch (key) {
-    case 'snap':
-    case 'nonModal':
-      // Snap points need the drawer to span the whole screen
-      return 'h-full max-h-[97%] border-t border-slate-200'
-    case 'snapFullscreen':
-      // Full height so the last snap point covers the whole screen
-      return 'h-full max-h-none'
-    case 'top':
-      return 'min-h-[40dvh]'
-    case 'basic':
-    case 'nonDismissible':
-    case 'left':
-    case 'right':
-    case 'scroll':
-    case 'payload':
-    case 'handleOnly':
-      return undefined
-  }
-}
-
 const demoCard = (args: {
-  key: DemoKey
+  // The drawer's config id, used for the `data-test` ids
+  id: string
   title: string
   description: string
+  // The drawer's animation state
+  state: string
   children: ReactNode
-  model: Model
 }) => (
   <div
-    key={args.key}
+    key={args.id}
     className='flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200'
   >
     <div className='flex items-center justify-between gap-2'>
       <h2 className='font-bold text-slate-900'>{args.title}</h2>
       <span
-        data-test={`state-${args.key}`}
+        data-test={`state-${args.id}`}
         className='rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600'
       >
-        {args.model.drawers[args.key].animate._tag}
+        {args.state}
       </span>
     </div>
     <p className='text-sm text-slate-600'>{args.description}</p>
@@ -264,88 +44,92 @@ const demoCard = (args: {
   </div>
 )
 
-const openButton = (
-  key: DemoKey,
-  dispatch: Dispatcher<Msg>,
-  label: string = 'Open',
-  internal: string = key,
-) => (
+const openButton = (args: {
+  id: string
+  onClick: () => void
+  label?: string
+}) => (
   <button
     type='button'
-    data-test={`trigger-${key}`}
+    data-test={`trigger-${args.id}`}
     className={buttonClassName}
-    onClick={() =>
-      dispatch({ _tag: 'DrawerMsg', key, subMsg: { _tag: 'Open', internal } })
-    }
+    onClick={args.onClick}
   >
-    {label}
+    {args.label ?? 'Open'}
   </button>
 )
 
 export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
-  const drawerDispatch = (key: DemoKey) =>
-    map(
-      dispatch,
-      (subMsg: Drawer.Msg<string>): Msg => ({
-        _tag: 'DrawerMsg',
-        key,
-        subMsg,
-      }),
-    )
-
-  const feedbackDrawerDispatch = map(
-    dispatch,
-    (subMsg: Drawer.Msg<null>): Msg => ({ _tag: 'FeedbackDrawerMsg', subMsg }),
-  )
-  const feedbackDispatch = map(
-    dispatch,
-    (subMsg: FeedbackMsg): Msg => ({ _tag: 'FeedbackMsg', subMsg }),
-  )
-  const actionsDrawerDispatch = map(
-    dispatch,
-    (subMsg: Drawer.Msg<ActionMenuModel>): Msg => ({
-      _tag: 'ActionsDrawerMsg',
-      subMsg,
-    }),
-  )
-  const actionMenuDispatch = map(
-    dispatch,
-    (subMsg: ActionMenuMsg): Msg => ({ _tag: 'ActionMenuMsg', subMsg }),
-  )
-
-  const cards: { key: DemoKey; title: string; description: string }[] = [
+  // Every simple demo is opened with its own `Open` message
+  const simpleCards: {
+    id: string
+    title: string
+    description: string
+    state: string
+    open: Msg
+  }[] = [
     {
-      key: 'basic',
+      id: 'basic',
       title: 'Basic',
       description: 'Bottom sheet with an overlay.',
+      state: model.basicDrawer.drawer.animate._tag,
+      open: { _tag: 'BasicDrawerMsg', subMsg: { _tag: 'Open' } },
     },
     {
-      key: 'nonDismissible',
+      id: 'nonDismissible',
       title: 'Non-dismissible',
       description: 'Only a programmatic Close works.',
+      state: model.nonDismissibleDrawer.drawer.animate._tag,
+      open: { _tag: 'NonDismissibleDrawerMsg', subMsg: { _tag: 'Open' } },
     },
     {
-      key: 'snap',
+      id: 'snap',
       title: 'Snap points',
       description: 'Three resting positions, opens at 50%.',
+      state: model.snapDrawer.drawer.animate._tag,
+      open: { _tag: 'SnapDrawerMsg', subMsg: { _tag: 'Open' } },
     },
     {
-      key: 'snapFullscreen',
+      id: 'snapFullscreen',
       title: 'Snap to full screen',
       description: 'Starts like Basic, drag up to go full screen.',
+      state: model.snapFullscreenDrawer.drawer.animate._tag,
+      open: { _tag: 'SnapFullscreenDrawerMsg', subMsg: { _tag: 'Open' } },
     },
-    { key: 'top', title: 'Top', description: 'Slides from the top edge.' },
-    { key: 'left', title: 'Left', description: 'Side panel on the left.' },
-    { key: 'right', title: 'Right', description: 'Side panel on the right.' },
     {
-      key: 'scroll',
+      id: 'top',
+      title: 'Top',
+      description: 'Slides from the top edge.',
+      state: model.topDrawer.drawer.animate._tag,
+      open: { _tag: 'TopDrawerMsg', subMsg: { _tag: 'Open' } },
+    },
+    {
+      id: 'left',
+      title: 'Left',
+      description: 'Side panel on the left.',
+      state: model.leftDrawer.drawer.animate._tag,
+      open: { _tag: 'LeftDrawerMsg', subMsg: { _tag: 'Open' } },
+    },
+    {
+      id: 'right',
+      title: 'Right',
+      description: 'Side panel on the right.',
+      state: model.rightDrawer.drawer.animate._tag,
+      open: { _tag: 'RightDrawerMsg', subMsg: { _tag: 'Open' } },
+    },
+    {
+      id: 'scroll',
       title: 'Scrollable',
       description: 'Long content inside the drawer.',
+      state: model.scrollDrawer.drawer.animate._tag,
+      open: { _tag: 'ScrollDrawerMsg', subMsg: { _tag: 'Open' } },
     },
     {
-      key: 'handleOnly',
+      id: 'handleOnly',
       title: 'Handle only',
       description: 'Dragging starts from the handle.',
+      state: model.handleOnlyDrawer.drawer.animate._tag,
+      open: { _tag: 'HandleOnlyDrawerMsg', subMsg: { _tag: 'Open' } },
     },
   ]
 
@@ -369,19 +153,21 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
           </div>
 
           <div className='grid gap-4 sm:grid-cols-2'>
-            {cards.map((card) =>
+            {simpleCards.map((card) =>
               demoCard({
                 ...card,
-                model,
-                children: openButton(card.key, dispatch),
+                children: openButton({
+                  id: card.id,
+                  onClick: () => dispatch(card.open),
+                }),
               }),
             )}
 
             {demoCard({
-              key: 'payload',
+              id: 'payload',
               title: 'Payload',
               description: 'Open the same drawer with different data.',
-              model,
+              state: model.payloadDrawer.drawer.animate._tag,
               children: fruits.map((fruit) => (
                 <button
                   key={fruit}
@@ -390,9 +176,8 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
                   className={secondaryButtonClassName}
                   onClick={() =>
                     dispatch({
-                      _tag: 'DrawerMsg',
-                      key: 'payload',
-                      subMsg: { _tag: 'Open', internal: fruit },
+                      _tag: 'PayloadDrawerMsg',
+                      subMsg: { _tag: 'Open', fruit },
                     })
                   }
                 >
@@ -402,22 +187,32 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
             })}
 
             {demoCard({
-              key: 'nonModal',
+              id: 'nonModal',
               title: 'Non-modal',
               description: 'Persistent sheet; the page stays interactive.',
-              model,
+              state: model.nonModalDrawer.drawer.animate._tag,
               children: (
                 <>
-                  {openButton('nonModal', dispatch, 'Show')}
+                  {openButton({
+                    id: 'nonModal',
+                    label: 'Show',
+                    onClick: () =>
+                      dispatch({
+                        _tag: 'NonModalDrawerMsg',
+                        subMsg: { _tag: 'Open' },
+                      }),
+                  })}
                   <button
                     type='button'
                     data-test='hide-nonModal'
                     className={secondaryButtonClassName}
                     onClick={() =>
                       dispatch({
-                        _tag: 'DrawerMsg',
-                        key: 'nonModal',
-                        subMsg: { _tag: 'Close' },
+                        _tag: 'NonModalDrawerMsg',
+                        subMsg: {
+                          _tag: 'DrawerMsg',
+                          subMsg: { _tag: 'Close' },
+                        },
                       })
                     }
                   >
@@ -427,73 +222,50 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
               ),
             })}
 
-            <div className='flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200'>
-              <div className='flex items-center justify-between gap-2'>
-                <h2 className='font-bold text-slate-900'>TEA content</h2>
-                <span
-                  data-test='state-actions'
-                  className='rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600'
-                >
-                  {model.actionsDrawer.animate._tag}
-                </span>
-              </div>
-              <p className='text-sm text-slate-600'>
-                A TEA menu in the payload (resets on open) and a draft in the
-                parent (kept on close).
-              </p>
-              <div className='flex flex-wrap gap-2'>
-                <button
-                  type='button'
-                  data-test='trigger-actions'
-                  className={buttonClassName}
-                  onClick={() =>
-                    dispatch({
-                      _tag: 'ActionsDrawerMsg',
-                      subMsg: { _tag: 'Open', internal: defaultActionMenu() },
-                    })
-                  }
-                >
-                  Open
-                </button>
-              </div>
-            </div>
+            {demoCard({
+              id: 'actions',
+              title: 'TEA content',
+              description:
+                'A TEA menu in the payload (resets on open) and a draft outside it (kept on close).',
+              state: model.actionsDrawer.drawer.animate._tag,
+              children: openButton({
+                id: 'actions',
+                onClick: () =>
+                  dispatch({
+                    _tag: 'ActionsDrawerMsg',
+                    subMsg: { _tag: 'Open' },
+                  }),
+              }),
+            })}
 
-            <div className='flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200'>
-              <div className='flex items-center justify-between gap-2'>
-                <h2 className='font-bold text-slate-900'>Side by side</h2>
-                <span
-                  data-test='state-feedback'
-                  className='rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600'
-                >
-                  {model.feedbackDrawer.animate._tag}
-                </span>
-              </div>
-              <p className='text-sm text-slate-600'>
-                No payload: the form lives in the parent (via `parent`), so it
-                survives closing and is cleared only once fully closed.
-              </p>
-              <p className='text-sm text-slate-600'>
-                Last sent:{' '}
-                <span data-test='feedback-last-sent' className='font-semibold'>
-                  {model.lastFeedback ?? '—'}
-                </span>
-              </p>
-              <div className='flex flex-wrap gap-2'>
-                <button
-                  type='button'
-                  data-test='trigger-feedback'
-                  className={buttonClassName}
-                  onClick={() =>
-                    dispatch({
-                      _tag: 'FeedbackDrawerMsg',
-                      subMsg: { _tag: 'Open', internal: null },
-                    })
-                  }
-                >
-                  Open
-                </button>
-              </div>
-            </div>
+            {demoCard({
+              id: 'feedback',
+              title: 'Side by side',
+              description:
+                'No payload: the form lives next to the drawer (via `parent`), so it survives closing and is cleared only once fully closed.',
+              state: model.feedbackDrawer.drawer.animate._tag,
+              children: (
+                <>
+                  <p className='w-full text-sm text-slate-600'>
+                    Last sent:{' '}
+                    <span
+                      data-test='feedback-last-sent'
+                      className='font-semibold'
+                    >
+                      {model.feedbackDrawer.lastFeedback ?? '—'}
+                    </span>
+                  </p>
+                  {openButton({
+                    id: 'feedback',
+                    onClick: () =>
+                      dispatch({
+                        _tag: 'FeedbackDrawerMsg',
+                        subMsg: { _tag: 'Open' },
+                      }),
+                  })}
+                </>
+              ),
+            })}
           </div>
 
           <div className='rounded-2xl bg-slate-900 p-5 text-sm text-emerald-400 shadow-sm'>
@@ -509,91 +281,97 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
         </div>
       </div>
 
-      {Object.entries(model.drawers).map(([k, drawer]) => {
-        const key = k as DemoKey
-        const dispatchDrawer = drawerDispatch(key)
-        return (
-          <DrawerMemo
-            key={key}
-            model={drawer}
-            dispatch={dispatchDrawer}
-            itemEq={S.Eq}
-            parent={null}
-            parentEq={nullEq}
-            className={cn(drawerClassName(key))}
-          >
-            {(internal) => drawerContent(key, drawer, dispatchDrawer, internal)}
-          </DrawerMemo>
-        )
-      })}
-
-      {/* Option C + parent channel: the menu (a TEA component) lives in the
-          payload and resets on every open; the draft lives in the parent and
-          survives closing */}
-      <DrawerMemo
+      <BasicDrawer
+        model={model.basicDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'BasicDrawerMsg', subMsg }),
+        )}
+      />
+      <NonDismissibleDrawer
+        model={model.nonDismissibleDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'NonDismissibleDrawerMsg', subMsg }),
+        )}
+      />
+      <SnapDrawer
+        model={model.snapDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'SnapDrawerMsg', subMsg }),
+        )}
+      />
+      <SnapFullscreenDrawer
+        model={model.snapFullscreenDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'SnapFullscreenDrawerMsg', subMsg }),
+        )}
+      />
+      <DirectionDrawer
+        model={model.topDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'TopDrawerMsg', subMsg }),
+        )}
+      />
+      <DirectionDrawer
+        model={model.leftDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'LeftDrawerMsg', subMsg }),
+        )}
+      />
+      <DirectionDrawer
+        model={model.rightDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'RightDrawerMsg', subMsg }),
+        )}
+      />
+      <ScrollDrawer
+        model={model.scrollDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'ScrollDrawerMsg', subMsg }),
+        )}
+      />
+      <NonModalDrawer
+        model={model.nonModalDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'NonModalDrawerMsg', subMsg }),
+        )}
+      />
+      <PayloadDrawer
+        model={model.payloadDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'PayloadDrawerMsg', subMsg }),
+        )}
+      />
+      <HandleOnlyDrawer
+        model={model.handleOnlyDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'HandleOnlyDrawerMsg', subMsg }),
+        )}
+      />
+      <ActionsDrawer
         model={model.actionsDrawer}
-        dispatch={actionsDrawerDispatch}
-        itemEq={ActionMenuModelEq}
-        parent={{ draft: model.draft }}
-        parentEq={ActionsParentEq}
-      >
-        {(menu, parent) => (
-          <div
-            data-test='content-actions'
-            className='flex min-h-0 flex-1 flex-col'
-          >
-            <DrawerHandle dispatch={actionsDrawerDispatch} />
-            <div className='flex flex-col gap-3 px-6 pt-2 pb-8'>
-              <h2 className='text-lg font-bold text-slate-900'>
-                Message actions
-              </h2>
-              <ActionMenu model={menu} dispatch={actionMenuDispatch} />
-              <label className='flex flex-col gap-1 text-sm text-slate-600'>
-                Note (kept when the drawer closes)
-                <textarea
-                  data-test='draft'
-                  value={parent.draft}
-                  onChange={(e) =>
-                    dispatch({ _tag: 'SetDraft', value: e.target.value })
-                  }
-                  className='rounded-lg border border-slate-300 px-3 py-2 text-sm'
-                />
-              </label>
-            </div>
-          </div>
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'ActionsDrawerMsg', subMsg }),
         )}
-      </DrawerMemo>
-
-      {/* Option A, side by side: no payload; the form is parent state passed
-          through the `parent` channel, so the memo sees every keystroke */}
-      <DrawerMemo
+      />
+      <FeedbackDrawer
         model={model.feedbackDrawer}
-        dispatch={feedbackDrawerDispatch}
-        itemEq={nullEq}
-        parent={model.feedback}
-        parentEq={FeedbackModelEq}
-      >
-        {(_, feedback) => (
-          <div
-            data-test='content-feedback'
-            className='flex min-h-0 flex-1 flex-col'
-          >
-            <DrawerHandle dispatch={feedbackDrawerDispatch} />
-            <div className='flex flex-col gap-3 px-6 pt-2 pb-8'>
-              <h2 className='text-lg font-bold text-slate-900'>Feedback</h2>
-              <FeedbackForm model={feedback} dispatch={feedbackDispatch} />
-              <button
-                type='button'
-                data-test='close-feedback'
-                className={secondaryButtonClassName}
-                onClick={() => feedbackDrawerDispatch({ _tag: 'Close' })}
-              >
-                Close
-              </button>
-            </div>
-          </div>
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'FeedbackDrawerMsg', subMsg }),
         )}
-      </DrawerMemo>
+      />
     </div>
   )
 }

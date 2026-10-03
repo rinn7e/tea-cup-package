@@ -1,69 +1,49 @@
-import * as Drawer from '@rinn7e/tea-cup-drawer'
-import * as EqClass from 'fp-ts/lib/Eq'
-import * as S from 'fp-ts/lib/string'
+import type * as ActionsDrawer from './component/actions-drawer'
+import type * as BasicDrawer from './component/basic-drawer'
+import type * as DirectionDrawer from './component/direction-drawer'
+import type * as FeedbackDrawer from './component/feedback-drawer'
+import type * as HandleOnlyDrawer from './component/handle-only-drawer'
+import type * as NonDismissibleDrawer from './component/non-dismissible-drawer'
+import type * as NonModalDrawer from './component/non-modal-drawer'
+import type * as PayloadDrawer from './component/payload-drawer'
+import type * as ScrollDrawer from './component/scroll-drawer'
+import type * as SnapDrawer from './component/snap-drawer'
+import type * as SnapFullscreenDrawer from './component/snap-fullscreen-drawer'
 
-import type * as ActionMenu from './component/action-menu'
-import type * as Feedback from './component/feedback'
-
-// One drawer per scenario of the kitchen sink
-export type DemoKey =
-  | 'basic'
-  | 'nonDismissible'
-  | 'snap'
-  | 'snapFullscreen'
-  | 'top'
-  | 'left'
-  | 'right'
-  | 'scroll'
-  | 'nonModal'
-  | 'payload'
-  | 'handleOnly'
-
-export const demoKeys: DemoKey[] = [
-  'basic',
-  'nonDismissible',
-  'snap',
-  'snapFullscreen',
-  'top',
-  'left',
-  'right',
-  'scroll',
-  'nonModal',
-  'payload',
-  'handleOnly',
-]
-
+// One child component per demo drawer
 export type Model = {
-  // The payload is the label the drawer was opened with
-  drawers: Record<DemoKey, Drawer.Model<string>>
-  // A TEA component (the action menu) living in the drawer payload
-  actionsDrawer: Drawer.Model<ActionMenu.Model>
-  // Owned by the parent, so it survives the drawer closing
-  draft: string
-  // Option A, side by side: the drawer carries no payload (`null`); the form
-  // lives next to it, owned by the parent, and reaches it through `parent`
-  feedbackDrawer: Drawer.Model<null>
-  feedback: Feedback.Model
-  // Clear the form once the drawer is fully closed, not on `Close` (the form
-  // would empty while sliding away)
-  clearFeedbackWhenClosed: boolean
-  // Result of the (simulated) request, which arrives after the drawer closed
-  lastFeedback: string | null
-  // Open / close changes noticed by the parent, newest first
+  basicDrawer: BasicDrawer.Model
+  nonDismissibleDrawer: NonDismissibleDrawer.Model
+  snapDrawer: SnapDrawer.Model
+  snapFullscreenDrawer: SnapFullscreenDrawer.Model
+  // The same component, opened from three edges
+  topDrawer: DirectionDrawer.Model
+  leftDrawer: DirectionDrawer.Model
+  rightDrawer: DirectionDrawer.Model
+  scrollDrawer: ScrollDrawer.Model
+  nonModalDrawer: NonModalDrawer.Model
+  payloadDrawer: PayloadDrawer.Model
+  handleOnlyDrawer: HandleOnlyDrawer.Model
+  // A TEA menu in the payload, and a draft that survives closing
+  actionsDrawer: ActionsDrawer.Model
+  // Side by side: a form next to a drawer without payload
+  feedbackDrawer: FeedbackDrawer.Model
+  // Open / close changes the parent noticed in its children (vaul's
+  // `onOpenChange`), newest first
   openLog: string[]
 }
 
-// Parent state the actions drawer renders from (its `parent` channel)
-export type ActionsParent = { draft: string }
-
-export const ActionsParentEq: EqClass.Eq<ActionsParent> =
-  EqClass.struct<ActionsParent>({ draft: S.Eq })
-
 export type Msg =
-  | { _tag: 'DrawerMsg'; key: DemoKey; subMsg: Drawer.Msg<string> }
-  | { _tag: 'ActionsDrawerMsg'; subMsg: Drawer.Msg<ActionMenu.Model> }
-  | { _tag: 'ActionMenuMsg'; subMsg: ActionMenu.Msg }
-  | { _tag: 'SetDraft'; value: string }
-  | { _tag: 'FeedbackDrawerMsg'; subMsg: Drawer.Msg<null> }
-  | { _tag: 'FeedbackMsg'; subMsg: Feedback.Msg }
-  | { _tag: 'FeedbackSent'; summary: string }
+  | { _tag: 'BasicDrawerMsg'; subMsg: BasicDrawer.Msg }
+  | { _tag: 'NonDismissibleDrawerMsg'; subMsg: NonDismissibleDrawer.Msg }
+  | { _tag: 'SnapDrawerMsg'; subMsg: SnapDrawer.Msg }
+  | { _tag: 'SnapFullscreenDrawerMsg'; subMsg: SnapFullscreenDrawer.Msg }
+  | { _tag: 'TopDrawerMsg'; subMsg: DirectionDrawer.Msg }
+  | { _tag: 'LeftDrawerMsg'; subMsg: DirectionDrawer.Msg }
+  | { _tag: 'RightDrawerMsg'; subMsg: DirectionDrawer.Msg }
+  | { _tag: 'ScrollDrawerMsg'; subMsg: ScrollDrawer.Msg }
+  | { _tag: 'NonModalDrawerMsg'; subMsg: NonModalDrawer.Msg }
+  | { _tag: 'PayloadDrawerMsg'; subMsg: PayloadDrawer.Msg }
+  | { _tag: 'HandleOnlyDrawerMsg'; subMsg: HandleOnlyDrawer.Msg }
+  | { _tag: 'ActionsDrawerMsg'; subMsg: ActionsDrawer.Msg }
+  | { _tag: 'FeedbackDrawerMsg'; subMsg: FeedbackDrawer.Msg }
