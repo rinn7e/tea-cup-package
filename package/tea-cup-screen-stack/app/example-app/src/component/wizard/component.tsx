@@ -4,7 +4,14 @@ import { ScreenStackMemo } from '@rinn7e/tea-cup-screen-stack/component'
 import { type ReactNode } from 'react'
 import { type Dispatcher, map } from 'tea-cup-fp'
 
-import { type Model, type Msg, type Plan, type Step, StepEq } from './type'
+import {
+  type Model,
+  type Msg,
+  type Plan,
+  type Step,
+  StepEq,
+  type StepMsg,
+} from './type'
 
 const plans: Plan[] = ['Free', 'Pro']
 
@@ -19,8 +26,8 @@ const stepClassName = 'flex flex-col gap-3 bg-white p-1'
 
 const stepView = (
   step: Step,
+  stepDispatch: (msg: StepMsg) => void,
   depth: number,
-  dispatch: Dispatcher<Msg>,
 ): ReactNode => {
   const back =
     depth > 0 ? (
@@ -28,9 +35,7 @@ const stepView = (
         type='button'
         data-test='wizard-back'
         className={secondaryClassName}
-        onClick={() =>
-          dispatch({ _tag: 'ScreenStackMsg', subMsg: { _tag: 'Pop' } })
-        }
+        onClick={() => stepDispatch({ _tag: 'Back' })}
       >
         Back
       </button>
@@ -45,7 +50,7 @@ const stepView = (
             value={step.email}
             placeholder='you@example.com'
             onChange={(e) =>
-              dispatch({ _tag: 'SetEmail', email: e.target.value })
+              stepDispatch({ _tag: 'SetEmail', email: e.target.value })
             }
             className='rounded-lg border border-slate-300 px-3 py-2 text-sm'
           />
@@ -55,7 +60,7 @@ const stepView = (
               data-test='wizard-next'
               disabled={step.email.trim() === ''}
               className={primaryClassName}
-              onClick={() => dispatch({ _tag: 'Next' })}
+              onClick={() => stepDispatch({ _tag: 'Next' })}
             >
               Next
             </button>
@@ -76,7 +81,7 @@ const stepView = (
                 name='wizard-plan'
                 data-test={`wizard-plan-${plan}`}
                 checked={step.plan === plan}
-                onChange={() => dispatch({ _tag: 'SetPlan', plan })}
+                onChange={() => stepDispatch({ _tag: 'SetPlan', plan })}
               />
               {plan}
             </label>
@@ -87,7 +92,7 @@ const stepView = (
               type='button'
               data-test='wizard-next'
               className={primaryClassName}
-              onClick={() => dispatch({ _tag: 'Next' })}
+              onClick={() => stepDispatch({ _tag: 'Next' })}
             >
               Next
             </button>
@@ -107,7 +112,7 @@ const stepView = (
               type='button'
               data-test='wizard-restart'
               className={secondaryClassName}
-              onClick={() => dispatch({ _tag: 'Restart' })}
+              onClick={() => stepDispatch({ _tag: 'Restart' })}
             >
               Restart
             </button>
@@ -124,11 +129,11 @@ export const Wizard = ({
   model: Model
   dispatch: Dispatcher<Msg>
 }) => (
-  <ScreenStackMemo
+  <ScreenStackMemo<Step, StepMsg, null>
     model={model.steps}
     dispatch={map(
       dispatch,
-      (subMsg: ScreenStack.Msg<Step>): Msg => ({
+      (subMsg: ScreenStack.Msg<Step, StepMsg>): Msg => ({
         _tag: 'ScreenStackMsg',
         subMsg,
       }),
@@ -136,6 +141,8 @@ export const Wizard = ({
     itemEq={StepEq}
     parent={null}
     parentEq={nullEq}
-    renderScreen={(step, depth) => stepView(step, depth, dispatch)}
+    renderScreen={(step, stepDispatch, depth) =>
+      stepView(step, stepDispatch, depth)
+    }
   />
 )

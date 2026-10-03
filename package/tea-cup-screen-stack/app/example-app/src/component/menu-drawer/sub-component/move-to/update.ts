@@ -5,7 +5,7 @@ import { Cmd } from 'tea-cup-fp'
 import { type Model, type Msg } from './type'
 
 // Simulated request, slow enough to pop the screen before it answers
-export const loadDelayMs = 1000
+export const loadDelayMs = 2000
 
 export const init = (): [Model, Cmd<Msg>] => [
   { folders: O.none, query: '' },

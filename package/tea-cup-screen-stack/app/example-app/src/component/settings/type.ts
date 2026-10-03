@@ -1,3 +1,5 @@
+import type * as ScreenStack from '@rinn7e/tea-cup-screen-stack'
+
 // A settings menu: every row pushes the next page, nothing blocks going
 // forward or back. The screen is just the page's name; the tree says which
 // pages each one leads to.
@@ -33,4 +35,20 @@ export const descriptions: Record<Page, string> = {
   Sounds: 'Default notification sound.',
   Privacy:
     'Nothing is collected. This page is longer than the others so the height animation is easy to see when you come back from it.',
+}
+
+export type Model = {
+  pages: ScreenStack.Model<Page>
+}
+
+// What the user did on a page, sent with the page's key. The settings
+// component intercepts them and moves the stack.
+export type PageMsg =
+  | { _tag: 'Go'; page: Page }
+  | { _tag: 'Back' }
+  | { _tag: 'Top' }
+
+export type Msg = {
+  _tag: 'ScreenStackMsg'
+  subMsg: ScreenStack.Msg<Page, PageMsg>
 }

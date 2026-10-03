@@ -30,14 +30,24 @@ import { type Entry, type Model, type Transition } from './type'
 // The screen on show
 export const getTop = <Item>(model: Model<Item>): Item => model.top.screen
 
-// Store the updated top screen, e.g. after routing a screen message to it.
-// The rest of the stack and the transition are untouched.
+// Whether a screen other than the top one has `key`
+const isKeyBelowTop = <Item>(model: Model<Item>, key: string): boolean =>
+  screens(model)
+    .slice(0, -1)
+    .some((screen) => model.config.uniqueKeyField(screen) === key)
+
+// Store the updated top screen. The rest of the stack and the transition
+// are untouched. The same model when the new screen's key belongs to another
+// screen in the stack (keys are unique).
 export const setTop =
   <Item>(screen: Item) =>
-  (model: Model<Item>): Model<Item> => ({
-    ...model,
-    top: { ...model.top, screen },
-  })
+  (model: Model<Item>): Model<Item> => {
+    if (isKeyBelowTop(model, model.config.uniqueKeyField(screen))) {
+      return model
+    } else {
+      return { ...model, top: { ...model.top, screen } }
+    }
+  }
 
 // Index of the screen on show (0 = the root)
 export const depth = <Item>(model: Model<Item>): number => {
@@ -63,6 +73,77 @@ export const screens = <Item>(model: Model<Item>): Item[] => {
       : model.below
   return [...underTop, model.top].map((entry) => entry.screen)
 }
+
+// Screens by key
+// ---------------------------------
+
+// Every screen the stack holds, including the ones sliding in or away
+const allEntries = <Item>(model: Model<Item>): Entry<Item>[] => {
+  const transition = model.transition
+  switch (transition._tag) {
+    case 'Idle':
+      return [...model.below, model.top]
+    case 'Pushing':
+      return [...model.below, transition.previous, model.top]
+    case 'Popping':
+      return [...model.below, model.top, ...transition.popped]
+  }
+}
+
+// Apply `f` to the screens held by a transition
+const mapTransitionEntries =
+  <Item>(f: (entry: Entry<Item>) => Entry<Item>) =>
+  (transition: Transition<Item>): Transition<Item> => {
+    switch (transition._tag) {
+      case 'Idle':
+        return transition
+      case 'Pushing':
+        return { ...transition, previous: f(transition.previous) }
+      case 'Popping':
+        return { ...transition, popped: NEA.map(f)(transition.popped) }
+    }
+  }
+
+// The current value of the screen with `key`, wherever it is in the stack
+// (on show, underneath, or sliding away); `none` once it has been popped
+export const getScreen =
+  (key: string) =>
+  <Item>(model: Model<Item>): O.Option<Item> =>
+    O.map((entry: Entry<Item>) => entry.screen)(
+      O.fromNullable(
+        allEntries(model).find(
+          (entry) => model.config.uniqueKeyField(entry.screen) === key,
+        ),
+      ),
+    )
+
+// Update the screen with `key`, wherever it is in the stack. The same model
+// when there is no such screen, or when `f` would change its key (a screen
+// keeps its identity).
+export const modifyScreen =
+  <Item>(key: string, f: (screen: Item) => Item) =>
+  (model: Model<Item>): Model<Item> => {
+    const keyOf = model.config.uniqueKeyField
+    const update = (entry: Entry<Item>): Entry<Item> =>
+      keyOf(entry.screen) === key
+        ? { ...entry, screen: f(entry.screen) }
+        : entry
+    return O.fold(
+      () => model,
+      (screen: Item) => {
+        if (keyOf(f(screen)) !== key) {
+          return model
+        } else {
+          return {
+            ...model,
+            below: model.below.map(update),
+            top: update(model.top),
+            transition: mapTransitionEntries(update)(model.transition),
+          }
+        }
+      },
+    )(getScreen(key)(model))
+  }
 
 // Rendered panels
 // ---------------------------------

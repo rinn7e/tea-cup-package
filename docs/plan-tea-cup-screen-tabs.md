@@ -166,6 +166,11 @@ the user comes back.
 
 So route by **which tab the message belongs to**, not by "is it selected":
 
+- Do it the way the screen stack (and tea-cup-pagination) does: a
+  `uniqueKeyField` in the config, `ScreenMsg { key, msg }` sent through a
+  `screenDispatch` bound to the tab, and `getTab(key)` / `modifyTab(key, f)`
+  for the parent, which intercepts with `updateAndCmd`. Tab views only get
+  their own dispatch, never the parent's.
 - Usually each tab is a different case of the user's union (`Inbox`,
   `Archive`, `Settings`), so route by tag: find the tab with that `_tag` with
   `updateWhere(t => t._tag === 'Inbox', ...)`.
@@ -294,7 +299,7 @@ Read `package/tea-cup-drawer/doc/porting-vaul.md` and the stack's `src/` first.
   Chromium uses overlay scrollbars, so scrollbar and layout-shift bugs only
   show in a real browser.
 - **Dogfood with realistic content**: a tab with its own TEA model and an
-  async request (the stack's example used a 1s simulated folder load). That is
+  async request (the stack's example uses a 2s simulated folder load). That is
   what exposes routing bugs.
 
 ---

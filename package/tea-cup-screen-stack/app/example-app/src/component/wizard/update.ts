@@ -1,22 +1,23 @@
+import { updateAndCmd } from '@rinn7e/tea-cup-prelude'
 import * as ScreenStack from '@rinn7e/tea-cup-screen-stack'
 import * as A from 'fp-ts/lib/Array'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
-import { type Model, type Msg, type Step } from './type'
+import { type Model, type Msg, type Step, type StepMsg, stepKey } from './type'
 
-const config = ScreenStack.defaultConfig('wizard')
+const config = ScreenStack.defaultConfig('wizard', stepKey)
 
 const firstStep: Step = { _tag: 'Account', email: '' }
 
 export const defaultModel = (): Model => ({
-  steps: ScreenStack.defaultModel(config, firstStep),
+  steps: ScreenStack.defaultModel<Step>(config, firstStep),
 })
 
 const withStack = ([steps, cmd]: [
   ScreenStack.Model<Step>,
-  Cmd<ScreenStack.Msg<Step>>,
+  Cmd<ScreenStack.Msg<Step, StepMsg>>,
 ]): [Model, Cmd<Msg>] => [
   { steps },
   cmd.map((subMsg): Msg => ({ _tag: 'ScreenStackMsg', subMsg })),
@@ -38,7 +39,7 @@ const nextHandler = (model: Model): [Model, Cmd<Msg>] => {
   switch (top._tag) {
     case 'Account':
       return withStack(
-        ScreenStack.pushHandler<Step>({ _tag: 'Plan', plan: 'Free' })(
+        ScreenStack.pushHandler<Step>({ _tag: 'Plan', plan: 'Free' })<StepMsg>(
           model.steps,
         ),
       )
@@ -48,7 +49,7 @@ const nextHandler = (model: Model): [Model, Cmd<Msg>] => {
           _tag: 'Summary',
           email: accountEmail(model),
           plan: top.plan,
-        })(model.steps),
+        })<StepMsg>(model.steps),
       )
     case 'Summary':
       // Last step
@@ -56,45 +57,60 @@ const nextHandler = (model: Model): [Model, Cmd<Msg>] => {
   }
 }
 
+// One slide back to the first step (the steps in between are not shown),
+// which comes back empty
+const restartHandler = (model: Model): [Model, Cmd<Msg>] => {
+  const [steps, cmd] = ScreenStack.popToHandler(0)<Step, StepMsg>(model.steps)
+  return withStack([ScreenStack.setTop<Step>(firstStep)(steps), cmd])
+}
+
+// Intercepted step messages: edits go to the step with that key, wherever
+// it is; navigation moves the stack
+const stepMsgHandler =
+  (key: string, msg: StepMsg) =>
+  (model: Model): [Model, Cmd<Msg>] => {
+    switch (msg._tag) {
+      case 'SetEmail':
+        return [
+          {
+            steps: ScreenStack.modifyScreen<Step>(key, (step) =>
+              step._tag === 'Account' ? { ...step, email: msg.email } : step,
+            )(model.steps),
+          },
+          Cmd.none(),
+        ]
+      case 'SetPlan':
+        return [
+          {
+            steps: ScreenStack.modifyScreen<Step>(key, (step) =>
+              step._tag === 'Plan' ? { ...step, plan: msg.plan } : step,
+            )(model.steps),
+          },
+          Cmd.none(),
+        ]
+      case 'Next':
+        return nextHandler(model)
+      case 'Back':
+        return withStack(ScreenStack.popHandler<Step, StepMsg>(model.steps))
+      case 'Restart':
+        return restartHandler(model)
+    }
+  }
+
 export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
-  const top = ScreenStack.getTop(model.steps)
   switch (msg._tag) {
-    case 'ScreenStackMsg':
-      return withStack(ScreenStack.update(msg.subMsg, model.steps))
-    // Edits only apply to the step on show
-    case 'SetEmail':
-      if (top._tag === 'Account') {
-        return [
-          {
-            steps: ScreenStack.setTop<Step>({ ...top, email: msg.email })(
-              model.steps,
-            ),
-          },
-          Cmd.none(),
-        ]
-      } else {
-        return [model, Cmd.none()]
-      }
-    case 'SetPlan':
-      if (top._tag === 'Plan') {
-        return [
-          {
-            steps: ScreenStack.setTop<Step>({ ...top, plan: msg.plan })(
-              model.steps,
-            ),
-          },
-          Cmd.none(),
-        ]
-      } else {
-        return [model, Cmd.none()]
-      }
-    case 'Next':
-      return nextHandler(model)
-    case 'Restart': {
-      // One slide back to the first step (the steps in between are not
-      // shown), which comes back empty
-      const [steps, cmd] = ScreenStack.popToHandler(0)(model.steps)
-      return withStack([ScreenStack.setTop<Step>(firstStep)(steps), cmd])
+    case 'ScreenStackMsg': {
+      const subMsg = msg.subMsg
+      return pipe(
+        withStack(ScreenStack.update(subMsg, model.steps)),
+        updateAndCmd((m: Model): [Model, Cmd<Msg>] => {
+          if (subMsg._tag === 'ScreenMsg') {
+            return stepMsgHandler(subMsg.key, subMsg.msg)(m)
+          } else {
+            return [m, Cmd.none()]
+          }
+        }),
+      )
     }
   }
 }

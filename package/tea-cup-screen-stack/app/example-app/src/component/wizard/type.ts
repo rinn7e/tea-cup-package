@@ -23,13 +23,32 @@ export const StepEq: EqClass.Eq<Step> = {
   },
 }
 
+// Each step appears at most once, so its key is a constant
+export const stepKey = (step: Step): string => {
+  switch (step._tag) {
+    case 'Account':
+      return 'account'
+    case 'Plan':
+      return 'plan'
+    case 'Summary':
+      return 'summary'
+  }
+}
+
+// Messages of a step, sent with the step's key. The step only says what the
+// user did; the wizard intercepts them (edits the step, or moves the stack).
+export type StepMsg =
+  | { _tag: 'SetEmail'; email: string }
+  | { _tag: 'SetPlan'; plan: Plan }
+  | { _tag: 'Next' }
+  | { _tag: 'Back' }
+  | { _tag: 'Restart' }
+
 export type Model = {
   steps: ScreenStack.Model<Step>
 }
 
-export type Msg =
-  | { _tag: 'ScreenStackMsg'; subMsg: ScreenStack.Msg<Step> }
-  | { _tag: 'SetEmail'; email: string }
-  | { _tag: 'SetPlan'; plan: Plan }
-  | { _tag: 'Next' }
-  | { _tag: 'Restart' }
+export type Msg = {
+  _tag: 'ScreenStackMsg'
+  subMsg: ScreenStack.Msg<Step, StepMsg>
+}

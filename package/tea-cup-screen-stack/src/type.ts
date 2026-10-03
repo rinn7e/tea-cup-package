@@ -32,15 +32,21 @@ import { type Dispatcher } from 'tea-cup-fp'
 // Config
 // ---------------------------------
 
-export type Config = {
+export type Config<Item> = {
   // Unique id, used to derive DOM ids
   id: string
   // Duration (ms) of the slide and height transitions. Pass 0 to switch
   // screens without animation (e.g. for `prefers-reduced-motion`).
   durationMs: number
+  // Identifies a screen (like tea-cup-pagination's `uniqueKeyField`). Screen
+  // messages carry this key. Keys are unique within a stack: a push of a key
+  // already in it is ignored. Derive it from the screen, e.g. a constant for
+  // a screen that appears once, or from its data for one that can repeat.
+  uniqueKeyField: (screen: Item) => string
 }
 
-export const ConfigEq: EqClass.Eq<Config> = EqAlways
+// Config never changes the rendering on its own
+export const getConfigEq = <Item>(): EqClass.Eq<Config<Item>> => EqAlways
 
 // Entry
 // ---------------------------------
@@ -123,7 +129,7 @@ export type Model<Item> = {
   // Incremented whenever an animation starts, so frame and timeout messages
   // of an interrupted animation are ignored
   seq: number
-  config: Config
+  config: Config<Item>
 }
 
 export const getModelEq = <Item>(
@@ -134,22 +140,30 @@ export const getModelEq = <Item>(
     top: getEntryEq(itemEq),
     transition: getTransitionEq(itemEq),
     seq: N.Eq,
-    config: ConfigEq,
+    config: getConfigEq<Item>(),
   })
 
 // Msg
 // ---------------------------------
 
-export type Msg<Item> =
-  // Slide a new screen in on top
+// `ItemMsg`: the messages of the screens themselves (`never` when they have
+// none)
+export type Msg<Item, ItemMsg = never> =
+  // Slide a new screen in on top (ignored when its key is already in the
+  // stack)
   | { _tag: 'Push'; screen: Item }
   // Slide the top screen away, back to the one below (ignored on the root)
   | { _tag: 'Pop' }
   // Go back to the screen at `depth` (0 = the root) in one slide, discarding
   // the screens above it (ignored unless below the top)
   | { _tag: 'PopTo'; depth: number }
-  // Swap the top screen without animation
+  // Swap the top screen without animation (ignored when its key belongs to
+  // another screen in the stack)
   | { _tag: 'Replace'; screen: Item }
+  // From a screen's view, identified by `uniqueKeyField`. Not handled here:
+  // the parent intercepts it and updates the screen with `getScreen` /
+  // `modifyScreen`, wherever it is in the stack.
+  | { _tag: 'ScreenMsg'; key: string; msg: ItemMsg }
   // The start positions were painted
   | { _tag: 'Frame'; seq: number }
   // The incoming screen's own transform transition finished
@@ -166,24 +180,30 @@ export type Msg<Item> =
 // `renderScreen` must only use its arguments, the stack's own `model` and
 // stable values like `dispatch`: anything else it closes over is invisible
 // to `ScreenStackMemo`. Pass parent-owned state through `parent`.
-export type Props<Item, Parent> = {
+export type Props<Item, ItemMsg, Parent> = {
   model: Model<Item>
-  dispatch: Dispatcher<Msg<Item>>
-  // `depth` is the screen's index in the stack (0 = the root), e.g. to show
-  // a back button when it is above 0. Give each screen an opaque
-  // background: the incoming screen slides over the outgoing one.
-  renderScreen: (screen: Item, depth: number, parent: Parent) => ReactNode
+  dispatch: Dispatcher<Msg<Item, ItemMsg>>
+  // `screenDispatch` sends a `ScreenMsg` with the screen's key. `depth` is
+  // the screen's index in the stack (0 = the root), e.g. to show a back
+  // button when it is above 0. Give each screen an opaque background: the
+  // incoming screen slides over the outgoing one.
+  renderScreen: (
+    screen: Item,
+    screenDispatch: (msg: ItemMsg) => void,
+    depth: number,
+    parent: Parent,
+  ) => ReactNode
   itemEq: EqClass.Eq<Item>
   parent: Parent
   parentEq: EqClass.Eq<Parent>
   className?: string
 }
 
-export const getPropsEq = <Item, Parent>(
+export const getPropsEq = <Item, ItemMsg, Parent>(
   itemEq: EqClass.Eq<Item>,
   parentEq: EqClass.Eq<Parent>,
-): EqClass.Eq<Props<Item, Parent>> =>
-  EqClass.struct<Props<Item, Parent>>({
+): EqClass.Eq<Props<Item, ItemMsg, Parent>> =>
+  EqClass.struct<Props<Item, ItemMsg, Parent>>({
     model: getModelEq(itemEq),
     dispatch: EqAlways,
     renderScreen: EqAlways,

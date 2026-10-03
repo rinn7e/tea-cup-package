@@ -36,7 +36,9 @@ import {
   depth,
   fromPanel,
   getPropsEq,
+  getScreen,
   getTop,
+  modifyScreen,
   panelOffsetPercent,
   panels,
   screens,
@@ -46,11 +48,16 @@ import {
 
 type M = Model<string>
 
-const run = (model: M, ...msgs: Msg<string>[]): M =>
+// Screens are strings that are their own key; screen messages are strings
+const config = (durationMs: number = 300): Config<string> => ({
+  ...defaultConfig('test', (screen: string) => screen),
+  durationMs,
+})
+
+const run = (model: M, ...msgs: Msg<string, string>[]): M =>
   msgs.reduce((m, msg) => update(msg, m)[0], model)
 
-const root = (config: Config = defaultConfig('test')): M =>
-  defaultModel(config, 'main')
+const root = (c: Config<string> = config()): M => defaultModel(c, 'main')
 
 // Run the started transition to the end
 const finish = (model: M): M =>
@@ -118,7 +125,7 @@ describe('Push', () => {
   })
 
   it('switches at once with durationMs 0', () => {
-    const model = run(root({ id: 'test', durationMs: 0 }), {
+    const model = run(root(config(0)), {
       _tag: 'Push',
       screen: 'moveTo',
     })
@@ -154,7 +161,7 @@ describe('Pop', () => {
 
   it('switches at once with durationMs 0', () => {
     const model = run(
-      root({ id: 'test', durationMs: 0 }),
+      root(config(0)),
       { _tag: 'Push', screen: 'moveTo' },
       { _tag: 'Pop' },
     )
@@ -303,6 +310,89 @@ describe('HeightMeasured', () => {
   })
 })
 
+describe('unique keys', () => {
+  it('ignores a push of a key already in the stack', () => {
+    const model = pushed(root(), 'a')
+    expect(run(model, { _tag: 'Push', screen: 'main' })).toBe(model)
+    expect(run(model, { _tag: 'Push', screen: 'a' })).toBe(model)
+  })
+
+  it('allows pushing again a key that is only sliding away', () => {
+    const popping = run(pushed(root(), 'a'), { _tag: 'Pop' })
+    const model = run(popping, { _tag: 'Push', screen: 'a' })
+    expect(screens(model)).toEqual(['main', 'a'])
+  })
+
+  it('ignores a replace or setTop with the key of another screen', () => {
+    const model = pushed(root(), 'a')
+    expect(run(model, { _tag: 'Replace', screen: 'main' })).toBe(model)
+    expect(setTop('main')(model)).toBe(model)
+    // Its own key is fine
+    expect(screens(setTop('a')(model))).toEqual(['main', 'a'])
+  })
+})
+
+describe('ScreenMsg', () => {
+  it('is left to the parent', () => {
+    const model = pushed(root(), 'a')
+    expect(run(model, { _tag: 'ScreenMsg', key: 'a', msg: 'hello' })).toBe(
+      model,
+    )
+  })
+})
+
+describe('getScreen / modifyScreen', () => {
+  // Screens with a key and a counter, to see updates
+  type Counter = { key: string; count: number }
+  const counterConfig = defaultConfig('test', (c: Counter) => c.key)
+  const counter = (key: string): Counter => ({ key, count: 0 })
+  const bump = (c: Counter): Counter => ({ ...c, count: c.count + 1 })
+  const runC = (model: Model<Counter>, msg: Msg<Counter>): Model<Counter> =>
+    update(msg, model)[0]
+  const finishC = (model: Model<Counter>) =>
+    runC(runC(model, { _tag: 'Frame', seq: model.seq }), {
+      _tag: 'TransitionEnd',
+    })
+  const pushC = (model: Model<Counter>, key: string) =>
+    runC(model, { _tag: 'Push', screen: counter(key) })
+  const base = () =>
+    finishC(pushC(defaultModel(counterConfig, counter('main')), 'moveTo'))
+
+  it('finds a screen underneath the top, and updates it there', () => {
+    const model = finishC(pushC(base(), 'newFolder'))
+    expect(getScreen('moveTo')(model)).toEqual(O.some(counter('moveTo')))
+    const bumped = modifyScreen('moveTo', bump)(model)
+    expect(getScreen('moveTo')(bumped)).toEqual(
+      O.some({ key: 'moveTo', count: 1 }),
+    )
+    expect(getTop(bumped)).toEqual(counter('newFolder'))
+  })
+
+  it('finds the screen being pushed over', () => {
+    const bumped = modifyScreen('moveTo', bump)(pushC(base(), 'newFolder'))
+    expect(getScreen('moveTo')(bumped)).toEqual(
+      O.some({ key: 'moveTo', count: 1 }),
+    )
+  })
+
+  it('finds a popped screen while it slides away, not after', () => {
+    const popping = runC(base(), { _tag: 'Pop' })
+    const bumped = modifyScreen('moveTo', bump)(popping)
+    expect(bumped.transition).toMatchObject({
+      popped: [{ screen: { key: 'moveTo', count: 1 } }],
+    })
+    expect(getScreen('moveTo')(finishC(popping))).toEqual(O.none)
+  })
+
+  it('returns the same model for a missing key or a key change', () => {
+    const model = base()
+    expect(modifyScreen('gone', bump)(model)).toBe(model)
+    expect(
+      modifyScreen('moveTo', (c: Counter) => ({ ...c, key: 'other' }))(model),
+    ).toBe(model)
+  })
+})
+
 describe('view helpers', () => {
   it('animates the container from the outgoing to the incoming height', () => {
     const start = run(measure(root(), 0, 120), { _tag: 'Push', screen: 'a' })
@@ -355,7 +445,7 @@ describe('setTop', () => {
 })
 
 describe('getPropsEq', () => {
-  const props = (model: M): Props<string, null> => ({
+  const props = (model: M): Props<string, string, null> => ({
     model,
     dispatch: () => {},
     renderScreen: () => null,
@@ -363,7 +453,7 @@ describe('getPropsEq', () => {
     parent: null,
     parentEq: nullEq,
   })
-  const eq = getPropsEq(S.Eq, nullEq)
+  const eq = getPropsEq<string, string, null>(S.Eq, nullEq)
 
   it('is equal for an equal model, whatever the functions', () => {
     expect(eq.equals(props(root()), props(root()))).toBe(true)

@@ -93,9 +93,29 @@ test.describe('Drawer + screen stack', () => {
     await expect(page.locator('[data-test="folders-loading"]')).toBeVisible()
     await clickInTop(page, key, 'screen-back')
     await expectIdleAt(page, key, 0)
-    // The folder request answers after the screen is gone
-    await expect(log(page)).toHaveText(['dropped stale MoveToMsg'])
+    // The folder request (2s) answers after the screen has fully slid away;
+    // while it is still sliding away it would receive it
+    await expect(log(page)).toHaveText(['dropped MoveToMsg: screen gone'])
     await expect(page.locator('[data-test="screen-main"]')).toBeVisible()
+  })
+
+  test('a reply reaches its screen while another screen is on top', async ({
+    page,
+  }) => {
+    await clickInTop(page, key, 'move-to')
+    await expectIdleAt(page, key, 1)
+    await expect(page.locator('[data-test="folders-loading"]')).toBeVisible()
+    // Go deeper before the folder request answers
+    await clickInTop(page, key, 'new-folder')
+    await expectIdleAt(page, key, 2)
+    // The answer (2s after the push) lands in "Move to" underneath, by its
+    // key, not dropped
+    await page.waitForTimeout(2200)
+    await expect(log(page)).toHaveCount(0)
+    await clickInTop(page, key, 'screen-back')
+    await expectIdleAt(page, key, 1)
+    await expect(page.locator('[data-test="folders"]')).toBeVisible()
+    await expect(page.locator('[data-test="folders-loading"]')).toHaveCount(0)
   })
 
   test('the parent intercepts screen messages: create pops back', async ({

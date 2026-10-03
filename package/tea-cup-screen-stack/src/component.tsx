@@ -26,8 +26,8 @@ import { type Props, getPropsEq } from './type'
 import { containerDomId, panelDomId, panels } from './util'
 import { MeasuredPanel, containerStyle, panelStyle } from './view'
 
-export const ScreenStackComponent = <Item, Parent>(
-  props: Props<Item, Parent>,
+export const ScreenStackComponent = <Item, ItemMsg, Parent>(
+  props: Props<Item, ItemMsg, Parent>,
 ) => {
   const { model, dispatch, renderScreen, parent, className } = props
   const transition = model.transition
@@ -70,7 +70,17 @@ export const ScreenStackComponent = <Item, Parent>(
           }
           style={panelStyle(model, panel.role)}
         >
-          {renderScreen(panel.entry.screen, panel.depth, parent)}
+          {renderScreen(
+            panel.entry.screen,
+            (msg) =>
+              dispatch({
+                _tag: 'ScreenMsg',
+                key: model.config.uniqueKeyField(panel.entry.screen),
+                msg,
+              }),
+            panel.depth,
+            parent,
+          )}
         </MeasuredPanel>
       ))}
     </div>
@@ -82,4 +92,6 @@ export const ScreenStackComponent = <Item, Parent>(
 // arguments.
 export const ScreenStackMemo = memo(ScreenStackComponent, (prev, next) =>
   getPropsEq(prev.itemEq, prev.parentEq).equals(prev, next),
-) as <Item, Parent>(props: Props<Item, Parent>) => ReactElement | null
+) as <Item, ItemMsg, Parent>(
+  props: Props<Item, ItemMsg, Parent>,
+) => ReactElement | null

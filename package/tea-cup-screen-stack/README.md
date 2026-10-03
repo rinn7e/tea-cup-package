@@ -38,75 +38,106 @@ pnpm add @rinn7e/tea-cup-prelude tea-cup-fp react-tea-cup fp-ts react react-dom
 
 ## Quick Start
 
-### 1. Your screens
+### 1. Your screens and their messages
 
 ```ts
 import * as ScreenStack from '@rinn7e/tea-cup-screen-stack'
 
-export type WizardStep =
+export type Step =
   | { _tag: 'Account'; email: string }
   | { _tag: 'Plan'; plan: Plan }
   | { _tag: 'Summary'; email: string; plan: Plan }
 
-export type Model = { steps: ScreenStack.Model<WizardStep> }
-
-export type Msg =
-  | { _tag: 'ScreenStackMsg'; subMsg: ScreenStack.Msg<WizardStep> }
-  | { _tag: 'SetEmail'; email: string }
-  | { _tag: 'Next' }
-
-export const init = (): [Model, Cmd<Msg>] => [
-  {
-    steps: ScreenStack.defaultModel(ScreenStack.defaultConfig('wizard'), {
-      _tag: 'Account',
-      email: '',
-    }),
-  },
-  Cmd.none(),
-]
-```
-
-`ScreenStack.defaultConfig(id)` uses 300ms transitions. Pass `durationMs: 0` to switch screens without animation (e.g. for `prefers-reduced-motion`).
-
-### 2. Update
-
-Delegate stack messages, and push or pop by calling the handlers directly:
-
-```ts
-const withStack =
-  (model: Model) =>
-  ([steps, cmd]: [ScreenStack.Model<WizardStep>, Cmd<ScreenStack.Msg<WizardStep>>]): [
-    Model,
-    Cmd<Msg>,
-  ] => [
-    { ...model, steps },
-    cmd.map((subMsg): Msg => ({ _tag: 'ScreenStackMsg', subMsg })),
-  ]
-
-case 'ScreenStackMsg':
-  return withStack(model)(ScreenStack.update(msg.subMsg, model.steps))
-case 'Next':
-  return withStack(model)(
-    ScreenStack.pushHandler<WizardStep>({ _tag: 'Plan', plan: 'Free' })(model.steps),
-  )
-```
-
-**Screen messages go to the screen on show.** Match the message against `ScreenStack.getTop`, update that screen and store it back with `ScreenStack.setTop`. A message for a screen that is no longer on top (popped, or sliding away) is stale: drop it.
-
-```ts
-case 'SetEmail': {
-  const top = ScreenStack.getTop(model.steps)
-  if (top._tag === 'Account') {
-    return [
-      { ...model, steps: ScreenStack.setTop<WizardStep>({ ...top, email: msg.email })(model.steps) },
-      Cmd.none(),
-    ]
-  } else {
-    // Stale
-    return [model, Cmd.none()]
+// Every screen has a unique key (like tea-cup-pagination's `uniqueKeyField`)
+export const stepKey = (step: Step): string => {
+  switch (step._tag) {
+    case 'Account':
+      return 'account' // appears once: a constant
+    case 'Plan':
+      return 'plan'
+    case 'Summary':
+      return 'summary'
   }
 }
+
+// What the user did on a step. The step only says it; the parent decides
+export type StepMsg =
+  | { _tag: 'SetEmail'; email: string }
+  | { _tag: 'Next' }
+  | { _tag: 'Back' }
+
+export type Model = { steps: ScreenStack.Model<Step> }
+
+export type Msg = {
+  _tag: 'ScreenStackMsg'
+  subMsg: ScreenStack.Msg<Step, StepMsg>
+}
+
+export const defaultModel = (): Model => ({
+  steps: ScreenStack.defaultModel<Step>(
+    ScreenStack.defaultConfig('wizard', stepKey),
+    { _tag: 'Account', email: '' },
+  ),
+})
 ```
+
+- **Keys are unique within a stack.** A `Push` (or `Replace`, `setTop`) whose key is already in the stack is ignored. Derive the key from the screen: a constant for a screen that appears once, or from its data for one that can repeat (`` `folder-${id}` ``). A screen's key must not change.
+- `ScreenStack.Msg<Item, ItemMsg>`: `ItemMsg` is the screens' own messages; leave it out (`never`) when they have none.
+- `defaultConfig(id, uniqueKeyField)` uses 300ms transitions. Pass `durationMs: 0` to switch screens without animation (e.g. for `prefers-reduced-motion`).
+
+### 2. Update: intercept screen messages
+
+A screen's message arrives as the stack's `ScreenMsg { key, msg }`. The stack ignores it; the parent intercepts it with `updateAndCmd` (the child message interception pattern), like tea-cup-pagination's `ItemMsg`:
+
+```ts
+const withStack = ([steps, cmd]: [
+  ScreenStack.Model<Step>,
+  Cmd<ScreenStack.Msg<Step, StepMsg>>,
+]): [Model, Cmd<Msg>] => [
+  { steps },
+  cmd.map((subMsg): Msg => ({ _tag: 'ScreenStackMsg', subMsg })),
+]
+
+const stepMsgHandler =
+  (key: string, msg: StepMsg) =>
+  (model: Model): [Model, Cmd<Msg>] => {
+    switch (msg._tag) {
+      case 'SetEmail':
+        // Updates the step with that key, wherever it is in the stack
+        return [
+          {
+            steps: ScreenStack.modifyScreen<Step>(key, (step) =>
+              step._tag === 'Account' ? { ...step, email: msg.email } : step,
+            )(model.steps),
+          },
+          Cmd.none(),
+        ]
+      case 'Next':
+        return withStack(
+          ScreenStack.pushHandler<Step>({
+            _tag: 'Plan',
+            plan: 'Free',
+          })<StepMsg>(model.steps),
+        )
+      case 'Back':
+        return withStack(ScreenStack.popHandler<Step, StepMsg>(model.steps))
+    }
+  }
+
+export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
+  const subMsg = msg.subMsg
+  return pipe(
+    withStack(ScreenStack.update(subMsg, model.steps)),
+    updateAndCmd((m) =>
+      subMsg._tag === 'ScreenMsg'
+        ? stepMsgHandler(subMsg.key, subMsg.msg)(m)
+        : [m, Cmd.none()],
+    ),
+  )
+}
+```
+
+**Messages are routed by key, not by "is it on top".** `getScreen(key)` / `modifyScreen(key, f)` find the screen wherever it is: on show, underneath (a reply to a request it started before another screen was pushed), or still sliding away. Only once it has been popped do they return `none` / the same model, and the message is dropped. A reply (an API response) must carry the same key, so it acts on the screen's value when it arrives.
 
 ### 3. View
 
@@ -119,14 +150,19 @@ import { ScreenStackMemo } from '@rinn7e/tea-cup-screen-stack/component'
     dispatch,
     (subMsg): Msg => ({ _tag: 'ScreenStackMsg', subMsg }),
   )}
-  itemEq={WizardStepEq}
+  itemEq={StepEq}
   parent={null}
   parentEq={nullEq}
-  renderScreen={(step, depth) => stepView(step, depth, dispatch)}
+  renderScreen={(step, stepDispatch, depth) =>
+    stepView(step, stepDispatch, depth)
+  }
 />
 ```
 
-`depth` is the screen's index in the stack (0 = the root): show a back button (`{ _tag: 'Pop' }`) when it is above 0. `renderScreen` must only use its arguments and stable values like `dispatch`; pass parent-owned state through `parent`. Give the screens an opaque background: the incoming screen slides over the outgoing one.
+- **`screenDispatch`** (here `stepDispatch`) sends a `ScreenMsg` with the screen's key, like tea-cup-pagination's `itemDispatch`. A screen view needs nothing else: navigation (Next, Back) is a screen message too, which the parent intercepts. Don't pass the parent's `dispatch` into screen views.
+- `depth` is the screen's index in the stack (0 = the root), e.g. to show a back button above 0.
+- `renderScreen` must only use its arguments; pass parent-owned state through `parent`.
+- Give the screens an opaque background: the incoming screen slides over the outgoing one.
 
 ---
 
@@ -135,40 +171,35 @@ import { ScreenStackMemo } from '@rinn7e/tea-cup-screen-stack/component'
 The whole stack is the drawer's `Item`. The drawer does not know about screens:
 
 ```ts
-type MenuScreen = { _tag: 'Main' } | { _tag: 'MoveTo'; moveTo: MoveTo.Model }
-
-type Model = { menuDrawer: Drawer.Model<ScreenStack.Model<MenuScreen>> }
+type Model = {
+  drawer: Drawer.Model<ScreenStack.Model<MenuScreen>>
+}
 
 // Open: every open starts at the first screen
 Drawer.update(
   {
     _tag: 'Open',
     internal: ScreenStack.defaultModel<MenuScreen>(
-      ScreenStack.defaultConfig('menu'),
-      {
-        _tag: 'Main',
-      },
+      ScreenStack.defaultConfig('menu', menuScreenKey),
+      { _tag: 'Main' },
     ),
   },
-  model.menuDrawer,
+  model.drawer,
 )
 
-// Route stack and screen messages through the drawer payload; once the
-// drawer has closed, late messages are dropped
+// Run stack updates on the drawer payload; once the drawer has closed,
+// `getInternal` is `none` and late messages are dropped
 const withMenuStack =
   (f: (stack: MenuStack) => [MenuStack, Cmd<Msg>]) =>
   (model: Model): [Model, Cmd<Msg>] =>
     pipe(
-      Drawer.getInternal(model.menuDrawer),
+      Drawer.getInternal(model.drawer),
       O.fold(
         (): [Model, Cmd<Msg>] => [model, Cmd.none()],
         (stack): [Model, Cmd<Msg>] => {
           const [next, cmd] = f(stack)
           return [
-            {
-              ...model,
-              menuDrawer: Drawer.setInternal(next)(model.menuDrawer),
-            },
+            { ...model, drawer: Drawer.setInternal(next)(model.drawer) },
             cmd,
           ]
         },
@@ -178,8 +209,8 @@ const withMenuStack =
 
 ```tsx
 <DrawerMemo
-  model={model.menuDrawer}
-  dispatch={menuDrawerDispatch}
+  model={model.drawer}
+  dispatch={drawerDispatch}
   itemEq={ScreenStack.getModelEq(MenuScreenEq)}
   parent={null}
   parentEq={nullEq}
@@ -187,17 +218,19 @@ const withMenuStack =
   {(stack) => (
     <ScreenStackComponent
       model={stack}
-      dispatch={menuStackDispatch}
+      dispatch={stackDispatch}
       itemEq={MenuScreenEq}
       parent={null}
       parentEq={nullEq}
-      renderScreen={(screen, depth) => menuScreenView(screen, depth, dispatch)}
+      renderScreen={(screen, screenDispatch, depth) =>
+        menuScreenView(screen, screenDispatch, depth)
+      }
     />
   )}
 </DrawerMemo>
 ```
 
-What the drawer gives for free: the stack resets on every open, the last screen stays visible while the drawer slides away, and late messages after close are dropped. Escape and the overlay close the **whole drawer** (as on iOS); the screen's back button sends `Pop`. Inside `DrawerMemo`, the non-memoized `ScreenStackComponent` is enough.
+What the drawer gives for free: the stack resets on every open, the last screen stays visible while the drawer slides away, and late messages after close are dropped. Escape and the overlay close the **whole drawer** (as on iOS); a screen's back button sends its own `Back` message, which the parent turns into a pop. Inside `DrawerMemo`, the non-memoized `ScreenStackComponent` is enough.
 
 ---
 
@@ -208,10 +241,10 @@ Idle ─Push→ Pushing Start ─(next paint)→ Pushing Run ─(transitionend)�
 Idle ─Pop─→ Popping Start ─(next paint)→ Popping Run ─(transitionend)→ Idle
 ```
 
-- **Push**: the new screen is added; `from` is the previous top. Direction `Forward`: the new screen slides in from the end edge while the previous one moves back by 30% (iOS parallax).
-- **Pop**: the top screen is removed from the stack but kept in `from` until it has slid out. Direction `Back`. Ignored on the root screen.
+- **Push**: the new screen becomes `top`; the previous top is held as `previous` while the new one slides in from the end edge and it moves back by 30% (iOS parallax). Ignored when the key is already in the stack.
+- **Pop**: the top screen is removed from the stack but held in `popped` until it has slid out. Ignored on the root screen.
 - **PopTo(depth)**: back to the screen at `depth` in one slide straight from the top; the screens in between are discarded without being shown. To restart a flow, `popToHandler(0)` then `setTop` a fresh first screen.
-- **Replace**: swaps the top screen without animation.
+- **Replace**: swaps the top screen without animation (ignored when the key belongs to another screen).
 - **Push or Pop while sliding**: the running transition finishes at once, then the new one starts.
 - `Start` renders both screens at their start positions and waits for a paint (bounded to 100ms, as browsers throttle frames in hidden tabs); `Run` switches them to their end positions so the CSS transition runs. A `TransitionTimeout` settles the stack if `transitionend` never fires. Frame and timeout messages carry a `seq` and are ignored once another transition started.
 
@@ -221,6 +254,8 @@ The model makes impossible states impossible. The screens in flight live **in th
 
 ```ts
 type Entry<Item> = { screen: Item; height: Option<number> }
+
+// `uniqueKeyField` identifies each screen; keys are unique within the stack
 
 type Transition<Item> =
   | { _tag: 'Idle' }
@@ -238,7 +273,7 @@ type Model<Item> = {
   top: Entry<Item>
   transition: Transition<Item>
   seq: number
-  config: Config
+  config: Config<Item> // { id, durationMs, uniqueKeyField }
 }
 ```
 
@@ -246,20 +281,23 @@ type Model<Item> = {
 - No stored direction or outgoing depth that could disagree with the stack: the tag is the direction, `previous` sits at `depth - 1`, and the old top of a pop at `depth + popped.length`.
 - The outgoing screen of a push is not a copy of the screen below the top, so the two can't diverge.
 - Heights are stored with their screens, so they leave with them.
+- Two screens can't share a key: pushes and replaces that would duplicate one are ignored, and `modifyScreen` can't change a key.
 
-Read it through the helpers: `getTop`, `setTop`, `depth`, `canPop`, `screens` (the whole stack, root first).
+Read it through the helpers below rather than the fields: while pushing, `below` doesn't include the screen being slid over.
 
 ## Helpers
 
-| Helper                                                                               |                                                |
-| ------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| `screens(stack)`                                                                     | All screens, root first                        |
-| `getTop(stack)`                                                                      | The screen on show                             |
-| `setTop(screen)(stack)`                                                              | Store the updated top screen                   |
-| `depth(stack)`                                                                       | Index of the screen on show (0 = root)         |
-| `canPop(stack)`                                                                      | Whether `Pop` does anything                    |
-| `pushHandler(screen)`, `popHandler`, `popToHandler(depth)`, `replaceHandler(screen)` | The `update` branches, to call directly        |
-| `getModelEq(itemEq)`                                                                 | `Eq` of the stack, e.g. as a drawer's `itemEq` |
+| Helper                                                                               |                                                                          |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `getScreen(key)(stack)`                                                              | The screen with `key`, wherever it is in the stack (`none` once popped)  |
+| `modifyScreen(key, f)(stack)`                                                        | Update that screen; the same stack when it's gone or `f` changes its key |
+| `screens(stack)`                                                                     | All screens, root first                                                  |
+| `getTop(stack)`                                                                      | The screen on show                                                       |
+| `setTop(screen)(stack)`                                                              | Replace the top screen (its key must not belong to another screen)       |
+| `depth(stack)`                                                                       | Index of the screen on show (0 = root)                                   |
+| `canPop(stack)`                                                                      | Whether `Pop` does anything                                              |
+| `pushHandler(screen)`, `popHandler`, `popToHandler(depth)`, `replaceHandler(screen)` | The `update` branches, to call directly                                  |
+| `getModelEq(itemEq)`                                                                 | `Eq` of the stack, e.g. as a drawer's `itemEq`                           |
 
 ## DOM
 
@@ -276,7 +314,7 @@ pnpm --filter tea-cup-screen-stack-example dev             # kitchen sink on htt
 pnpm --filter tea-cup-screen-stack-example-e2e test        # Playwright suite
 ```
 
-The example app shows both uses: a drawer menu with a "Move to" screen (its own TEA model with a simulated request) and a "New folder" screen, a standalone sign-up wizard, and a settings menu with free navigation (the screen is just a string and the view dispatches stack messages directly).
+The example app has one child component per use: a drawer menu (`menu-drawer`, with its "Move to" and "New folder" screens as sub-components; Move to has its own TEA model and a simulated request that may answer while another screen is on top), a standalone sign-up wizard, and a settings menu with free navigation.
 
 ## License
 

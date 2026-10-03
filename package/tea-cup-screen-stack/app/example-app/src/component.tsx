@@ -1,30 +1,17 @@
 import * as Drawer from '@rinn7e/tea-cup-drawer'
-import { DrawerHandle, DrawerMemo } from '@rinn7e/tea-cup-drawer/component'
-import { nullEq } from '@rinn7e/tea-cup-prelude'
 import * as ScreenStack from '@rinn7e/tea-cup-screen-stack'
-import { ScreenStackComponent } from '@rinn7e/tea-cup-screen-stack/component'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import { type ReactNode } from 'react'
 import { type Dispatcher, map } from 'tea-cup-fp'
 
-import { MoveTo } from './component/move-to/component'
-import { NewFolder } from './component/new-folder/component'
+import { MenuDrawer } from './component/menu-drawer/component'
 import { Settings } from './component/settings/component'
 import { Wizard } from './component/wizard/component'
-import {
-  type MenuScreen,
-  MenuScreenEq,
-  MenuStackEq,
-  type Model,
-  type Msg,
-} from './type'
+import { type Model, type Msg } from './type'
 
 const buttonClassName =
   'rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700'
-
-const rowClassName =
-  'flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100'
 
 const badgeClassName =
   'rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600'
@@ -38,108 +25,6 @@ const stackStateText = <Item,>(stack: ScreenStack.Model<Item>): string => {
     case 'Pushing':
     case 'Popping':
       return `${transition._tag} ${transition.phase} @ ${ScreenStack.depth(stack)}`
-  }
-}
-
-// Header shared by the menu screens: back button above the root, title
-const screenHeader = (args: {
-  title: string
-  depth: number
-  dispatch: Dispatcher<Msg>
-}) => (
-  <div className='relative flex h-10 items-center justify-center'>
-    {args.depth > 0 && (
-      <button
-        type='button'
-        data-test='screen-back'
-        aria-label='Back'
-        className='absolute left-0 rounded-lg px-3 py-1 text-xl text-slate-500 hover:bg-slate-100'
-        onClick={() =>
-          args.dispatch({ _tag: 'MenuStackMsg', subMsg: { _tag: 'Pop' } })
-        }
-      >
-        ‹
-      </button>
-    )}
-    <h2 className='font-bold text-slate-900'>{args.title}</h2>
-  </div>
-)
-
-// Opaque, so the incoming screen covers the outgoing one while sliding
-const screenClassName = 'flex flex-col gap-1 bg-white px-4 pb-8'
-
-const menuScreenView = (
-  screen: MenuScreen,
-  depth: number,
-  dispatch: Dispatcher<Msg>,
-): ReactNode => {
-  switch (screen._tag) {
-    case 'Main':
-      return (
-        <div data-test='screen-main' className={screenClassName}>
-          {screenHeader({ title: 'More settings', depth, dispatch })}
-          <button
-            type='button'
-            data-test='mark-as-read'
-            className={rowClassName}
-            onClick={() => dispatch({ _tag: 'MarkAsRead' })}
-          >
-            Mark as read
-          </button>
-          <button
-            type='button'
-            data-test='select-multiple'
-            className={rowClassName}
-            onClick={() => dispatch({ _tag: 'SelectMultiple' })}
-          >
-            Select multiple
-          </button>
-          <hr className='my-1 border-slate-200' />
-          <button
-            type='button'
-            data-test='move-to'
-            className={rowClassName}
-            onClick={() => dispatch({ _tag: 'PushMoveTo' })}
-          >
-            Move to
-            <span aria-hidden='true' className='text-lg text-slate-400'>
-              ›
-            </span>
-          </button>
-        </div>
-      )
-    case 'MoveTo':
-      return (
-        <div data-test='screen-move-to' className={screenClassName}>
-          {screenHeader({ title: 'Move to', depth, dispatch })}
-          <MoveTo
-            model={screen.moveTo}
-            dispatch={map(
-              dispatch,
-              (msg): Msg => ({
-                _tag: 'MenuScreenMsg',
-                subMsg: { _tag: 'MoveToMsg', msg },
-              }),
-            )}
-          />
-        </div>
-      )
-    case 'NewFolder':
-      return (
-        <div data-test='screen-new-folder' className={screenClassName}>
-          {screenHeader({ title: 'New folder', depth, dispatch })}
-          <NewFolder
-            model={screen.newFolder}
-            dispatch={map(
-              dispatch,
-              (msg): Msg => ({
-                _tag: 'MenuScreenMsg',
-                subMsg: { _tag: 'NewFolderMsg', msg },
-              }),
-            )}
-          />
-        </div>
-      )
   }
 }
 
@@ -160,21 +45,6 @@ const card = (args: {
 )
 
 export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
-  const menuDrawerDispatch = map(
-    dispatch,
-    (subMsg: Drawer.Msg<ScreenStack.Model<MenuScreen>>): Msg => ({
-      _tag: 'MenuDrawerMsg',
-      subMsg,
-    }),
-  )
-  const menuStackDispatch = map(
-    dispatch,
-    (subMsg: ScreenStack.Msg<MenuScreen>): Msg => ({
-      _tag: 'MenuStackMsg',
-      subMsg,
-    }),
-  )
-
   return (
     <div className='h-full'>
       {/* The page scrolls inside this container, not the body: the drawer's
@@ -199,11 +69,11 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
               badges: (
                 <>
                   <span data-test='state-menu' className={badgeClassName}>
-                    {model.menuDrawer.animate._tag}
+                    {model.menuDrawer.drawer.animate._tag}
                   </span>
                   <span data-test='stack-state-menu' className={badgeClassName}>
                     {pipe(
-                      Drawer.getInternal(model.menuDrawer),
+                      Drawer.getInternal(model.menuDrawer.drawer),
                       O.fold(() => '—', stackStateText),
                     )}
                   </span>
@@ -215,7 +85,12 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
                     type='button'
                     data-test='trigger-menu'
                     className={buttonClassName}
-                    onClick={() => dispatch({ _tag: 'OpenMenu' })}
+                    onClick={() =>
+                      dispatch({
+                        _tag: 'MenuDrawerMsg',
+                        subMsg: { _tag: 'Open' },
+                      })
+                    }
                   >
                     More settings
                   </button>
@@ -257,7 +132,7 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
                   data-test='stack-state-settings'
                   className={badgeClassName}
                 >
-                  {stackStateText(model.settings)}
+                  {stackStateText(model.settings.pages)}
                 </span>
               ),
               children: (
@@ -266,7 +141,7 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
                     data-test='settings-path'
                     className='font-mono text-xs text-slate-500'
                   >
-                    {ScreenStack.screens(model.settings).join(' › ')}
+                    {ScreenStack.screens(model.settings.pages).join(' › ')}
                   </p>
                   <div
                     data-test='settings'
@@ -287,10 +162,10 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
 
           <div className='rounded-2xl bg-slate-900 p-5 text-sm text-emerald-400 shadow-sm'>
             <h2 className='mb-2 text-xs font-bold tracking-widest text-slate-400 uppercase'>
-              Seen by the parent
+              Menu log
             </h2>
             <ul data-test='log' className='font-mono'>
-              {model.log.map((entry, i) => (
+              {model.menuDrawer.log.map((entry, i) => (
                 <li key={i}>{entry}</li>
               ))}
             </ul>
@@ -298,30 +173,13 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
         </div>
       </div>
 
-      <DrawerMemo
+      <MenuDrawer
         model={model.menuDrawer}
-        dispatch={menuDrawerDispatch}
-        itemEq={MenuStackEq}
-        parent={null}
-        parentEq={nullEq}
-      >
-        {(stack) => (
-          <div data-test='content-menu' className='flex flex-col'>
-            <DrawerHandle dispatch={menuDrawerDispatch} />
-            {/* Not memoized: the drawer's memo already compares the stack */}
-            <ScreenStackComponent
-              model={stack}
-              dispatch={menuStackDispatch}
-              itemEq={MenuScreenEq}
-              parent={null}
-              parentEq={nullEq}
-              renderScreen={(screen, depth) =>
-                menuScreenView(screen, depth, dispatch)
-              }
-            />
-          </div>
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'MenuDrawerMsg', subMsg }),
         )}
-      </DrawerMemo>
+      />
     </div>
   )
 }

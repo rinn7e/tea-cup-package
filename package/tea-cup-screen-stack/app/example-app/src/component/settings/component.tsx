@@ -3,9 +3,16 @@ import * as ScreenStack from '@rinn7e/tea-cup-screen-stack'
 import { ScreenStackMemo } from '@rinn7e/tea-cup-screen-stack/component'
 import * as S from 'fp-ts/lib/string'
 import { type ReactNode } from 'react'
-import { type Dispatcher } from 'tea-cup-fp'
+import { type Dispatcher, map } from 'tea-cup-fp'
 
-import { type Page, children, descriptions } from './type'
+import {
+  type Model,
+  type Msg,
+  type Page,
+  type PageMsg,
+  children,
+  descriptions,
+} from './type'
 
 const rowClassName =
   'flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-100'
@@ -15,8 +22,8 @@ const navButtonClassName =
 
 const pageView = (
   page: Page,
+  pageDispatch: (msg: PageMsg) => void,
   depth: number,
-  dispatch: Dispatcher<ScreenStack.Msg<Page>>,
 ): ReactNode => (
   // Opaque, so the incoming page covers the outgoing one while sliding
   <div
@@ -29,7 +36,7 @@ const pageView = (
           type='button'
           data-test='settings-back'
           className={navButtonClassName}
-          onClick={() => dispatch({ _tag: 'Pop' })}
+          onClick={() => pageDispatch({ _tag: 'Back' })}
         >
           ‹ Back
         </button>
@@ -39,7 +46,7 @@ const pageView = (
           type='button'
           data-test='settings-top'
           className={navButtonClassName}
-          onClick={() => dispatch({ _tag: 'PopTo', depth: 0 })}
+          onClick={() => pageDispatch({ _tag: 'Top' })}
         >
           Top
         </button>
@@ -52,7 +59,7 @@ const pageView = (
         type='button'
         data-test={`settings-go-${child}`}
         className={rowClassName}
-        onClick={() => dispatch({ _tag: 'Push', screen: child })}
+        onClick={() => pageDispatch({ _tag: 'Go', page: child })}
       >
         {child}
         <span aria-hidden='true' className='text-lg text-slate-400'>
@@ -66,21 +73,32 @@ const pageView = (
   </div>
 )
 
-// The plainest use: the screen is a string and the view dispatches stack
-// messages directly, with nothing for the parent to route
+// The screen is just the page's name; pages send `PageMsg`s, which the
+// settings component turns into stack moves
 export const Settings = ({
   model,
   dispatch,
 }: {
-  model: ScreenStack.Model<Page>
-  dispatch: Dispatcher<ScreenStack.Msg<Page>>
-}) => (
-  <ScreenStackMemo
-    model={model}
-    dispatch={dispatch}
-    itemEq={S.Eq}
-    parent={null}
-    parentEq={nullEq}
-    renderScreen={(page, depth) => pageView(page, depth, dispatch)}
-  />
-)
+  model: Model
+  dispatch: Dispatcher<Msg>
+}) => {
+  const stackDispatch = map(
+    dispatch,
+    (subMsg: ScreenStack.Msg<Page, PageMsg>): Msg => ({
+      _tag: 'ScreenStackMsg',
+      subMsg,
+    }),
+  )
+  return (
+    <ScreenStackMemo
+      model={model.pages}
+      dispatch={stackDispatch}
+      itemEq={S.Eq}
+      parent={null}
+      parentEq={nullEq}
+      renderScreen={(page, pageDispatch, depth) =>
+        pageView(page, pageDispatch, depth)
+      }
+    />
+  )
+}

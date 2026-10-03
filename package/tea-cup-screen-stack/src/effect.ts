@@ -22,7 +22,6 @@ SOFTWARE. */
 import { cmdFromPromise } from '@rinn7e/tea-cup-prelude'
 import { type Cmd } from 'tea-cup-fp'
 
-import { type Config } from './type'
 import { containerDomId, panelDomId } from './util'
 
 // Frames
@@ -36,7 +35,7 @@ const maxPaintWaitMs = 100
 // style computed, so switching them to their end positions runs the
 // transition. Normally that is after the next paint; if no frame comes in
 // time, a forced reflow commits the style instead.
-const afterNextPaint = (config: Config) => (): Promise<void> =>
+const afterNextPaint = (config: { id: string }) => (): Promise<void> =>
   new Promise((resolve) => {
     let isDone = false
     const finish = () => {
@@ -58,8 +57,10 @@ const afterNextPaint = (config: Config) => (): Promise<void> =>
     }, maxPaintWaitMs)
   })
 
-export const afterNextPaintCmd = <Msg>(config: Config, msg: Msg): Cmd<Msg> =>
-  cmdFromPromise(afterNextPaint(config), () => msg)
+export const afterNextPaintCmd = <Msg>(
+  config: { id: string },
+  msg: Msg,
+): Cmd<Msg> => cmdFromPromise(afterNextPaint(config), () => msg)
 
 // Focus
 // ---------------------------------
@@ -69,7 +70,7 @@ export const afterNextPaintCmd = <Msg>(config: Config, msg: Msg): Cmd<Msg> =>
 // it from the rest of the page. Waits for a paint, so the screen is rendered
 // even when it was switched without animation.
 export const focusTopCmd = (
-  config: Config,
+  config: { id: string },
   index: number,
 ): Cmd<{ _tag: 'NoOp' }> =>
   cmdFromPromise(
