@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 import {
+  ANIMATION_DURATION,
   content,
   drag,
   drawer,
@@ -40,29 +41,28 @@ test.describe('Base', () => {
     await expectClosed(page, 'basic')
   })
 
-  test('closes on Escape and gives focus back to the trigger', async ({
-    page,
-  }) => {
+  test('gives focus back to the trigger once closed', async ({ page }) => {
     await openDrawer(page, 'basic')
     await expect(drawer(page, 'basic')).toBeFocused()
-    await page.keyboard.press('Escape')
+    await page.locator('[data-test="close-basic"]').click()
     await expectClosed(page, 'basic')
     await expect(page.locator('[data-test="trigger-basic"]')).toBeFocused()
   })
 
-  test('traps Tab inside the drawer', async ({ page }) => {
+  test('leaves keys to its owner: Escape does not close it', async ({
+    page,
+  }) => {
     await openDrawer(page, 'basic')
-    await page.keyboard.press('Tab')
-    await expect(page.locator('[data-test="close-basic"]')).toBeFocused()
-    await page.keyboard.press('Tab')
-    await expect(page.locator('[data-test="close-basic"]')).toBeFocused()
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(ANIMATION_DURATION)
+    await expectOpen(page, 'basic')
   })
 
   test('locks the body scroll while open', async ({ page }) => {
     const overflow = () => page.evaluate(() => document.body.style.overflow)
     await openDrawer(page, 'basic')
     expect(await overflow()).toBe('hidden')
-    await page.keyboard.press('Escape')
+    await page.locator('[data-test="close-basic"]').click()
     await expectClosed(page, 'basic')
     expect(await overflow()).toBe('')
   })

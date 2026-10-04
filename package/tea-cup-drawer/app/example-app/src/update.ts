@@ -7,6 +7,7 @@ import * as BasicDrawer from './component/basic-drawer'
 import * as DirectionDrawer from './component/direction-drawer'
 import * as FeedbackDrawer from './component/feedback-drawer'
 import * as HandleOnlyDrawer from './component/handle-only-drawer'
+import * as MeasuredSnapDrawer from './component/measured-snap-drawer'
 import * as NonDismissibleDrawer from './component/non-dismissible-drawer'
 import * as NonModalDrawer from './component/non-modal-drawer'
 import * as PayloadDrawer from './component/payload-drawer'
@@ -30,6 +31,7 @@ export const init = (): [Model, Cmd<Msg>] => [
     handleOnlyDrawer: HandleOnlyDrawer.defaultModel(),
     actionsDrawer: ActionsDrawer.defaultModel(),
     feedbackDrawer: FeedbackDrawer.defaultModel(),
+    measuredSnapDrawer: MeasuredSnapDrawer.defaultModel(),
     openLog: [],
   },
   Cmd.none(),
@@ -41,7 +43,7 @@ const addLog =
 
 // Delegate to a child drawer component, then react like vaul's
 // `onOpenChange`: the parent also notices closes the drawer decided itself
-// (swipe, overlay, Escape) by comparing the child before and after.
+// (swipe, overlay) by comparing the child before and after.
 const childDrawerHandler =
   <Child, ChildMsg>(child: {
     // Shown in the log
@@ -211,6 +213,15 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
         update: FeedbackDrawer.update,
         isOpen: FeedbackDrawer.isOpen,
         toMsg: (subMsg): Msg => ({ _tag: 'FeedbackDrawerMsg', subMsg }),
+      })(msg.subMsg)(model)
+    case 'MeasuredSnapDrawerMsg':
+      return childDrawerHandler({
+        name: 'measuredSnap',
+        get: (m) => m.measuredSnapDrawer,
+        set: (m, measuredSnapDrawer) => ({ ...m, measuredSnapDrawer }),
+        update: MeasuredSnapDrawer.update,
+        isOpen: MeasuredSnapDrawer.isOpen,
+        toMsg: (subMsg): Msg => ({ _tag: 'MeasuredSnapDrawerMsg', subMsg }),
       })(msg.subMsg)(model)
   }
 }

@@ -25,7 +25,8 @@ test.describe('TEA content (internal) and parent state', () => {
     page,
   }) => {
     await page.locator('[data-test="action-move-to"]').click()
-    await page.keyboard.press('Escape')
+    // Overlay tap
+    await page.mouse.click(10, 10)
     await expect(state(page, key)).toHaveText('AnimateOut')
     await expect(
       page.locator('[data-test="action-menu-move-to"]'),
@@ -44,7 +45,8 @@ test.describe('TEA content (internal) and parent state', () => {
     await draft.fill('call me later')
     await expect(draft).toHaveValue('call me later')
 
-    await page.keyboard.press('Escape')
+    // Overlay tap
+    await page.mouse.click(10, 10)
     await expectClosed(page, key)
     await openDrawer(page, key)
     await expect(page.locator('[data-test="draft"]')).toHaveValue(
@@ -75,7 +77,8 @@ test.describe('TEA content (internal) and parent state', () => {
     await expect(page.locator('[data-test="folders-loading"]')).toBeVisible()
 
     // Reopen for message B while A is still sliding away
-    await page.keyboard.press('Escape')
+    // Overlay tap
+    await page.mouse.click(10, 10)
     await expect(state(page, key)).toHaveText('AnimateOut')
     await page.evaluate(() =>
       document

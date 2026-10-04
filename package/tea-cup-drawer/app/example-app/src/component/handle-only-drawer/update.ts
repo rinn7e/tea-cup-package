@@ -1,10 +1,11 @@
 import * as Drawer from '@rinn7e/tea-cup-drawer'
 import { type Cmd } from 'tea-cup-fp'
 
+import { bodyConfig } from '../../view/drawer-body'
 import { type Model, type Msg } from './type'
 
 const config: Drawer.Config<null> = {
-  ...Drawer.defaultConfig<null>('handleOnly', () => 'handleOnly'),
+  ...bodyConfig<null>('handleOnly', () => 'handleOnly'),
   handleOnly: true,
 }
 

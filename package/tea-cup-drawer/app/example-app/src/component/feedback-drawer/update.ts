@@ -1,5 +1,6 @@
 import * as Drawer from '@rinn7e/tea-cup-drawer'
 import { batchCmd, delayCmd, updateAndCmd } from '@rinn7e/tea-cup-prelude'
+import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
@@ -9,7 +10,10 @@ import { type Model, type Msg } from './type'
 export const defaultModel = (): Model => ({
   drawer: Drawer.defaultModel(
     // No payload: a constant key
-    Drawer.defaultConfig<null>('feedback', () => 'feedback'),
+    Drawer.defaultConfig<null>('feedback', () => 'feedback', {
+      label: { _tag: 'Text', value: 'Send feedback' },
+      describedBy: O.none,
+    }),
   ),
   feedback: Feedback.defaultModel(),
   clearFeedbackWhenClosed: false,

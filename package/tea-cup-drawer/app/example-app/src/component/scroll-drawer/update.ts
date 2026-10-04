@@ -1,12 +1,10 @@
 import * as Drawer from '@rinn7e/tea-cup-drawer'
 import { type Cmd } from 'tea-cup-fp'
 
+import { bodyConfig } from '../../view/drawer-body'
 import { type Model, type Msg } from './type'
 
-const config: Drawer.Config<null> = Drawer.defaultConfig<null>(
-  'scroll',
-  () => 'scroll',
-)
+const config: Drawer.Config<null> = bodyConfig<null>('scroll', () => 'scroll')
 
 export const defaultModel = (): Model => ({
   drawer: Drawer.defaultModel(config),

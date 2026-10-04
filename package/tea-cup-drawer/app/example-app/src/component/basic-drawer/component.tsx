@@ -30,8 +30,7 @@ export const BasicDrawer = ({
           id,
           dispatch: drawerDispatch,
           title: 'Basic drawer',
-          description:
-            'Drag it down, tap the overlay or press Escape to close it.',
+          description: 'Drag it down or tap the overlay to close it.',
         })
       }
     />

@@ -140,14 +140,15 @@ test.describe('Drawer + screen stack', () => {
     await expect(log(page)).toHaveText(['moved to Forums'])
   })
 
-  test('Escape closes the whole drawer from a deep screen, which stays while sliding away', async ({
+  test('the overlay closes the whole drawer from a deep screen, which stays while sliding away', async ({
     page,
   }) => {
     await clickInTop(page, key, 'move-to')
     await expectIdleAt(page, key, 1)
     await clickInTop(page, key, 'new-folder')
     await expectIdleAt(page, key, 2)
-    await page.keyboard.press('Escape')
+    // Overlay tap
+    await page.mouse.click(10, 10)
     await expect(page.locator('[data-test="state-menu"]')).toHaveText(
       'AnimateOut',
     )
@@ -161,7 +162,8 @@ test.describe('Drawer + screen stack', () => {
   test('reopening starts at the first screen', async ({ page }) => {
     await clickInTop(page, key, 'move-to')
     await expectIdleAt(page, key, 1)
-    await page.keyboard.press('Escape')
+    // Overlay tap
+    await page.mouse.click(10, 10)
     await expect(page.locator('[data-test="state-menu"]')).toHaveText(
       'Invisible',
     )

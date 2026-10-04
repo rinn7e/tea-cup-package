@@ -5,12 +5,17 @@ import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
 import * as ActionMenu from './sub-component/action-menu'
-import { type ActionsContentMsg, type Model, type Msg } from './type'
+import { type ActionsContentMsg, type Model, type Msg, titleId } from './type'
 
 // The menu is identified by the message it was opened for
 const config = Drawer.defaultConfig<ActionMenu.Model>(
   'actions',
   (menu) => menu.messageId,
+  // Named by its title, whose text follows the payload
+  {
+    label: { _tag: 'ElementId', id: titleId },
+    describedBy: O.none,
+  },
 )
 
 export const defaultModel = (): Model => ({

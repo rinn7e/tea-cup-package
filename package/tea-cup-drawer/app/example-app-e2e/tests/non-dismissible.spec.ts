@@ -21,12 +21,6 @@ test.describe('Non-dismissible', () => {
     await expectOpen(page, 'nonDismissible')
   })
 
-  test('does not close on Escape', async ({ page }) => {
-    await page.keyboard.press('Escape')
-    await page.waitForTimeout(ANIMATION_DURATION)
-    await expectOpen(page, 'nonDismissible')
-  })
-
   test('does not close when dragged down', async ({ page }) => {
     await drag(page, await pointIn(page, 'nonDismissible'), { dx: 0, dy: 300 })
     await page.waitForTimeout(ANIMATION_DURATION)

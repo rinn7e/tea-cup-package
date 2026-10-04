@@ -77,17 +77,17 @@ test.describe('Directions', () => {
     const basic = await handleGap('basic')
     expect(basic.isVertical).toBe(false)
     expect(basic.top).toBeLessThan(20)
-    await page.keyboard.press('Escape')
+    await page.locator('[data-test="close-basic"]').click()
 
     const top = await handleGap('top')
     expect(top.isVertical).toBe(false)
     expect(top.bottom).toBeLessThan(20)
-    await page.keyboard.press('Escape')
+    await page.locator('[data-test="close-top"]').click()
 
     const left = await handleGap('left')
     expect(left.isVertical).toBe(true)
     expect(left.right).toBeLessThan(20)
-    await page.keyboard.press('Escape')
+    await page.locator('[data-test="close-left"]').click()
 
     const right = await handleGap('right')
     expect(right.isVertical).toBe(true)

@@ -12,6 +12,7 @@ import {
   ActionsParentEq,
   type Model,
   type Msg,
+  titleId,
 } from './type'
 
 // The menu (a TEA component) lives in the payload and resets on every open;
@@ -44,8 +45,12 @@ export const ActionsDrawer = ({
         >
           <DrawerHandle dispatch={drawerDispatch} />
           <div className='flex flex-col gap-3 px-6 pt-2 pb-8'>
-            <h2 className='text-lg font-bold text-slate-900'>
-              Message actions
+            <h2
+              id={titleId}
+              data-test='title-actions'
+              className='text-lg font-bold text-slate-900'
+            >
+              Actions for message {menu.messageId}
             </h2>
             <ActionMenu
               model={menu}

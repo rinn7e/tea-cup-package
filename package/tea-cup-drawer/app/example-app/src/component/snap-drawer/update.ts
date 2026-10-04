@@ -2,10 +2,11 @@ import * as Drawer from '@rinn7e/tea-cup-drawer'
 import * as O from 'fp-ts/lib/Option'
 import { type Cmd } from 'tea-cup-fp'
 
+import { bodyConfig } from '../../view/drawer-body'
 import { type Model, type Msg } from './type'
 
 const config: Drawer.Config<null> = {
-  ...Drawer.defaultConfig<null>('snap', () => 'snap'),
+  ...bodyConfig<null>('snap', () => 'snap'),
   snap: {
     _tag: 'Snap',
     // Opens at 50% (the active point)

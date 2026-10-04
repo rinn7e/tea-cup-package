@@ -27,6 +27,12 @@ const menuContentKey = 'menu'
 const drawerConfig = Drawer.defaultConfig<MenuStack>(
   'menu',
   () => menuContentKey,
+  // A fixed name: every screen has its own title, and two are rendered
+  // while the stack slides
+  {
+    label: { _tag: 'Text', value: 'Message menu' },
+    describedBy: O.none,
+  },
 )
 
 const stackConfig = ScreenStack.defaultConfig('menu', menuScreenKey)

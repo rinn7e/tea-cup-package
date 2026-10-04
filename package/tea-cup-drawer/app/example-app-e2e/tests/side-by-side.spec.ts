@@ -18,7 +18,8 @@ test.describe('Side by side (parent only, no payload)', () => {
       'half done',
     )
 
-    await page.keyboard.press('Escape')
+    // Overlay tap
+    await page.mouse.click(10, 10)
     await expectClosed(page, key)
     await openDrawer(page, key)
 

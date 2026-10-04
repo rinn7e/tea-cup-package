@@ -6,6 +6,7 @@ import { BasicDrawer } from './component/basic-drawer/component'
 import { DirectionDrawer } from './component/direction-drawer/component'
 import { FeedbackDrawer } from './component/feedback-drawer/component'
 import { HandleOnlyDrawer } from './component/handle-only-drawer/component'
+import { MeasuredSnapDrawer } from './component/measured-snap-drawer/component'
 import { NonDismissibleDrawer } from './component/non-dismissible-drawer/component'
 import { NonModalDrawer } from './component/non-modal-drawer/component'
 import { PayloadDrawer } from './component/payload-drawer/component'
@@ -130,6 +131,13 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
       description: 'Dragging starts from the handle.',
       state: model.handleOnlyDrawer.drawer.animate._tag,
       open: { _tag: 'HandleOnlyDrawerMsg', subMsg: { _tag: 'Open' } },
+    },
+    {
+      id: 'measuredSnap',
+      title: 'Measured snap point',
+      description: 'The compact point follows the content height.',
+      state: model.measuredSnapDrawer.drawer.animate._tag,
+      open: { _tag: 'MeasuredSnapDrawerMsg', subMsg: { _tag: 'Open' } },
     },
   ]
 
@@ -384,6 +392,13 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
         dispatch={map(
           dispatch,
           (subMsg): Msg => ({ _tag: 'FeedbackDrawerMsg', subMsg }),
+        )}
+      />
+      <MeasuredSnapDrawer
+        model={model.measuredSnapDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'MeasuredSnapDrawerMsg', subMsg }),
         )}
       />
     </div>

@@ -1,6 +1,7 @@
 import * as Drawer from '@rinn7e/tea-cup-drawer'
 import { type Cmd } from 'tea-cup-fp'
 
+import { bodyConfig } from '../../view/drawer-body'
 import { type Model, type Msg } from './type'
 
 // Top, left and right drawers are the same component, opened from
@@ -9,7 +10,7 @@ export const defaultModel = (
   direction: Exclude<Drawer.Direction, 'bottom'>,
 ): Model => ({
   drawer: Drawer.defaultModel<null>({
-    ...Drawer.defaultConfig<null>(direction, () => direction),
+    ...bodyConfig<null>(direction, () => direction),
     direction,
   }),
 })

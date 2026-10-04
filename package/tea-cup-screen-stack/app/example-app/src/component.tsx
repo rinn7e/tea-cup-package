@@ -65,7 +65,7 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
             {card({
               title: 'Drawer + screen stack',
               description:
-                'The whole stack is the drawer payload: it starts at the first screen on every open. Escape closes the whole menu.',
+                'The whole stack is the drawer payload: it starts at the first screen on every open. The overlay closes the whole menu.',
               badges: (
                 <>
                   <span data-test='state-menu' className={badgeClassName}>

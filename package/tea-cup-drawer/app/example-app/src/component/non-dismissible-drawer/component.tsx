@@ -31,7 +31,7 @@ export const NonDismissibleDrawer = ({
           dispatch: drawerDispatch,
           title: 'Non-dismissible',
           description:
-            'Overlay taps, Escape and swipes are ignored; only the button closes it.',
+            'Overlay taps and swipes are ignored; only the button closes it.',
           children: (
             <button
               type='button'

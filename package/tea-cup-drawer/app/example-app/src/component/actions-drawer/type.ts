@@ -32,3 +32,6 @@ export type Msg =
       _tag: 'DrawerMsg'
       subMsg: Drawer.Msg<ActionMenu.Model, ActionsContentMsg>
     }
+
+// The drawer's title, which names it
+export const titleId = 'drawer-title-actions'

@@ -3,6 +3,7 @@ import type * as BasicDrawer from './component/basic-drawer'
 import type * as DirectionDrawer from './component/direction-drawer'
 import type * as FeedbackDrawer from './component/feedback-drawer'
 import type * as HandleOnlyDrawer from './component/handle-only-drawer'
+import type * as MeasuredSnapDrawer from './component/measured-snap-drawer'
 import type * as NonDismissibleDrawer from './component/non-dismissible-drawer'
 import type * as NonModalDrawer from './component/non-modal-drawer'
 import type * as PayloadDrawer from './component/payload-drawer'
@@ -28,6 +29,8 @@ export type Model = {
   actionsDrawer: ActionsDrawer.Model
   // Side by side: a form next to a drawer without payload
   feedbackDrawer: FeedbackDrawer.Model
+  // A snap point measured from the content
+  measuredSnapDrawer: MeasuredSnapDrawer.Model
   // Open / close changes the parent noticed in its children (vaul's
   // `onOpenChange`), newest first
   openLog: string[]
@@ -47,3 +50,4 @@ export type Msg =
   | { _tag: 'HandleOnlyDrawerMsg'; subMsg: HandleOnlyDrawer.Msg }
   | { _tag: 'ActionsDrawerMsg'; subMsg: ActionsDrawer.Msg }
   | { _tag: 'FeedbackDrawerMsg'; subMsg: FeedbackDrawer.Msg }
+  | { _tag: 'MeasuredSnapDrawerMsg'; subMsg: MeasuredSnapDrawer.Msg }
