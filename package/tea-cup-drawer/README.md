@@ -10,7 +10,10 @@ A drawer (bottom sheet / side panel) for React and The Elm Architecture, powered
 - **Payload kept while closing**: open the drawer with a payload (`{ _tag: 'Open', internal: item }`). It stays in the state until the drawer has fully slid away, so the content never goes blank mid-animation even if the parent already cleared its own data.
 - **vaul's gestures**: swipe to dismiss with velocity and distance thresholds, rubber-banding past the open position, snap points (fractions or px), handle taps that cycle snap points, `handleOnly`, and drags that leave scrolled content and selected text alone.
 - **Four directions**: `bottom`, `top`, `left`, `right`.
-- **Modal or not**: modal drawers render an overlay, lock the body scroll (with vaul's iOS Safari fix), trap Tab and give focus back on close. Non-modal drawers leave the page interactive.
+- **Modal or not**: modal drawers render an overlay, lock the body scroll (with vaul's iOS Safari fix), move the focus into the drawer and give it back on close. Non-modal drawers leave the page interactive.
+- **No keyboard listener**: keys (Escape, Tab) belong to the owner, who knows the app's other layers (dialogs, popups of other libraries) and sends `Dismiss` or `Close`. See [Keyboard](#keyboard).
+- **Accessible name**: `config.aria` names the `role="dialog"` with a text or with its title element, and can point at a description.
+- **Snap points that follow the content**: `SetSnapPoints` replaces them while open (e.g. measured from the content), keeping the active one.
 - **Memoized, with two data channels**: `DrawerMemo`'s `renderContent(content, contentDispatch, parent)` gets everything as arguments: the payload (owned by the drawer, dropped when it closes), a dispatch for the content's own messages, and `parent` (owned by the parent), each data channel with its own `Eq`.
 - **Keyed content messages**: the payload is identified by `Config.uniqueKeyField` (like tea-cup-pagination's items and the screen stack's screens), so a reply from a payload that was closed or replaced never reaches the new one.
 - **Pure, tested logic**: the physics (`decideDrag`, `decideRelease`, `dragDistance`, ...) are pure functions in `util.ts`. DOM reads happen at event time and reach `update` as facts inside messages.
@@ -63,7 +66,15 @@ export const init = (): [Model, Cmd<Msg>] => [
   {
     actions: Drawer.defaultModel(
       // The payload's key: here, the message's id
-      Drawer.defaultConfig('message-actions', (message: Message) => message.id),
+      Drawer.defaultConfig(
+        'message-actions',
+        (message: Message) => message.id,
+        {
+          // Named by its title element, whose text may follow the payload
+          label: { _tag: 'ElementId', id: 'message-actions-title' },
+          describedBy: O.none,
+        },
+      ),
     ),
   },
   Cmd.none(),
@@ -75,7 +86,10 @@ Customize the config by spreading the defaults:
 ```ts
 // No payload (`null`): a constant key
 const config: Drawer.Config<null> = {
-  ...Drawer.defaultConfig<null>('composer', () => 'composer'),
+  ...Drawer.defaultConfig<null>('composer', () => 'composer', {
+    label: { _tag: 'Text', value: 'Composer' },
+    describedBy: O.none,
+  }),
   modality: { _tag: 'NonModal' },
   dismissible: false,
   snap: {
@@ -111,7 +125,7 @@ export const subscriptions = (model: Model): Sub<Msg> =>
   )
 ```
 
-Open it from anywhere by sending `{ _tag: 'Open', internal: message }`, and close it with `{ _tag: 'Close' }`.
+Open it from anywhere by sending `{ _tag: 'Open', internal: message }`, and close it with `{ _tag: 'Close' }`. The subscriptions only follow a drag in progress; the drawer listens to no keys (see [Keyboard](#keyboard)).
 
 ### 3. View
 
@@ -206,16 +220,56 @@ A drawer holds at most one content **at a time**, but not the same one **over ti
 
 Without a key, "the content" would mean "whatever the drawer holds when the message arrives", and A's result would be written into B.
 
-- `Config.id` identifies the **drawer** (`'actions'`: DOM ids, focus, the layer stack) and never changes; `uniqueKeyField` identifies its **content** (`'A'`, then `'B'`).
+- `Config.id` identifies the **drawer** (`'actions'`: DOM ids, focus) and never changes; `uniqueKeyField` identifies its **content** (`'A'`, then `'B'`).
 - Protection only covers replies routed back as a `ContentMsg` with the content's key, i.e. the content's commands mapped with the same key as in the recipe above.
 - Reopening for the same entity (A, then A again) gives the same key, so the earlier open's result is accepted by the new one, the same rule as tea-cup-link-pagination's `dataSourceId`, which guards its single current data source the same way. Put a per-open id in the payload and key on it if every open must start fresh.
 - A drawer without payload (`Drawer.Model<null>`) uses a constant key (`() => 'basic'`): there is nothing to tell apart.
 
 The same reasoning applies to any component with a single child slot that can be refilled: identify the child by a key, not by "whatever is there now".
 
+### Keyboard
+
+The drawer has no keyboard listener. Which layer a key belongs to is an app-wide question (a dialog, a popup of another library or a second drawer may sit on top), so the owner answers it with whatever layer stack the app keeps, and tells the drawer:
+
+```ts
+// In the owner, when its layer is the topmost one
+case 'EscapePressed':
+  // `Dismiss` respects `dismissible`; `Close` always closes
+  return drawerMsgHandler({ _tag: 'Dismiss' })(model)
+```
+
+Trapping Tab is the owner's too, for the same reason. On open, the drawer still moves the focus into itself (or its first focusable element with `autoFocus`), and once closed gives it back to where it was, unless the focus has moved on meanwhile (e.g. to a drawer opened while this one was closing).
+
+### Accessible name
+
+A `role="dialog"` needs a name, so `config.aria.label` is required:
+
+- `{ _tag: 'Text', value }` renders `aria-label`: a fixed name.
+- `{ _tag: 'ElementId', id }` renders `aria-labelledby`: the id of an element inside the content, usually its title, whose text may change with the payload ("Actions for message A").
+
+`config.aria.describedBy` optionally points at an element describing the drawer (`aria-describedby`).
+
+### Snap points that follow the content
+
+When a snap point depends on the content (a composer that grows with its text), measure it in the content and send the drawer `SetSnapPoints`. It keeps the active index (clamped to the new points), moves to the new position of the active point if it changed, and leaves the model untouched when the points are the same, so content that re-measures on every render doesn't loop:
+
+```ts
+// The content reports its compact height as a `ContentMsg`; the owner intercepts it
+case 'Measured':
+  return drawerMsgHandler({
+    _tag: 'SetSnapPoints',
+    points: [
+      { _tag: 'Pixel', value: msg.px },
+      { _tag: 'Fraction', value: 1 },
+    ],
+  })(model)
+```
+
+The points last until the drawer closes: every open starts again from `config.snap`, and `SetSnapPoints` is ignored while it is closed or without snap points. Measure from the content (it renders while `Mounting`, before sliding in), not before opening.
+
 ### Reacting to open changes
 
-The drawer closes itself on swipes, overlay taps and Escape. To react like vaul's `onOpenChange`, compare `isOpen` before and after the update:
+The drawer closes itself on swipes and overlay taps. To react like vaul's `onOpenChange`, compare `isOpen` before and after the update:
 
 ```ts
 case 'ActionsMsg': {
@@ -259,8 +313,9 @@ The model can't represent impossible states (see the code convention): no press 
 | Field               | Default                    | Description                                                                                                                                                                                                                                                                                                                                                            |
 | ------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id`                | —                          | Unique id; the content element gets `id="tea-cup-drawer-<id>"`                                                                                                                                                                                                                                                                                                         |
+| `aria`              | — (required)               | `{ label, describedBy }`: `label` is `Text { value }` (`aria-label`) or `ElementId { id }` (`aria-labelledby`); `describedBy` is an optional element id (`aria-describedby`). See [Accessible name](#accessible-name)                                                                                                                                                  |
 | `direction`         | `'bottom'`                 | Edge the drawer is attached to                                                                                                                                                                                                                                                                                                                                         |
-| `modality`          | `Modal { lockBody: true }` | `Modal` (overlay, focus trap, body scroll lock when `lockBody`) or `NonModal`                                                                                                                                                                                                                                                                                          |
+| `modality`          | `Modal { lockBody: true }` | `Modal` (overlay, `aria-modal`, focus moved in, body scroll lock when `lockBody`) or `NonModal`                                                                                                                                                                                                                                                                        |
 | `dismissible`       | `true`                     | When `false`, only `Close` closes the drawer                                                                                                                                                                                                                                                                                                                           |
 | `snap`              | `NoSnap`                   | `NoSnap`, or `Snap { initial, fadeFrom, sequential }`: `initial` is a zipper of `{ _tag: 'Fraction' \| 'Pixel', value }` whose `active` is where it opens (the drawer must span the screen along its axis); `fadeFrom` is the index from which the overlay is opaque (`none` = last, clamped); `sequential` makes flicks move one point instead of jumping to the edge |
 | `handleOnly`        | `false`                    | Only `DrawerHandle` starts a drag                                                                                                                                                                                                                                                                                                                                      |
@@ -271,8 +326,6 @@ The model can't represent impossible states (see the code convention): no press 
 | `durationMs`        | `500`                      | Transition duration                                                                                                                                                                                                                                                                                                                                                    |
 | `portal`            | `{ _tag: 'Body' }`         | `Body`, `Inline` or `{ _tag: 'Container', get }`                                                                                                                                                                                                                                                                                                                       |
 | `ui`                | —                          | `{ content?, overlay? }` view overrides                                                                                                                                                                                                                                                                                                                                |
-
-Escape and the Tab trap apply to the topmost open drawer only (the most recently opened), like Radix's layer stack.
 
 Mark elements that should never start a drag with `data-drawer-no-drag` (e.g. sliders, carousels).
 
@@ -299,6 +352,8 @@ Style per phase with the `data-state` attribute (e.g. `data-[state=Dragging]:sha
 ## Differences from vaul
 
 `DrawerHandle` sits on the drawer's inner edge for every direction: at the top of a bottom drawer (in the flow, as in vaul), at the bottom of a top drawer, and as a vertical bar on the inner side of a left or right drawer (vaul always draws a horizontal handle at the top). It is placed by `drawer.css` from `data-drawer-direction`, so the content layout doesn't change.
+
+No keyboard handling: vaul (through Radix Dialog) closes on Escape and traps Tab for the topmost layer of its own stack. Here the owner handles keys with the app's layer stack, which also knows layers that aren't drawers (see [Keyboard](#keyboard)).
 
 Not ported (yet): background scaling (`shouldScaleBackground`), nested drawers, keyboard-aware repositioning (`repositionInputs`, `fixed`), vaul's iOS touch-move scroll prevention (the body lock and Safari `position: fixed` are ported), `preventScrollRestoration`, and the handle's double-tap / long-press timing. `onDrag` / `onRelease` / `onAnimationEnd` callbacks are replaced by intercepting the drawer's messages.
 

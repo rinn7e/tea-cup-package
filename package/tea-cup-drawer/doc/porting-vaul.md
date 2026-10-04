@@ -40,10 +40,10 @@ buried inside event handlers that read and write refs.
 | `shouldDrag` (DOM walk + timing refs)                                                         | DOM facts measured at pointer down (`isNoDragTarget`, `hasScrolledAncestor`), timing decided by the pure `decideDrag`     |
 | `element.style.transform = ...` during drags                                                  | Rendered from the model: `--drawer-translate` CSS variable from `translateCss(model)`                                     |
 | `setTimeout(TRANSITIONS.DURATION)`                                                            | `transitionend` → `TransitionEnd`, with `AnimationTimeout` (`delayCmd`) as a fallback                                     |
-| Window listeners (pointer, keyboard)                                                          | `Sub`: document pointer events only while a gesture is active, keyboard only while open                                   |
-| Body `position: fixed` (Safari), scroll lock, focus restore                                   | `Cmd`s in `effect.ts` (`lockBodyScrollCmd`, `pushLayerCmd` / `popLayerCmd`, ...)                                          |
+| Window listeners (pointer, keyboard)                                                          | `Sub`: document pointer events only while a gesture is active; no keyboard listener (keys are the owner's)                |
+| Body `position: fixed` (Safari), scroll lock, focus restore                                   | `Cmd`s in `effect.ts` (`lockBodyScrollCmd`, `rememberFocusCmd` / `restoreFocusCmd`, ...)                                  |
 | `open` / `onOpenChange` / `defaultOpen` (controlled + uncontrolled)                           | Always controlled: `Open { internal }`, `Close`, `Dismiss` messages; parents compare `isOpen` before/after `update`       |
-| Radix Dialog                                                                                  | Plain `div role="dialog"` + overlay; Escape and the Tab trap in `subscriptions`, routed to the topmost layer              |
+| Radix Dialog                                                                                  | Plain `div role="dialog"` + overlay, named by `config.aria`; Escape and the Tab trap are left to the owner                |
 | `children` as React elements (re-render with the parent)                                      | `DrawerMemo` with `renderContent(content, contentDispatch, parent)`, compared with `itemEq` / `parentEq`                  |
 
 ---
@@ -181,10 +181,9 @@ measurements only for what the model cannot know.
 
 ### Some effects live outside the model
 
-The body scroll lock needs a reference count across drawers, focus restore
-needs the element that was focused before opening, and Escape needs the stack
-of open drawers. All three are module-level state in `effect.ts`, reached only
-through `Cmd`s. It is contained, but it is impure state TEA cannot see, and
+The body scroll lock needs a reference count across drawers, and focus
+restore needs the element that was focused before opening. Both are
+module-level state in `effect.ts`, reached only through `Cmd`s. It is contained, but it is impure state TEA cannot see, and
 the scroll lock can interact badly with page layout (see section 6).
 
 ### Memoization needed explicit data channels
@@ -211,18 +210,31 @@ so all three packages read the same.
 Picking a channel is one question: does the state need to survive the drawer
 closing? No: `internal`. Yes (or the parent owns it anyway): `parent`.
 
-### Escape needs a layer stack, not "who has focus"
+### Keys belong to the app, not to the drawer
 
 Escape first went to "the drawer holding the focus". That broke as soon as the
 content re-rendered away the focused element (switching a menu page): focus
-fell back to `<body>` and Escape stopped working. It now follows Radix's
-approach: open drawers form a stack, and Escape / the Tab trap belong to the
-topmost one, wherever the focus is. The stack is module state in `effect.ts`,
-updated by the same `Cmd`s that save and restore focus.
+fell back to `<body>` and Escape stopped working. It then followed Radix's
+approach: open drawers formed a stack in `effect.ts`, and Escape / the Tab
+trap belonged to the topmost one, wherever the focus was.
+
+Using the drawer next to another library (base-ui popups inside a drawer)
+showed the limit of that stack: it only knows drawers. Every overlay library
+keeps its own stack (base-ui's floating tree, Radix's layers, MUI's modal
+manager), so with two of them an Escape meant for a popup closed the drawer
+too, and the Tab trap pulled the focus out of the popup. Which layer a key
+belongs to is an app-wide question, so the drawer no longer listens to keys:
+the owner handles them with the app's own layer stack, which can include
+dialogs and other libraries' popups, and sends `Dismiss` or `Close`.
+
+What stays in the drawer is focus: moved in on open, given back once closed.
+Giving it back taught one more thing: a drawer that finishes closing after
+another one opened must not take the focus back from it, so the focus is only
+restored when it is still in the closing drawer (or lost to `<body>`).
 
 ### `onOpenChange` needs a little ceremony
 
-The drawer closes itself on swipes, overlay taps and Escape. A parent that
+The drawer closes itself on swipes and overlay taps. A parent that
 needs to react compares `Drawer.isOpen(before.animate)` with
 `Drawer.isOpen(after.animate)` inside `updateAndCmd`. It is explicit and pure,
 but more code than passing a callback.
@@ -231,19 +243,19 @@ but more code than passing a callback.
 
 ## 5. Trade-offs at a glance
 
-|                       | vaul                                  | tea-cup-drawer                                                        |
-| --------------------- | ------------------------------------- | --------------------------------------------------------------------- |
-| Drag performance      | Direct DOM writes, no re-render       | Re-render per move (unmeasured on low-end phones)                     |
-| Where state lives     | Hooks, refs, Radix internals          | One model, one `AnimateState`                                         |
-| Interruptions         | Guards and timeouts                   | Explicit transitions, `seq` for stale messages                        |
-| Content while closing | Radix keeps the old tree mounted      | Payload kept in the state                                             |
-| Content state         | Lives in the content's own hooks      | `internal` (dies with the drawer) or `parent` (outlives it)           |
-| Memoization           | None; content re-renders with parent  | `DrawerMemo` (`itemEq` / `parentEq`); still re-renders per drag move  |
-| Open/close animation  | CSS keyframes (jump when interrupted) | CSS transitions (reverse smoothly)                                    |
-| Testing               | Playwright only                       | Unit tests on pure logic + Playwright                                 |
-| API                   | Controlled or uncontrolled, callbacks | Controlled only, messages                                             |
-| Focus / a11y          | Radix Dialog (battle-tested)          | Own minimal version: layer stack for Escape / Tab trap, focus restore |
-| Dependencies          | Radix Dialog                          | None beyond tea-cup / fp-ts                                           |
+|                       | vaul                                  | tea-cup-drawer                                                               |
+| --------------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
+| Drag performance      | Direct DOM writes, no re-render       | Re-render per move (unmeasured on low-end phones)                            |
+| Where state lives     | Hooks, refs, Radix internals          | One model, one `AnimateState`                                                |
+| Interruptions         | Guards and timeouts                   | Explicit transitions, `seq` for stale messages                               |
+| Content while closing | Radix keeps the old tree mounted      | Payload kept in the state                                                    |
+| Content state         | Lives in the content's own hooks      | `internal` (dies with the drawer) or `parent` (outlives it)                  |
+| Memoization           | None; content re-renders with parent  | `DrawerMemo` (`itemEq` / `parentEq`); still re-renders per drag move         |
+| Open/close animation  | CSS keyframes (jump when interrupted) | CSS transitions (reverse smoothly)                                           |
+| Testing               | Playwright only                       | Unit tests on pure logic + Playwright                                        |
+| API                   | Controlled or uncontrolled, callbacks | Controlled only, messages                                                    |
+| Focus / a11y          | Radix Dialog (battle-tested)          | Focus moved in and restored, name from `config.aria`; keys left to the owner |
+| Dependencies          | Radix Dialog                          | None beyond tea-cup / fp-ts                                                  |
 
 ---
 
@@ -270,6 +282,10 @@ but more code than passing a callback.
   removed the focused button, focus fell back to `<body>`, and Escape (then
   scoped to "the drawer holding focus") stopped working. Simple content never
   re-renders its focused element away.
+- **A layer stack inside one library only knows that library.** A popup
+  portalled outside the drawer (standing in for another library's popup)
+  showed it: Escape closed both, and Tab was pulled back into the drawer.
+  The fix was to give keys back to the app (section 4).
 - **vaul's structure helped.** Its source maps cleanly: handlers become
   messages, refs become model fields, `set(el, ...)` calls become view
   output, `useEffect`s become `Cmd`s and `Sub`s.
@@ -294,8 +310,6 @@ but more code than passing a callback.
 
 - Profile drags on a low-end Android phone with realistic content; decide
   between frame coalescing and the CSS-variable hybrid only with numbers.
-- `SetSnapPoints` message so a parent can start the drawer at its measured
-  content height (e.g. a composer sheet that grows with its text).
 - Optional scrollbar-width compensation in the scroll lock, for apps whose
   page scrolls on `body`.
 - Port `repositionInputs` if a consumer needs it.

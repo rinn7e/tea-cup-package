@@ -24,6 +24,7 @@ import * as S from 'fp-ts/lib/string'
 import { describe, expect, it } from 'vitest'
 
 import {
+  type AriaConfig,
   type Config,
   type Model,
   type Msg,
@@ -39,6 +40,11 @@ import {
   modifyContent,
   update,
 } from '../src'
+
+const aria: AriaConfig = {
+  label: { _tag: 'Text', value: 'Test drawer' },
+  describedBy: O.none,
+}
 
 type M = Model<string>
 
@@ -75,12 +81,12 @@ const press = (overrides: Partial<Press> = {}): Press => ({
 })
 
 const closed = (
-  config: Config<string> = defaultConfig('test', (s: string) => s),
+  config: Config<string> = defaultConfig('test', (s: string) => s, aria),
 ): M => defaultModel<string>(config)
 
 // Open and run the enter animation to the end
 const visible = (
-  config: Config<string> = defaultConfig('test', (s: string) => s),
+  config: Config<string> = defaultConfig('test', (s: string) => s, aria),
 ): M => {
   const mounting = run(closed(config), { _tag: 'Open', internal: 'apple' })
   return run(
@@ -134,7 +140,7 @@ describe('open', () => {
 
   it('opens at the initial snap point', () => {
     const config = {
-      ...defaultConfig('test', (s: string) => s),
+      ...defaultConfig('test', (s: string) => s, aria),
       snap: {
         _tag: 'Snap',
         // Opens at the second one
@@ -197,7 +203,7 @@ describe('close', () => {
 
   it('ignores dismiss requests when not dismissible', () => {
     const config = {
-      ...defaultConfig('test', (s: string) => s),
+      ...defaultConfig('test', (s: string) => s, aria),
       dismissible: false,
     }
     expect(run(visible(config), { _tag: 'Dismiss' }).animate._tag).toBe(
@@ -210,7 +216,7 @@ describe('close', () => {
 
   it('resets the snap point once closed', () => {
     const config = {
-      ...defaultConfig('test', (s: string) => s),
+      ...defaultConfig('test', (s: string) => s, aria),
       snap: {
         _tag: 'Snap',
         initial: {
@@ -245,7 +251,7 @@ describe('drag', () => {
 
   it('ignores presses when it can neither close nor snap', () => {
     const config = {
-      ...defaultConfig('test', (s: string) => s),
+      ...defaultConfig('test', (s: string) => s, aria),
       dismissible: false,
     }
     expect(
@@ -330,7 +336,7 @@ describe('drag', () => {
 
 describe('snap points', () => {
   const config = {
-    ...defaultConfig('test', (s: string) => s),
+    ...defaultConfig('test', (s: string) => s, aria),
     snap: {
       _tag: 'Snap',
       initial: {
@@ -377,6 +383,118 @@ describe('snap points', () => {
     expect(activeSnapIndex(model.snap)).toBe(1)
     expect(model.animate._tag).toBe('Settling')
   })
+
+  describe('SetSnapPoints', () => {
+    const atMiddle = () =>
+      run(run(visible(config), { _tag: 'SetSnap', index: 1 }), {
+        _tag: 'TransitionEnd',
+      })
+
+    it('moves to the new position of the active point', () => {
+      const before = atMiddle()
+      const model = run(before, {
+        _tag: 'SetSnapPoints',
+        points: [
+          { _tag: 'Fraction', value: 0.4 },
+          { _tag: 'Fraction', value: 0.8 },
+          { _tag: 'Fraction', value: 1 },
+        ],
+      })
+      expect(activeSnapIndex(model.snap)).toBe(1)
+      expect(model.snap).toMatchObject({
+        current: { active: { _tag: 'Fraction', value: 0.8 } },
+      })
+      expect(model.animate._tag).toBe('Settling')
+      expect(model.seq).toBe(before.seq + 1)
+    })
+
+    it('stays at rest when only the other points change', () => {
+      const before = atMiddle()
+      const model = run(before, {
+        _tag: 'SetSnapPoints',
+        points: [
+          { _tag: 'Pixel', value: 120 },
+          { _tag: 'Fraction', value: 0.7 },
+        ],
+      })
+      expect(model.animate._tag).toBe('Visible')
+      expect(model.seq).toBe(before.seq)
+      expect(model.snap).toMatchObject({
+        current: {
+          before: [{ _tag: 'Pixel', value: 120 }],
+          after: [],
+        },
+      })
+    })
+
+    it('clamps the active point to fewer points', () => {
+      const model = run(atMiddle(), {
+        _tag: 'SetSnapPoints',
+        points: [{ _tag: 'Fraction', value: 0.5 }],
+      })
+      expect(activeSnapIndex(model.snap)).toBe(0)
+      expect(model.animate._tag).toBe('Settling')
+    })
+
+    it('replaces the points under the pointer without moving', () => {
+      const dragging = run(
+        visible(config),
+        { _tag: 'PointerDown', press: press({ startDistance: 600 }) },
+        { _tag: 'PointerMove', x: 0, y: 400, time: 100, hasSelection: false },
+      )
+      expect(dragging.animate._tag).toBe('Dragging')
+      const model = run(dragging, {
+        _tag: 'SetSnapPoints',
+        points: [
+          { _tag: 'Fraction', value: 0.3 },
+          { _tag: 'Fraction', value: 1 },
+        ],
+      })
+      expect(model.animate).toBe(dragging.animate)
+      expect(model.snap).toMatchObject({
+        current: { active: { _tag: 'Fraction', value: 0.3 } },
+      })
+    })
+
+    it('keeps the same model for the same points', () => {
+      const model = atMiddle()
+      expect(
+        run(model, {
+          _tag: 'SetSnapPoints',
+          points: [
+            { _tag: 'Fraction', value: 0.4 },
+            { _tag: 'Fraction', value: 0.7 },
+            { _tag: 'Fraction', value: 1 },
+          ],
+        }),
+      ).toBe(model)
+    })
+
+    it('is ignored while closed: every open starts from the config', () => {
+      const model = closed(config)
+      expect(
+        run(model, {
+          _tag: 'SetSnapPoints',
+          points: [{ _tag: 'Fraction', value: 0.9 }],
+        }),
+      ).toBe(model)
+    })
+
+    it('resets to the config once closed', () => {
+      const replaced = run(atMiddle(), {
+        _tag: 'SetSnapPoints',
+        points: [{ _tag: 'Fraction', value: 0.9 }],
+      })
+      const model = run(replaced, { _tag: 'Close' }, { _tag: 'TransitionEnd' })
+      expect(model.animate._tag).toBe('Invisible')
+      expect(model.snap).toEqual({
+        _tag: 'Snap',
+        current: config.snap.initial,
+        fadeFrom: O.none,
+        sequential: false,
+      })
+    })
+  })
 })
 
 describe('impossible states', () => {
@@ -384,6 +502,12 @@ describe('impossible states', () => {
     const model = visible()
     expect(model.snap).toEqual({ _tag: 'NoSnap' })
     expect(run(model, { _tag: 'SetSnap', index: 0 })).toBe(model)
+    expect(
+      run(model, {
+        _tag: 'SetSnapPoints',
+        points: [{ _tag: 'Fraction', value: 0.5 }],
+      }),
+    ).toBe(model)
   })
 
   it('keeps a press made while settling once it has settled', () => {
@@ -393,7 +517,7 @@ describe('impossible states', () => {
       { _tag: 'Open', internal: 'apple' },
     )
     const config = {
-      ...defaultConfig('test', (s: string) => s),
+      ...defaultConfig('test', (s: string) => s, aria),
       snap: {
         _tag: 'Snap',
         initial: {
@@ -454,7 +578,7 @@ describe('payload helpers', () => {
 
   it('modifyContent updates the payload without touching the animation', () => {
     // Keys are the first letter here, so an update can keep the key
-    const config = defaultConfig('test', (s: string) => s[0])
+    const config = defaultConfig('test', (s: string) => s[0], aria)
     const open = run(closed(config), { _tag: 'Open', internal: 'apple' })
     const model = modifyContent('a', (s: string) => `${s} pie`)(open)
     expect(model.animate).toEqual({ _tag: 'Mounting', internal: 'apple pie' })

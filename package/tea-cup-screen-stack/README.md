@@ -184,7 +184,12 @@ type Msg = {
 
 // A stack has no identity of its own: a constant content key. Screen
 // messages inside it are routed by screen key.
-const drawerConfig = Drawer.defaultConfig<MenuStack>('menu', () => 'menu')
+const drawerConfig = Drawer.defaultConfig<MenuStack>('menu', () => 'menu', {
+  // A fixed name: every screen has its own title, and two are rendered
+  // while the stack slides
+  label: { _tag: 'Text', value: 'Message menu' },
+  describedBy: O.none,
+})
 
 // Open: every open starts at the first screen
 Drawer.update(
@@ -247,7 +252,7 @@ const withMenuStack =
 />
 ```
 
-What the drawer gives for free: the stack resets on every open, the last screen stays visible while the drawer slides away, and late messages after close are dropped. Escape and the overlay close the **whole drawer** (as on iOS); a screen's back button sends its own `Back` message, which the parent turns into a pop. Inside `DrawerMemo`, the non-memoized `ScreenStackComponent` is enough.
+What the drawer gives for free: the stack resets on every open, the last screen stays visible while the drawer slides away, and late messages after close are dropped. The overlay closes the **whole drawer** (as on iOS); a screen's back button sends its own `Back` message, which the parent turns into a pop. Inside `DrawerMemo`, the non-memoized `ScreenStackComponent` is enough.
 
 ---
 

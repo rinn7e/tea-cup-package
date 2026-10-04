@@ -24,11 +24,13 @@ import { pipe } from 'fp-ts/lib/function'
 import { describe, expect, it } from 'vitest'
 
 import {
+  type AriaConfig,
   type Config,
   type Model,
   type Press,
   type Snap,
   type SnapPoints,
+  activeSnapIndex,
   decideDrag,
   decideRelease,
   defaultConfig,
@@ -41,6 +43,7 @@ import {
   locksBody,
   overlayOpacity,
   overlayOpacityAt,
+  replaceSnapPoints,
   selectSnap,
   selectSnapPoint,
   snapDistanceCss,
@@ -49,6 +52,12 @@ import {
   snapList,
   translateCss,
 } from '../src'
+import { contentAttrs } from '../src/view'
+
+const aria: AriaConfig = {
+  label: { _tag: 'Text', value: 'Test drawer' },
+  describedBy: O.none,
+}
 
 const press = (overrides: Partial<Press> = {}): Press => ({
   pointerType: 'mouse',
@@ -64,7 +73,7 @@ const press = (overrides: Partial<Press> = {}): Press => ({
 })
 
 const snapConfig = (overrides: Partial<Config> = {}): Config => ({
-  ...defaultConfig('snap', () => 'snap'),
+  ...defaultConfig('snap', () => 'snap', aria),
   snap: {
     _tag: 'Snap',
     initial: {
@@ -110,7 +119,7 @@ describe('snap points', () => {
 })
 
 describe('dragDistance', () => {
-  const config = defaultConfig('basic', () => 'basic')
+  const config = defaultConfig('basic', () => 'basic', aria)
 
   it('follows the pointer toward the closed position', () => {
     expect(dragDistance(config, snapOf(config), press(), -100)).toBe(100)
@@ -160,7 +169,7 @@ describe('isDeltaInDirection', () => {
 })
 
 describe('decideDrag', () => {
-  const config = defaultConfig('basic', () => 'basic')
+  const config = defaultConfig('basic', () => 'basic', aria)
   const args = {
     isDraggingInDirection: false,
     hasSelection: false,
@@ -235,7 +244,7 @@ describe('decideDrag', () => {
 })
 
 describe('decideRelease without snap points', () => {
-  const config = defaultConfig('basic', () => 'basic')
+  const config = defaultConfig('basic', () => 'basic', aria)
 
   it('closes after a slow drag past the threshold', () => {
     expect(
@@ -351,7 +360,7 @@ describe('decideRelease with snap points', () => {
 
 describe('overlay opacity', () => {
   it('fades over the drawer size without snap points', () => {
-    const config = defaultConfig('basic', () => 'basic')
+    const config = defaultConfig('basic', () => 'basic', aria)
     expect(overlayOpacityAt(snapOf(config), 1000, 0)).toBe(1)
     expect(overlayOpacityAt(snapOf(config), 1000, 250)).toBe(0.75)
     expect(overlayOpacityAt(snapOf(config), 1000, 2000)).toBe(0)
@@ -375,16 +384,16 @@ describe('rendering', () => {
   })
 
   it('renders closed states fully translated', () => {
-    expect(translateCss(defaultModel(defaultConfig('a', () => 'a')))).toBe(
-      '100%',
-    )
+    expect(
+      translateCss(defaultModel(defaultConfig('a', () => 'a', aria))),
+    ).toBe('100%')
   })
 
   it('renders the active snap point at rest', () => {
     expect(
       translateCss(
         visible(
-          defaultConfig('a', () => 'a'),
+          defaultConfig('a', () => 'a', aria),
           0,
         ),
       ),
@@ -396,7 +405,7 @@ describe('rendering', () => {
 
   it('renders the pointer position while dragging', () => {
     const model: Model<string> = {
-      ...defaultModel(defaultConfig('a', () => 'a')),
+      ...defaultModel(defaultConfig('a', () => 'a', aria)),
       animate: {
         _tag: 'Dragging',
         internal: 'x',
@@ -455,9 +464,89 @@ describe('snap points', () => {
   })
 })
 
+describe('replaceSnapPoints', () => {
+  const snap = (index: number): Snap =>
+    snapOf(
+      snapConfig({
+        snap: {
+          _tag: 'Snap',
+          initial: {
+            before: [],
+            active: { _tag: 'Pixel', value: 100 },
+            after: [
+              { _tag: 'Fraction', value: 0.5 },
+              { _tag: 'Fraction', value: 1 },
+            ],
+          },
+          fadeFrom: O.some(1),
+          sequential: true,
+        },
+      }),
+      index,
+    )
+
+  it('keeps the active index and the snap settings', () => {
+    const replaced = replaceSnapPoints([
+      { _tag: 'Pixel', value: 150 },
+      { _tag: 'Fraction', value: 0.6 },
+      { _tag: 'Fraction', value: 1 },
+    ])(snap(1))
+    expect(replaced).toEqual(
+      O.some({
+        _tag: 'Snap',
+        current: {
+          before: [{ _tag: 'Pixel', value: 150 }],
+          active: { _tag: 'Fraction', value: 0.6 },
+          after: [{ _tag: 'Fraction', value: 1 }],
+        },
+        fadeFrom: O.some(1),
+        sequential: true,
+      }),
+    )
+  })
+
+  it('clamps the active index to fewer points', () => {
+    const replaced = replaceSnapPoints([
+      { _tag: 'Pixel', value: 150 },
+      { _tag: 'Fraction', value: 1 },
+    ])(snap(2))
+    expect(pipe(replaced, O.map(activeSnapIndex))).toEqual(O.some(1))
+  })
+
+  it('has nothing to replace without snap points', () => {
+    expect(
+      replaceSnapPoints([{ _tag: 'Fraction', value: 1 }])({ _tag: 'NoSnap' }),
+    ).toEqual(O.none)
+  })
+})
+
+describe('accessible name', () => {
+  const attrs = (config: Config) =>
+    contentAttrs(defaultModel(config), () => undefined)
+
+  it('names the dialog with a fixed text', () => {
+    const a = attrs(defaultConfig('a', () => 'a', aria))
+    expect(a['aria-label']).toBe('Test drawer')
+    expect(a['aria-labelledby']).toBeUndefined()
+    expect(a['aria-describedby']).toBeUndefined()
+  })
+
+  it('names the dialog with an element, and describes it', () => {
+    const a = attrs({
+      ...defaultConfig('a', () => 'a', {
+        label: { _tag: 'ElementId', id: 'title' },
+        describedBy: O.some('description'),
+      }),
+    })
+    expect(a['aria-label']).toBeUndefined()
+    expect(a['aria-labelledby']).toBe('title')
+    expect(a['aria-describedby']).toBe('description')
+  })
+})
+
 describe('modality', () => {
   it('only modal drawers with lockBody lock the body', () => {
-    const base = defaultConfig('a', () => 'a')
+    const base = defaultConfig('a', () => 'a', aria)
     expect(isModal(base)).toBe(true)
     expect(locksBody(base)).toBe(true)
     const noLock: Config = {
