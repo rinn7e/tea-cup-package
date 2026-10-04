@@ -188,24 +188,15 @@ export const unlockBodyScrollCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
     }
   })
 
-// Layers and focus
+// Focus
 // ---------------------------------
-
-// Open drawers, most recently opened last (like Radix's layer stack). Only
-// the topmost one reacts to Escape and traps Tab, wherever the focus is: the
-// focused element may have been removed by a re-render of the content.
-let layerStack: string[] = []
-
-export const isTopmostLayer = (id: string): boolean =>
-  layerStack[layerStack.length - 1] === id
 
 // Element focused before each drawer opened, keyed by `Config.id`
 const previousFocus = new Map<string, HTMLElement>()
 
-// On open: become the topmost layer and remember where the focus was
-export const pushLayerCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
+// On open: remember where the focus was
+export const rememberFocusCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
   performIO_(() => {
-    layerStack = [...layerStack.filter((id) => id !== config.id), config.id]
     const active = document.activeElement
     if (active instanceof HTMLElement) {
       previousFocus.set(config.id, active)
@@ -214,16 +205,23 @@ export const pushLayerCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
     }
   })
 
-// Once fully closed: leave the stack and give the focus back
-export const popLayerCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
+// Once fully closed: give the focus back, unless it already moved on (e.g.
+// to a drawer opened while this one was closing)
+export const restoreFocusCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
   performIO_(() => {
-    layerStack = layerStack.filter((id) => id !== config.id)
     const element = previousFocus.get(config.id)
     previousFocus.delete(config.id)
-    if (element && element.isConnected) {
+    const content = document.getElementById(contentDomId(config.id))
+    const active = document.activeElement
+    // Still in this drawer, or lost with its removed content
+    const isFocusLeftBehind =
+      active === null ||
+      active === document.body ||
+      (content !== null && content.contains(active))
+    if (element && element.isConnected && isFocusLeftBehind) {
       element.focus({ preventScroll: true })
     } else {
-      // Nothing to return focus to
+      // Nothing to return focus to, or the focus is elsewhere now
     }
   })
 
@@ -237,7 +235,7 @@ const focusableSelector = [
   '[contenteditable="true"]',
 ].join(',')
 
-export const focusableElements = (root: HTMLElement): HTMLElement[] =>
+const focusableElements = (root: HTMLElement): HTMLElement[] =>
   Array.from(root.querySelectorAll<HTMLElement>(focusableSelector))
 
 // Move focus into the drawer on open: to the drawer itself, or to its first

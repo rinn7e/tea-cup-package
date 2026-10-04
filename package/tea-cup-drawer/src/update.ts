@@ -20,6 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { delayCmd } from '@rinn7e/tea-cup-prelude'
+import type * as NEA from 'fp-ts/lib/NonEmptyArray'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
@@ -28,17 +29,21 @@ import {
   afterNextPaintCmd,
   focusContentCmd,
   lockBodyScrollCmd,
-  popLayerCmd,
-  pushLayerCmd,
+  rememberFocusCmd,
+  restoreFocusCmd,
   unlockBodyScrollCmd,
 } from './effect'
 import {
   type AnimateState,
+  type AriaConfig,
   type Config,
   type Gesture,
   type Model,
   type Msg,
   type Press,
+  SnapEq,
+  type SnapPoint,
+  SnapPointEq,
 } from './type'
 import {
   activeSnapIndex,
@@ -49,6 +54,7 @@ import {
   hasSnapPoints,
   isDeltaInDirection,
   lastSnapIndex,
+  replaceSnapPoints,
   selectSnap,
   snapFromConfig,
   swipeStartThreshold,
@@ -60,9 +66,11 @@ import {
 export const defaultConfig = <Item>(
   id: string,
   uniqueKeyField: (internal: Item) => string,
+  aria: AriaConfig,
 ): Config<Item> => ({
   id,
   uniqueKeyField,
+  aria,
   direction: 'bottom',
   modality: { _tag: 'Modal', lockBody: true },
   dismissible: true,
@@ -125,7 +133,7 @@ export const openHandler =
             seq,
           },
           Cmd.batch([
-            noOp(pushLayerCmd(model.config)),
+            noOp(rememberFocusCmd(model.config)),
             noOp(lockBodyScrollCmd(model.config)),
             afterNextPaintCmd<Msg<Item>>(model.config, {
               _tag: 'MountFrame',
@@ -162,7 +170,7 @@ const finishClose = <Item>(
   },
   Cmd.batch([
     noOp(unlockBodyScrollCmd(model.config)),
-    noOp(popLayerCmd(model.config)),
+    noOp(restoreFocusCmd(model.config)),
   ]),
 ]
 
@@ -296,6 +304,61 @@ export const setSnapHandler =
             case 'Dragging':
             case 'AnimateOut':
               // The pointer or the close animation is in control
+              return [model, Cmd.none()]
+          }
+        },
+      ),
+    )
+  }
+
+export const setSnapPointsHandler =
+  (points: NEA.NonEmptyArray<SnapPoint>) =>
+  <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
+    const animate = model.animate
+    return pipe(
+      replaceSnapPoints(points)(model.snap),
+      // Unchanged points keep the model as is, so content that re-measures
+      // on every render doesn't loop
+      O.filter((snap) => !SnapEq.equals(snap, model.snap)),
+      O.fold(
+        // No snap points to replace, or the same ones
+        (): [Model<Item>, Cmd<Msg<Item>>] => [model, Cmd.none()],
+        (snap): [Model<Item>, Cmd<Msg<Item>>] => {
+          const moves =
+            snap._tag === 'Snap' &&
+            model.snap._tag === 'Snap' &&
+            !SnapPointEq.equals(snap.current.active, model.snap.current.active)
+          switch (animate._tag) {
+            case 'AnimateIn':
+            case 'Visible':
+            case 'Settling': {
+              if (moves) {
+                // The resting position changed: transition to it, like
+                // `SetSnap`, so a press meanwhile reads the real position
+                const [next, cmd] = startAnimation(model)
+                return [
+                  {
+                    ...next,
+                    snap,
+                    animate: {
+                      _tag: 'Settling',
+                      internal: animate.internal,
+                      gesture: { _tag: 'Idle' },
+                    },
+                  },
+                  cmd,
+                ]
+              } else {
+                return [{ ...model, snap }, Cmd.none()]
+              }
+            }
+            case 'Mounting':
+            case 'Dragging':
+            case 'AnimateOut':
+              // Not at rest: the next rest (or the release) uses the new points
+              return [{ ...model, snap }, Cmd.none()]
+            case 'Invisible':
+              // Every open starts again from `config.snap`
               return [model, Cmd.none()]
           }
         },
@@ -546,6 +609,8 @@ export const update = <Item, ItemMsg>(
       return dismissHandler(model)
     case 'SetSnap':
       return setSnapHandler(msg.index)(model)
+    case 'SetSnapPoints':
+      return setSnapPointsHandler(msg.points)(model)
     case 'CycleSnap':
       return cycleSnapHandler(model)
     case 'MountFrame':

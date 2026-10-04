@@ -193,6 +193,28 @@ export const selectSnap =
     }
   }
 
+// Replace the snap points, keeping the active index (clamped to the new
+// points); `none` without snap points, which have no settings to keep
+export const replaceSnapPoints =
+  (points: NEA.NonEmptyArray<SnapPoint>) =>
+  (snap: Snap): O.Option<Snap> => {
+    switch (snap._tag) {
+      case 'NoSnap':
+        return O.none
+      case 'Snap': {
+        const index = Math.min(activeSnapIndex(snap), points.length - 1)
+        return O.some({
+          ...snap,
+          current: {
+            before: points.slice(0, index),
+            active: points[index],
+            after: points.slice(index + 1),
+          },
+        })
+      }
+    }
+  }
+
 // Distance (px) from the open position to the snap point, for a drawer of
 // `size` px.
 export const snapDistancePx = (snap: SnapPoint, size: number): number => {

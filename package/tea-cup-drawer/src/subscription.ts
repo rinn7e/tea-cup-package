@@ -22,9 +22,8 @@ SOFTWARE. */
 import { DocumentEvents } from 'react-tea-cup'
 import { Sub } from 'tea-cup-fp'
 
-import { focusableElements, isTopmostLayer } from './effect'
-import { type Config, type Model, type Msg } from './type'
-import { contentDomId, isGestureActive, isModal, isOpen } from './util'
+import { type Model, type Msg } from './type'
+import { isGestureActive } from './util'
 
 export const documentEvents = new DocumentEvents()
 
@@ -70,53 +69,9 @@ const gestureSubscriptions = <Item>(): Sub<Msg<Item>> =>
     ),
   ])
 
-// Keep Tab / Shift+Tab inside a modal drawer.
-const trapFocus = (content: HTMLElement, e: KeyboardEvent): void => {
-  const focusables = focusableElements(content)
-  const first = focusables[0]
-  const last = focusables[focusables.length - 1]
-  const active = document.activeElement
-  if (first === undefined || last === undefined) {
-    e.preventDefault()
-    content.focus({ preventScroll: true })
-  } else if (!content.contains(active)) {
-    e.preventDefault()
-    first.focus({ preventScroll: true })
-  } else if (e.shiftKey && (active === first || active === content)) {
-    e.preventDefault()
-    last.focus({ preventScroll: true })
-  } else if (!e.shiftKey && active === last) {
-    e.preventDefault()
-    first.focus({ preventScroll: true })
-  } else {
-    // Regular tab between elements inside the drawer
-  }
-}
-
-const keyboardSubscriptions = <Item>(config: Config): Sub<Msg<Item>> =>
-  documentEvents.on('keydown', (e): Msg<Item> => {
-    const content = document.getElementById(contentDomId(config.id))
-    // Only the topmost drawer reacts, so stacked drawers close one at a time
-    if (content === null || !isTopmostLayer(config.id)) {
-      return { _tag: 'NoOp' }
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      return { _tag: 'Dismiss' }
-    } else if (e.key === 'Tab' && isModal(config)) {
-      trapFocus(content, e)
-      return { _tag: 'NoOp' }
-    } else {
-      return { _tag: 'NoOp' }
-    }
-  })
-
-export const subscriptions = <Item>(model: Model<Item>): Sub<Msg<Item>> => {
-  return Sub.batch<Msg<Item>>([
-    isGestureActive(model.animate)
-      ? gestureSubscriptions<Item>()
-      : Sub.none<Msg<Item>>(),
-    isOpen(model.animate)
-      ? keyboardSubscriptions<Item>(model.config)
-      : Sub.none<Msg<Item>>(),
-  ])
-}
+// Only the pointer gesture: the drawer has no keyboard listener. Keys
+// (e.g. Escape) are the owner's to handle, by sending `Dismiss` or `Close`.
+export const subscriptions = <Item>(model: Model<Item>): Sub<Msg<Item>> =>
+  isGestureActive(model.animate)
+    ? gestureSubscriptions<Item>()
+    : Sub.none<Msg<Item>>()

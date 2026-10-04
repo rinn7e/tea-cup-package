@@ -22,6 +22,7 @@ SOFTWARE. */
 import { EqAlways, UndefinableEq } from '@rinn7e/tea-cup-prelude'
 import * as A from 'fp-ts/lib/Array'
 import * as EqClass from 'fp-ts/lib/Eq'
+import { type NonEmptyArray } from 'fp-ts/lib/NonEmptyArray'
 import * as O from 'fp-ts/lib/Option'
 import * as B from 'fp-ts/lib/boolean'
 import * as N from 'fp-ts/lib/number'
@@ -93,6 +94,23 @@ export type Modality =
   // `lockBody: false`: don't touch `document.body` styles
   | { _tag: 'Modal'; lockBody: boolean }
 
+// The drawer's accessible name. A `role="dialog"` needs one, so it is
+// required.
+export type AriaLabel =
+  // A fixed name (`aria-label`)
+  | { _tag: 'Text'; value: string }
+  // The id of an element inside the content that names the drawer, usually
+  // its title (`aria-labelledby`); its text may change with the payload
+  | { _tag: 'ElementId'; id: string }
+
+// How assistive technologies announce the drawer
+export type AriaConfig = {
+  label: AriaLabel
+  // The id of an element inside the content that describes the drawer
+  // (`aria-describedby`)
+  describedBy: O.Option<string>
+}
+
 // Where the drawer is rendered in the DOM.
 export type Portal =
   | { _tag: 'Body' }
@@ -110,10 +128,11 @@ export type Config<Item = unknown> = {
   // reaching the new one. A constant for a drawer without payload.
   // Declared as a method so a `Config<Item>` is usable as a `Config`.
   uniqueKeyField(internal: Item): string
+  aria: AriaConfig
   direction: Direction
   modality: Modality
   // When false, only a programmatic `Close` closes the drawer: overlay
-  // clicks, Escape and swipes are ignored.
+  // clicks and swipes are ignored.
   dismissible: boolean
   snap: SnapConfig
   // Only elements inside `DrawerHandle` start a drag
@@ -331,9 +350,15 @@ export type Msg<Item, ItemMsg = never> =
   | { _tag: 'ContentMsg'; key: string; msg: ItemMsg }
   // Close the drawer (always honored)
   | { _tag: 'Close' }
-  // Close requested by the user (overlay, Escape); ignored when not dismissible
+  // Close requested by the user (overlay tap, or a key the owner handles);
+  // ignored when not dismissible
   | { _tag: 'Dismiss' }
   | { _tag: 'SetSnap'; index: number }
+  // Replace the snap points (e.g. measured from the content), keeping the
+  // active index (clamped). They last until the drawer closes: every open
+  // starts again from `config.snap`. Ignored while invisible or without snap
+  // points.
+  | { _tag: 'SetSnapPoints'; points: NonEmptyArray<SnapPoint> }
   // Tap on the handle: move to the next snap point
   | { _tag: 'CycleSnap' }
   | { _tag: 'MountFrame'; seq: number }
@@ -363,6 +388,9 @@ export type ContentAttrs = {
   id: string
   role: 'dialog'
   'aria-modal': boolean
+  'aria-label': string | undefined
+  'aria-labelledby': string | undefined
+  'aria-describedby': string | undefined
   tabIndex: number
   'data-drawer': ''
   'data-drawer-direction': Direction

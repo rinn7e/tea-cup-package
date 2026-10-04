@@ -141,6 +141,15 @@ export const contentAttrs = <Item,>(
   id: contentDomId(model.config.id),
   role: 'dialog',
   'aria-modal': isModal(model.config),
+  'aria-label':
+    model.config.aria.label._tag === 'Text'
+      ? model.config.aria.label.value
+      : undefined,
+  'aria-labelledby':
+    model.config.aria.label._tag === 'ElementId'
+      ? model.config.aria.label.id
+      : undefined,
+  'aria-describedby': O.toUndefined(model.config.aria.describedBy),
   tabIndex: -1,
   'data-drawer': '',
   'data-drawer-direction': model.config.direction,
