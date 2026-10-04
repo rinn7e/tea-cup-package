@@ -181,10 +181,23 @@ measurements only for what the model cannot know.
 
 ### Some effects live outside the model
 
-The body scroll lock needs a reference count across drawers, and focus
+The body scroll lock needs to know which drawers hold it, and focus
 restore needs the element that was focused before opening. Both are
 module-level state in `effect.ts`, reached only through `Cmd`s. It is contained, but it is impure state TEA cannot see, and
 the scroll lock can interact badly with page layout (see section 6).
+
+The lock is held at most once per `Config.id` (a set of holders, not a
+counter), so a second release from the same drawer is a no-op. That
+matters when a drawer's view is unmounted before it finished closing
+(e.g. the list item that owns it was removed): `DrawerMemo` releases the
+lock and the saved focus on unmount, and the model may still finish
+closing later and release again. The unmount release waits a microtask so
+React StrictMode's unmount-and-remount on first render doesn't trigger it.
+
+React events bubble through portals, so a press inside a drawer rendered
+from another drawer's content (a nested drawer) also reaches the outer
+drawer's `onPointerDown`. The press is ignored unless its target is a DOM
+descendant of the drawer's own content, as vaul does.
 
 ### Memoization needed explicit data channels
 

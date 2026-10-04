@@ -102,6 +102,10 @@ const measurePress = <Item,>(
   const isHandle = target.closest('[data-drawer-handle]') !== null
   if (e.button !== 0 || !e.isPrimary) {
     return O.none
+  } else if (!content.contains(target)) {
+    // From a portal rendered inside the content (e.g. a nested drawer): React
+    // bubbles it here, but that drawer drags itself
+    return O.none
   } else if (config.handleOnly && !isHandle) {
     return O.none
   } else {

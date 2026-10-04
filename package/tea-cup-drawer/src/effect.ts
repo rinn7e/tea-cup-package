@@ -66,8 +66,10 @@ export const afterNextPaintCmd = <Msg>(config: Config, msg: Msg): Cmd<Msg> =>
 // Body scroll lock
 // ---------------------------------
 
-// Number of open modal drawers; the body is restored when the last closes.
-let lockCount = 0
+// The modal drawers holding the lock, by `Config.id`; the body is restored
+// when the last one lets go. A drawer holds it once: releasing twice (its view
+// was removed while closing, then its model finished closing) is harmless.
+const lockHolders = new Set<string>()
 
 let previousBodyStyle: {
   overflow: string
@@ -90,81 +92,89 @@ const isSafari = (): boolean =>
 const isStandalone = (): boolean =>
   window.matchMedia('(display-mode: standalone)').matches
 
-const lockBodyScroll = (): void => {
-  lockCount += 1
-  if (lockCount === 1) {
-    const body = document.body
-    previousBodyStyle = {
-      overflow: body.style.overflow,
-      position: body.style.position,
-      top: body.style.top,
-      left: body.style.left,
-      right: body.style.right,
-      height: body.style.height,
-      paddingRight: body.style.paddingRight,
-    }
-    lockedScroll = { x: window.scrollX, y: window.scrollY }
-    // Hiding the overflow removes the page scrollbar; pad the body by its
-    // width so the layout doesn't shift
-    const scrollbarWidth =
-      window.innerWidth - document.documentElement.clientWidth
-    if (scrollbarWidth > 0) {
-      const paddingRight = parseFloat(getComputedStyle(body).paddingRight)
-      body.style.paddingRight = `${paddingRight + scrollbarWidth}px`
-    } else {
-      // Overlay scrollbars (mobile, macOS default) take no space
-    }
-    body.style.overflow = 'hidden'
-
-    // `overflow: hidden` doesn't stop iOS Safari from scrolling the page
-    // (and shifting its toolbar) behind the drawer; pinning the body does.
-    // Skipped in standalone mode (PWA), which has no toolbar.
-    if (isSafari() && !isStandalone()) {
-      isPositionFixed = true
-      const { innerHeight } = window
-      body.style.setProperty('position', 'fixed', 'important')
-      Object.assign(body.style, {
-        top: `${-lockedScroll.y}px`,
-        left: `${-lockedScroll.x}px`,
-        right: '0px',
-        height: 'auto',
-      })
-      window.setTimeout(
-        () =>
-          window.requestAnimationFrame(() => {
-            // Attempt to check if the bottom bar appeared due to the
-            // position change
-            const bottomBarHeight = innerHeight - window.innerHeight
-            if (bottomBarHeight && lockedScroll.y >= innerHeight) {
-              // Move the content further up so that the bottom bar doesn't
-              // hide it
-              body.style.top = `${-(lockedScroll.y + bottomBarHeight)}px`
-            }
-          }),
-        300,
-      )
-    } else {
-      isPositionFixed = false
-    }
+const lockBodyScroll = (id: string): void => {
+  if (lockHolders.has(id)) {
+    // Held already
   } else {
-    // Already locked by another drawer
+    lockHolders.add(id)
+    if (lockHolders.size === 1) {
+      const body = document.body
+      previousBodyStyle = {
+        overflow: body.style.overflow,
+        position: body.style.position,
+        top: body.style.top,
+        left: body.style.left,
+        right: body.style.right,
+        height: body.style.height,
+        paddingRight: body.style.paddingRight,
+      }
+      lockedScroll = { x: window.scrollX, y: window.scrollY }
+      // Hiding the overflow removes the page scrollbar; pad the body by its
+      // width so the layout doesn't shift
+      const scrollbarWidth =
+        window.innerWidth - document.documentElement.clientWidth
+      if (scrollbarWidth > 0) {
+        const paddingRight = parseFloat(getComputedStyle(body).paddingRight)
+        body.style.paddingRight = `${paddingRight + scrollbarWidth}px`
+      } else {
+        // Overlay scrollbars (mobile, macOS default) take no space
+      }
+      body.style.overflow = 'hidden'
+
+      // `overflow: hidden` doesn't stop iOS Safari from scrolling the page
+      // (and shifting its toolbar) behind the drawer; pinning the body does.
+      // Skipped in standalone mode (PWA), which has no toolbar.
+      if (isSafari() && !isStandalone()) {
+        isPositionFixed = true
+        const { innerHeight } = window
+        body.style.setProperty('position', 'fixed', 'important')
+        Object.assign(body.style, {
+          top: `${-lockedScroll.y}px`,
+          left: `${-lockedScroll.x}px`,
+          right: '0px',
+          height: 'auto',
+        })
+        window.setTimeout(
+          () =>
+            window.requestAnimationFrame(() => {
+              // Attempt to check if the bottom bar appeared due to the
+              // position change
+              const bottomBarHeight = innerHeight - window.innerHeight
+              if (bottomBarHeight && lockedScroll.y >= innerHeight) {
+                // Move the content further up so that the bottom bar doesn't
+                // hide it
+                body.style.top = `${-(lockedScroll.y + bottomBarHeight)}px`
+              }
+            }),
+          300,
+        )
+      } else {
+        isPositionFixed = false
+      }
+    } else {
+      // Already locked by another drawer
+    }
   }
 }
 
-const unlockBodyScroll = (): void => {
-  lockCount = Math.max(0, lockCount - 1)
-  if (lockCount === 0 && previousBodyStyle !== null) {
-    Object.assign(document.body.style, previousBodyStyle)
-    previousBodyStyle = null
-    if (isPositionFixed) {
-      isPositionFixed = false
-      const { x, y } = lockedScroll
-      window.requestAnimationFrame(() => window.scrollTo(x, y))
-    } else {
-      // The page never moved
-    }
+const unlockBodyScroll = (id: string): void => {
+  if (!lockHolders.has(id)) {
+    // Not held (released already)
   } else {
-    // Another drawer still holds the lock
+    lockHolders.delete(id)
+    if (lockHolders.size === 0 && previousBodyStyle !== null) {
+      Object.assign(document.body.style, previousBodyStyle)
+      previousBodyStyle = null
+      if (isPositionFixed) {
+        isPositionFixed = false
+        const { x, y } = lockedScroll
+        window.requestAnimationFrame(() => window.scrollTo(x, y))
+      } else {
+        // The page never moved
+      }
+    } else {
+      // Another drawer still holds the lock
+    }
   }
 }
 
@@ -173,7 +183,7 @@ const usesBodyLock = (config: Config): boolean => locksBody(config)
 export const lockBodyScrollCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
   performIO_(() => {
     if (usesBodyLock(config)) {
-      lockBodyScroll()
+      lockBodyScroll(config.id)
     } else {
       // Non-modal drawers leave the page scrollable
     }
@@ -182,7 +192,7 @@ export const lockBodyScrollCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
 export const unlockBodyScrollCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
   performIO_(() => {
     if (usesBodyLock(config)) {
-      unlockBodyScroll()
+      unlockBodyScroll(config.id)
     } else {
       // Nothing was locked
     }
@@ -207,23 +217,37 @@ export const rememberFocusCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
 
 // Once fully closed: give the focus back, unless it already moved on (e.g.
 // to a drawer opened while this one was closing)
+const restoreFocus = (config: Config): void => {
+  const element = previousFocus.get(config.id)
+  previousFocus.delete(config.id)
+  const content = document.getElementById(contentDomId(config.id))
+  const active = document.activeElement
+  // Still in this drawer, or lost with its removed content
+  const isFocusLeftBehind =
+    active === null ||
+    active === document.body ||
+    (content !== null && content.contains(active))
+  if (element && element.isConnected && isFocusLeftBehind) {
+    element.focus({ preventScroll: true })
+  } else {
+    // Nothing to return focus to, or the focus is elsewhere now
+  }
+}
+
 export const restoreFocusCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
-  performIO_(() => {
-    const element = previousFocus.get(config.id)
-    previousFocus.delete(config.id)
-    const content = document.getElementById(contentDomId(config.id))
-    const active = document.activeElement
-    // Still in this drawer, or lost with its removed content
-    const isFocusLeftBehind =
-      active === null ||
-      active === document.body ||
-      (content !== null && content.contains(active))
-    if (element && element.isConnected && isFocusLeftBehind) {
-      element.focus({ preventScroll: true })
-    } else {
-      // Nothing to return focus to, or the focus is elsewhere now
-    }
-  })
+  performIO_(() => restoreFocus(config))
+
+// The drawer's view was removed while it was still open or closing (e.g. its
+// owner, a list item, was removed), so closing never finished: release what
+// opening took, the body scroll lock and the saved focus.
+export const releaseOnUnmount = (config: Config): void => {
+  if (usesBodyLock(config)) {
+    unlockBodyScroll(config.id)
+  } else {
+    // Nothing was locked
+  }
+  restoreFocus(config)
+}
 
 const focusableSelector = [
   'a[href]',

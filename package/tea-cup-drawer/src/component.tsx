@@ -20,11 +20,18 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import { cn } from '@rinn7e/tea-cup-prelude'
-import { type ReactElement, type ReactNode, memo } from 'react'
+import {
+  type ReactElement,
+  type ReactNode,
+  memo,
+  useEffect,
+  useRef,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { type Dispatcher } from 'tea-cup-fp'
 
 import './drawer.css'
+import { releaseOnUnmount } from './effect'
 import { type Msg, type Portal, type Props, getPropsEq } from './type'
 import { isModal } from './util'
 import {
@@ -59,6 +66,27 @@ export const DrawerComponent = <Item, ItemMsg, Parent>({
   className,
   overlayClassName,
 }: Props<Item, ItemMsg, Parent>) => {
+  // Unmounted before the drawer finished closing: closing's effects never
+  // ran, so release what opening took. The release waits a microtask: React's
+  // StrictMode runs the cleanup and the effect again right away on mount,
+  // which is not an unmount.
+  const latest = useRef(model)
+  latest.current = model
+  const isMounted = useRef(false)
+  useEffect(() => {
+    isMounted.current = true
+    return () => {
+      isMounted.current = false
+      queueMicrotask(() => {
+        if (!isMounted.current && latest.current.animate._tag !== 'Invisible') {
+          releaseOnUnmount(latest.current.config)
+        } else {
+          // Mounted again (StrictMode), or closed normally
+        }
+      })
+    }
+  }, [])
+
   const animate = model.animate
   const config = model.config
   if (animate._tag === 'Invisible') {
