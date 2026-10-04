@@ -187,12 +187,16 @@ module-level state in `effect.ts`, reached only through `Cmd`s. It is contained,
 the scroll lock can interact badly with page layout (see section 6).
 
 The lock is held at most once per `Config.id` (a set of holders, not a
-counter), so a second release from the same drawer is a no-op. That
-matters when a drawer's view is unmounted before it finished closing
-(e.g. the list item that owns it was removed): `DrawerMemo` releases the
-lock and the saved focus on unmount, and the model may still finish
-closing later and release again. The unmount release waits a microtask so
-React StrictMode's unmount-and-remount on first render doesn't trigger it.
+counter), so a second release from the same drawer is a no-op. On top of
+the update's own lock commands, `DrawerMemo` makes the lock and the saved
+focus follow whether the drawer is shown: it releases them when its model
+becomes closed by any route (a normal close, but also an owner replacing
+the model with a closed one, e.g. a rebuilt list item) and when the view
+is unmounted while shown, and takes the lock back when a view is mounted
+while its drawer is open. Only a view that showed the drawer releases, so
+a closed copy of a model rendered elsewhere with the same id can't drop the
+open one's lock. The unmount release waits a microtask so React
+StrictMode's unmount-and-remount on first render doesn't trigger it.
 
 React events bubble through portals, so a press inside a drawer rendered
 from another drawer's content (a nested drawer) also reaches the outer

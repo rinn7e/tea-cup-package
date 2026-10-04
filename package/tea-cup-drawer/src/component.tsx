@@ -31,7 +31,7 @@ import { createPortal } from 'react-dom'
 import { type Dispatcher } from 'tea-cup-fp'
 
 import './drawer.css'
-import { releaseOnUnmount } from './effect'
+import { holdBodyLock, releaseDrawer } from './effect'
 import { type Msg, type Portal, type Props, getPropsEq } from './type'
 import { isModal } from './util'
 import {
@@ -66,12 +66,31 @@ export const DrawerComponent = <Item, ItemMsg, Parent>({
   className,
   overlayClassName,
 }: Props<Item, ItemMsg, Parent>) => {
-  // Unmounted before the drawer finished closing: closing's effects never
-  // ran, so release what opening took. The release waits a microtask: React's
-  // StrictMode runs the cleanup and the effect again right away on mount,
-  // which is not an unmount.
+  // The body scroll lock and the saved focus follow whether the drawer is
+  // shown, whatever closed it: closing normally releases them too, but a model
+  // replaced by a closed one (e.g. its owner was rebuilt) or a view removed
+  // mid-way never finishes closing. Holding and releasing are idempotent per
+  // drawer, so the update's own lock commands stay harmless.
+  // Only a drawer that was shown releases: a closed copy of a model rendered
+  // elsewhere (same id) must not release the open one's lock.
+  const isShown = model.animate._tag !== 'Invisible'
   const latest = useRef(model)
   latest.current = model
+  const wasShown = useRef(false)
+  useEffect(() => {
+    if (isShown) {
+      holdBodyLock(latest.current.config)
+    } else if (wasShown.current) {
+      releaseDrawer(latest.current.config)
+    } else {
+      // Never shown here: nothing to release
+    }
+    wasShown.current = isShown
+  }, [isShown])
+
+  // Unmounted while shown. The release waits a microtask: React's StrictMode
+  // runs the cleanup and the effect again right away on mount, which is not
+  // an unmount.
   const isMounted = useRef(false)
   useEffect(() => {
     isMounted.current = true
@@ -79,7 +98,7 @@ export const DrawerComponent = <Item, ItemMsg, Parent>({
       isMounted.current = false
       queueMicrotask(() => {
         if (!isMounted.current && latest.current.animate._tag !== 'Invisible') {
-          releaseOnUnmount(latest.current.config)
+          releaseDrawer(latest.current.config)
         } else {
           // Mounted again (StrictMode), or closed normally
         }

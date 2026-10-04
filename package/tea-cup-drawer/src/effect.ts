@@ -237,10 +237,22 @@ const restoreFocus = (config: Config): void => {
 export const restoreFocusCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
   performIO_(() => restoreFocus(config))
 
-// The drawer's view was removed while it was still open or closing (e.g. its
-// owner, a list item, was removed), so closing never finished: release what
-// opening took, the body scroll lock and the saved focus.
-export const releaseOnUnmount = (config: Config): void => {
+// The drawer is shown: hold the body scroll lock (a no-op when opening took
+// it already). Lets a view that is mounted again, or a drawer reopened while
+// closing, take the lock back.
+export const holdBodyLock = (config: Config): void => {
+  if (usesBodyLock(config)) {
+    lockBodyScroll(config.id)
+  } else {
+    // Non-modal drawers leave the page scrollable
+  }
+}
+
+// The drawer stopped being shown without finishing its close (its view was
+// removed, or its owner replaced the model with a closed one): release what
+// opening took, the body scroll lock and the saved focus. Releasing what was
+// already released is a no-op.
+export const releaseDrawer = (config: Config): void => {
   if (usesBodyLock(config)) {
     unlockBodyScroll(config.id)
   } else {
