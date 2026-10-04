@@ -31,20 +31,20 @@ buried inside event handlers that read and write refs.
 
 ## 2. How the pieces were mapped
 
-| vaul                                                                                          | tea-cup-drawer                                                                                                            |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `isOpen` + `isDragging` + `hasBeenOpened` + `justReleased` + `shouldAnimate` + Radix presence | One sum type, `AnimateState<Item>`: `Invisible`, `Mounting`, `AnimateIn`, `Visible`, `Dragging`, `Settling`, `AnimateOut` |
-| `pointerStart`, `dragStartTime`, `isAllowedToDrag` refs                                       | `Press` (captured on pointer down) inside `Gesture.Pressed` / `Dragging`                                                  |
-| `onPress` / `onDrag` / `onRelease`                                                            | `PointerDown` / `PointerMove` / `PointerUp` / `PointerCancel` messages                                                    |
-| `onRelease` decision, `dampenValue`, `useSnapPoints.onRelease`                                | Pure functions in `util.ts`: `dragDistance`, `decideRelease`, `overlayOpacityAt`                                          |
-| `shouldDrag` (DOM walk + timing refs)                                                         | DOM facts measured at pointer down (`isNoDragTarget`, `hasScrolledAncestor`), timing decided by the pure `decideDrag`     |
-| `element.style.transform = ...` during drags                                                  | Rendered from the model: `--drawer-translate` CSS variable from `translateCss(model)`                                     |
-| `setTimeout(TRANSITIONS.DURATION)`                                                            | `transitionend` → `TransitionEnd`, with `AnimationTimeout` (`delayCmd`) as a fallback                                     |
-| Window listeners (pointer, keyboard)                                                          | `Sub`: document pointer events only while a gesture is active; no keyboard listener (keys are the owner's)                |
-| Body `position: fixed` (Safari), scroll lock, focus restore                                   | `Cmd`s in `effect.ts` (`lockBodyScrollCmd`, `rememberFocusCmd` / `restoreFocusCmd`, ...)                                  |
-| `open` / `onOpenChange` / `defaultOpen` (controlled + uncontrolled)                           | Always controlled: `Open { internal }`, `Close`, `Dismiss` messages; parents compare `isOpen` before/after `update`       |
-| Radix Dialog                                                                                  | Plain `div role="dialog"` + overlay, named by `config.aria`; Escape and the Tab trap are left to the owner                |
-| `children` as React elements (re-render with the parent)                                      | `DrawerMemo` with `renderContent(content, contentDispatch, parent)`, compared with `itemEq` / `parentEq`                  |
+| vaul                                                                                          | tea-cup-drawer                                                                                                                                     |
+| --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `isOpen` + `isDragging` + `hasBeenOpened` + `justReleased` + `shouldAnimate` + Radix presence | One sum type, `AnimateState<Item>`: `Invisible`, `Mounting`, `AnimateIn`, `Visible`, `Dragging`, `Settling`, `AnimateOut`                          |
+| `pointerStart`, `dragStartTime`, `isAllowedToDrag` refs                                       | `Press` (captured on pointer down) inside `Gesture.Pressed` / `Dragging`                                                                           |
+| `onPress` / `onDrag` / `onRelease`                                                            | `PointerDown` / `PointerMove` / `PointerUp` / `PointerCancel` messages                                                                             |
+| `onRelease` decision, `dampenValue`, `useSnapPoints.onRelease`                                | Pure functions in `util.ts`: `dragDistance`, `decideRelease`, `overlayOpacityAt`                                                                   |
+| `shouldDrag` (DOM walk + timing refs)                                                         | DOM facts measured at pointer down (`isNoDragTarget`, `hasScrolledAncestor`), timing decided by the pure `decideDrag`                              |
+| `element.style.transform = ...` during drags                                                  | Rendered from the model: `--drawer-translate` CSS variable from `translateCss(model)`                                                              |
+| `setTimeout(TRANSITIONS.DURATION)`                                                            | `transitionend` → `TransitionEnd`, with `AnimationTimeout` (`delayCmd`) as a fallback                                                              |
+| Window listeners (pointer, keyboard)                                                          | `Sub`: document pointer events only while a gesture is active; no keyboard listener (keys are the owner's)                                         |
+| Body `position: fixed` (Safari), scroll lock, focus restore                                   | `effect.ts`: the lock held by the drawer's view (`holdBodyLock` / `releaseDrawer`), `Cmd`s for focus (`rememberFocusCmd` / `restoreFocusCmd`, ...) |
+| `open` / `onOpenChange` / `defaultOpen` (controlled + uncontrolled)                           | Always controlled: `Open { internal }`, `Close`, `Dismiss` messages; parents compare `isOpen` before/after `update`                                |
+| Radix Dialog                                                                                  | Plain `div role="dialog"` + overlay, named by `config.aria`; Escape and the Tab trap are left to the owner                                         |
+| `children` as React elements (re-render with the parent)                                      | `DrawerMemo` with `renderContent(content, contentDispatch, parent)`, compared with `itemEq` / `parentEq`                                           |
 
 ---
 
@@ -181,22 +181,23 @@ measurements only for what the model cannot know.
 
 ### Some effects live outside the model
 
-The body scroll lock needs to know which drawers hold it, and focus
-restore needs the element that was focused before opening. Both are
-module-level state in `effect.ts`, reached only through `Cmd`s. It is contained, but it is impure state TEA cannot see, and
+The body scroll lock needs to know who holds it, and focus restore needs
+the element that was focused before opening. Both are module-level state
+in `effect.ts`. It is contained, but it is impure state TEA cannot see, and
 the scroll lock can interact badly with page layout (see section 6).
 
-The lock is held at most once per `Config.id` (a set of holders, not a
-counter), so a second release from the same drawer is a no-op. On top of
-the update's own lock commands, `DrawerMemo` makes the lock and the saved
-focus follow whether the drawer is shown: it releases them when its model
-becomes closed by any route (a normal close, but also an owner replacing
-the model with a closed one, e.g. a rebuilt list item) and when the view
-is unmounted while shown, and takes the lock back when a view is mounted
-while its drawer is open. Only a view that showed the drawer releases, so
-a closed copy of a model rendered elsewhere with the same id can't drop the
-open one's lock. The unmount release waits a microtask so React
-StrictMode's unmount-and-remount on first render doesn't trigger it.
+The lock is held by the drawer's view, not by the model: `DrawerMemo` holds
+it under its own id (React `useId`) while it shows a modal drawer, and
+releases that hold, giving the saved focus back, whenever it stops showing
+it. That covers a normal close, an owner replacing the model with a closed
+one (e.g. a rebuilt list item, or a view reused for other data whose
+`Config.id` differs), and the view being unmounted mid-way. Keying by view
+rather than by `Config.id` means a swapped model still releases what its
+view held, two views of models sharing an id can't release each other's
+hold, and a model that is open but not rendered doesn't lock the page.
+Holding and releasing are idempotent. The unmount release waits a
+microtask so React StrictMode's unmount-and-remount on first render doesn't
+trigger it.
 
 React events bubble through portals, so a press inside a drawer rendered
 from another drawer's content (a nested drawer) also reaches the outer

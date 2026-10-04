@@ -28,10 +28,8 @@ import { Cmd } from 'tea-cup-fp'
 import {
   afterNextPaintCmd,
   focusContentCmd,
-  lockBodyScrollCmd,
   rememberFocusCmd,
   restoreFocusCmd,
-  unlockBodyScrollCmd,
 } from './effect'
 import {
   type AnimateState,
@@ -134,7 +132,6 @@ export const openHandler =
           },
           Cmd.batch([
             noOp(rememberFocusCmd(model.config)),
-            noOp(lockBodyScrollCmd(model.config)),
             afterNextPaintCmd<Msg<Item>>(model.config, {
               _tag: 'MountFrame',
               seq,
@@ -168,10 +165,8 @@ const finishClose = <Item>(
     snap: snapFromConfig(model.config.snap),
     seq: model.seq + 1,
   },
-  Cmd.batch([
-    noOp(unlockBodyScrollCmd(model.config)),
-    noOp(restoreFocusCmd(model.config)),
-  ]),
+  // The body scroll lock is held by the drawer's view while it shows it
+  noOp(restoreFocusCmd(model.config)),
 ]
 
 export const closeHandler = <Item>(

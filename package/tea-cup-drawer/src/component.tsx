@@ -25,6 +25,7 @@ import {
   type ReactNode,
   memo,
   useEffect,
+  useId,
   useRef,
 } from 'react'
 import { createPortal } from 'react-dom'
@@ -66,27 +67,25 @@ export const DrawerComponent = <Item, ItemMsg, Parent>({
   className,
   overlayClassName,
 }: Props<Item, ItemMsg, Parent>) => {
-  // The body scroll lock and the saved focus follow whether the drawer is
-  // shown, whatever closed it: closing normally releases them too, but a model
-  // replaced by a closed one (e.g. its owner was rebuilt) or a view removed
-  // mid-way never finishes closing. Holding and releasing are idempotent per
-  // drawer, so the update's own lock commands stay harmless.
-  // Only a drawer that was shown releases: a closed copy of a model rendered
-  // elsewhere (same id) must not release the open one's lock.
+  // The body scroll lock is held by this view while it shows the drawer
+  // (under the view's own id, see `effect.ts`), whatever closes it: a normal
+  // close, an owner replacing the model with a closed one, or the view being
+  // removed mid-way. The saved focus is given back with it.
+  const viewId = useId()
   const isShown = model.animate._tag !== 'Invisible'
   const latest = useRef(model)
   latest.current = model
   const wasShown = useRef(false)
   useEffect(() => {
     if (isShown) {
-      holdBodyLock(latest.current.config)
+      holdBodyLock(viewId, latest.current.config)
     } else if (wasShown.current) {
-      releaseDrawer(latest.current.config)
+      releaseDrawer(viewId, latest.current.config)
     } else {
       // Never shown here: nothing to release
     }
     wasShown.current = isShown
-  }, [isShown])
+  }, [isShown, viewId])
 
   // Unmounted while shown. The release waits a microtask: React's StrictMode
   // runs the cleanup and the effect again right away on mount, which is not
@@ -98,13 +97,13 @@ export const DrawerComponent = <Item, ItemMsg, Parent>({
       isMounted.current = false
       queueMicrotask(() => {
         if (!isMounted.current && latest.current.animate._tag !== 'Invisible') {
-          releaseDrawer(latest.current.config)
+          releaseDrawer(viewId, latest.current.config)
         } else {
           // Mounted again (StrictMode), or closed normally
         }
       })
     }
-  }, [])
+  }, [viewId])
 
   const animate = model.animate
   const config = model.config

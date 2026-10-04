@@ -66,9 +66,12 @@ export const afterNextPaintCmd = <Msg>(config: Config, msg: Msg): Cmd<Msg> =>
 // Body scroll lock
 // ---------------------------------
 
-// The modal drawers holding the lock, by `Config.id`; the body is restored
-// when the last one lets go. A drawer holds it once: releasing twice (its view
-// was removed while closing, then its model finished closing) is harmless.
+// The drawer views holding the lock (each by its own id, not the drawer's
+// `Config.id`); the body is restored when the last one lets go. A view holds
+// it at most once, so holding or releasing twice is harmless. Keying by view
+// means a view whose model is swapped for one with another id (an owner
+// reusing the view for other data) still releases what it held, and two
+// views of models sharing an id can't release each other's hold.
 const lockHolders = new Set<string>()
 
 let previousBodyStyle: {
@@ -180,24 +183,6 @@ const unlockBodyScroll = (id: string): void => {
 
 const usesBodyLock = (config: Config): boolean => locksBody(config)
 
-export const lockBodyScrollCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
-  performIO_(() => {
-    if (usesBodyLock(config)) {
-      lockBodyScroll(config.id)
-    } else {
-      // Non-modal drawers leave the page scrollable
-    }
-  })
-
-export const unlockBodyScrollCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
-  performIO_(() => {
-    if (usesBodyLock(config)) {
-      unlockBodyScroll(config.id)
-    } else {
-      // Nothing was locked
-    }
-  })
-
 // Focus
 // ---------------------------------
 
@@ -237,27 +222,22 @@ const restoreFocus = (config: Config): void => {
 export const restoreFocusCmd = (config: Config): Cmd<{ _tag: 'NoOp' }> =>
   performIO_(() => restoreFocus(config))
 
-// The drawer is shown: hold the body scroll lock (a no-op when opening took
-// it already). Lets a view that is mounted again, or a drawer reopened while
-// closing, take the lock back.
-export const holdBodyLock = (config: Config): void => {
+// The view `viewId` shows the drawer: hold the body scroll lock while it does
+// (modal drawers only)
+export const holdBodyLock = (viewId: string, config: Config): void => {
   if (usesBodyLock(config)) {
-    lockBodyScroll(config.id)
+    lockBodyScroll(viewId)
   } else {
     // Non-modal drawers leave the page scrollable
   }
 }
 
-// The drawer stopped being shown without finishing its close (its view was
-// removed, or its owner replaced the model with a closed one): release what
-// opening took, the body scroll lock and the saved focus. Releasing what was
-// already released is a no-op.
-export const releaseDrawer = (config: Config): void => {
-  if (usesBodyLock(config)) {
-    unlockBodyScroll(config.id)
-  } else {
-    // Nothing was locked
-  }
+// The view `viewId` stopped showing the drawer (it closed, its owner replaced
+// the model, or the view was removed): release its hold on the body scroll
+// lock, and give the focus back if it was left in the drawer. Releasing what
+// was already released is a no-op.
+export const releaseDrawer = (viewId: string, config: Config): void => {
+  unlockBodyScroll(viewId)
   restoreFocus(config)
 }
 
