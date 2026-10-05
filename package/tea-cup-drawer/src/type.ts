@@ -412,6 +412,7 @@ export type ContentAttrs = {
   style: CSSProperties
   onPointerDown: PointerEventHandler<HTMLElement>
   onClickCapture: MouseEventHandler<HTMLElement>
+  ref: (element: HTMLElement | null) => (() => void) | undefined
   onTransitionEnd: TransitionEventHandler<HTMLElement>
 }
 

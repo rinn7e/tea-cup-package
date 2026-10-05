@@ -207,3 +207,88 @@ describe('contentAttrs — click after a drag', () => {
     expect(pressIgnored(visible(false))).toEqual([])
   })
 })
+
+describe('contentAttrs — no native scroll during a drag', () => {
+  type TouchMoveListener = (e: {
+    cancelable: boolean
+    preventDefault: () => void
+  }) => void
+
+  // The content element, with what the ref attached to it
+  const element = (state: string) => {
+    const listeners: { listener: TouchMoveListener; options: unknown }[] = []
+    return {
+      listeners,
+      dataset: { state },
+      addEventListener: (
+        type: string,
+        listener: TouchMoveListener,
+        options: unknown,
+      ) => {
+        if (type === 'touchmove') {
+          listeners.push({ listener, options })
+        } else {
+          // Not the one under test
+        }
+      },
+      removeEventListener: (type: string, listener: TouchMoveListener) => {
+        const i = listeners.findIndex((l) => l.listener === listener)
+        if (type === 'touchmove' && i >= 0) {
+          listeners.splice(i, 1)
+        } else {
+          // Not attached
+        }
+      },
+    }
+  }
+
+  const attach = (state: string) => {
+    const el = element(state)
+    const ref = contentAttrs(Drawer.defaultModel(config()), () => {}).ref
+    const cleanup = ref(el as unknown as HTMLElement)
+    return { el, cleanup }
+  }
+
+  // Sends a touch move to the element; true when it was cancelled
+  const touchMove = (el: ReturnType<typeof element>): boolean => {
+    let prevented = false
+    el.listeners.forEach(({ listener }) =>
+      listener({
+        cancelable: true,
+        preventDefault: () => {
+          prevented = true
+        },
+      }),
+    )
+    return prevented
+  }
+
+  it('attaches one listener that may cancel (not passive)', () => {
+    const { el } = attach('Visible')
+    expect(el.listeners).toHaveLength(1)
+    expect(el.listeners[0].options).toEqual({ passive: false })
+  })
+
+  it('lets the content scroll at rest', () => {
+    expect(touchMove(attach('Visible').el)).toBe(false)
+  })
+
+  it('cancels the touch moves while dragging', () => {
+    const { el } = attach('Visible')
+    el.dataset.state = 'Dragging'
+    expect(touchMove(el)).toBe(true)
+  })
+
+  it('detaches the listener with the element', () => {
+    const { el, cleanup } = attach('Dragging')
+    cleanup?.()
+    expect(el.listeners).toHaveLength(0)
+  })
+
+  it('keeps the same ref across renders, so it is attached once', () => {
+    const model = Drawer.defaultModel(config())
+    expect(contentAttrs(model, () => {}).ref).toBe(
+      contentAttrs(model, () => {}).ref,
+    )
+  })
+})

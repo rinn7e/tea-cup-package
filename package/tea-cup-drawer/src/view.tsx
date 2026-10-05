@@ -141,6 +141,30 @@ const measurePress = <Item,>(
 // Attributes
 // ---------------------------------
 
+// iOS scrolls a scroller inside the drawer along with a drag: the drawer's
+// `touch-action: none` doesn't reach past it, and a drift across the drag
+// starts its native pan (which then cancels the pointer and flings the
+// content while the drawer animates). Cancel the touch moves while the drawer
+// follows the finger. React's `onTouchMove` is passive, so it is a DOM
+// listener, attached once per element (a stable ref callback).
+const preventScrollWhileDragging = (
+  element: HTMLElement | null,
+): (() => void) | undefined => {
+  if (element === null) {
+    return undefined
+  } else {
+    const onTouchMove = (e: TouchEvent) => {
+      if (element.dataset.state === 'Dragging' && e.cancelable) {
+        e.preventDefault()
+      } else {
+        // Not dragging: the content scrolls
+      }
+    }
+    element.addEventListener('touchmove', onTouchMove, { passive: false })
+    return () => element.removeEventListener('touchmove', onTouchMove)
+  }
+}
+
 export const contentAttrs = <Item,>(
   model: Model<Item>,
   dispatch: Dispatcher<Msg<Item>>,
@@ -162,6 +186,7 @@ export const contentAttrs = <Item,>(
   'data-drawer-direction': model.config.direction,
   'data-state': model.animate._tag,
   'data-snap-points': hasSnapPoints(model.snap) ? 'true' : 'false',
+  ref: preventScrollWhileDragging,
   style: {
     '--drawer-translate': translateCss(model),
     '--drawer-duration': `${model.config.durationMs}ms`,
