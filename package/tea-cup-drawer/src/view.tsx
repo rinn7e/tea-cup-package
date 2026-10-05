@@ -170,8 +170,30 @@ export const contentAttrs = <Item,>(
     const press = measurePress(model, e)
     if (O.isSome(press)) {
       dispatch({ _tag: 'PointerDown', press: press.value })
+    } else if (model.swallowNextClick) {
+      // Not a drag start (secondary button, outside the handle, ...), but a
+      // press: its click is a tap
+      dispatch({ _tag: 'PressIgnored' })
     } else {
-      // Not a drag start (secondary button, outside the handle, ...)
+      // Not a drag start, and no click to let through again
+    }
+  },
+  // The browser fires a click on the element pressed when a drag of the
+  // drawer ends over it (it moved along under the pointer). Stop it before
+  // it reaches the content. `Dragging` covers a click that comes before the
+  // release is rendered.
+  onClickCapture: (e) => {
+    const isDrag = model.swallowNextClick || model.animate._tag === 'Dragging'
+    // `detail` is 0 for a click from the keyboard
+    const isPointerClick = e.detail > 0
+    // Not from a portal rendered inside the content (e.g. a nested drawer)
+    const isOwnClick =
+      e.target instanceof Node && e.currentTarget.contains(e.target)
+    if (isDrag && isPointerClick && isOwnClick) {
+      e.preventDefault()
+      e.stopPropagation()
+    } else {
+      // A tap
     }
   },
   onTransitionEnd: (e) => {

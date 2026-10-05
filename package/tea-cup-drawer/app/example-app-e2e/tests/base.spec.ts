@@ -155,6 +155,28 @@ test.describe('Base', () => {
     ])
   })
 
+  test('a drag that ends on a button does not click it', async ({ page }) => {
+    await openDrawer(page, 'basic')
+    const button = await page.locator('[data-test="close-basic"]').boundingBox()
+    if (button === null) {
+      throw new Error('the Close button is not rendered')
+    } else {
+      // Press on Close and drag a little, slowly: the drawer springs back
+      // with the button under the pointer, and the browser clicks it
+      await drag(
+        page,
+        { x: button.x + button.width / 2, y: button.y + button.height / 2 },
+        { dx: 0, dy: 20 },
+        { steps: 10, stepDelay: 40 },
+      )
+    }
+    await page.waitForTimeout(ANIMATION_DURATION)
+    await expectOpen(page, 'basic')
+    // The next tap is a tap again
+    await page.locator('[data-test="close-basic"]').click()
+    await expectClosed(page, 'basic')
+  })
+
   test('a tap on the content does not close it', async ({ page }) => {
     await openDrawer(page, 'basic')
     await content(page, 'basic').locator('h2').click()

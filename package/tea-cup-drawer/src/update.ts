@@ -91,6 +91,7 @@ export const defaultModel = <Item>(config: Config<Item>): Model<Item> => ({
   animate: { _tag: 'Invisible' },
   snap: snapFromConfig(config.snap),
   lastDragPreventedAt: O.none,
+  swallowNextClick: false,
   seq: 0,
   config,
 })
@@ -406,6 +407,8 @@ const pointerDownHandler =
   (press: Press) =>
   <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const canDrag = model.config.dismissible || hasSnapPoints(model.snap)
+    // A new press: its click is a tap until it drags
+    const pressed = { ...model, swallowNextClick: false }
     if (canDrag) {
       // Only taken by a drawer at rest (`withGesture`)
       return [
@@ -413,12 +416,12 @@ const pointerDownHandler =
           _tag: 'Pressed',
           press,
           last: { x: press.startX, y: press.startY },
-        })(model),
+        })(pressed),
         Cmd.none(),
       ]
     } else {
       // Can't be dragged
-      return [model, Cmd.none()]
+      return [pressed, Cmd.none()]
     }
   }
 
@@ -540,28 +543,30 @@ const releaseHandler =
   <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const animate = model.animate
     if (animate._tag === 'Dragging') {
+      // The release of a drag is not a tap on the element under it
+      const released = { ...model, swallowNextClick: true }
       const decision = decideRelease(
-        model.config,
-        model.snap,
+        released.config,
+        released.snap,
         animate.press,
         release,
       )
       switch (decision._tag) {
         case 'Close':
-          return closeHandler(model)
+          return closeHandler(released)
         case 'Snap':
         case 'Reset': {
-          const [next, cmd] = startAnimation(model)
+          const [next, cmd] = startAnimation(released)
           return [
             {
               ...next,
               snap:
                 decision._tag === 'Snap'
                   ? pipe(
-                      selectSnap(decision.index)(model.snap),
-                      O.getOrElse(() => model.snap),
+                      selectSnap(decision.index)(released.snap),
+                      O.getOrElse(() => released.snap),
                     )
-                  : model.snap,
+                  : released.snap,
               animate: {
                 _tag: 'Settling',
                 internal: animate.internal,
@@ -626,6 +631,8 @@ export const update = <Item, ItemMsg>(
       }
     case 'PointerDown':
       return pointerDownHandler(msg.press)(model)
+    case 'PressIgnored':
+      return [{ ...model, swallowNextClick: false }, Cmd.none()]
     case 'PointerMove':
       return pointerMoveHandler(msg, msg.hasSelection)(model)
     case 'PointerUp':

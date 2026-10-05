@@ -30,6 +30,7 @@ import * as S from 'fp-ts/lib/string'
 import {
   type CSSProperties,
   type JSX,
+  type MouseEventHandler,
   type PointerEventHandler,
   type ReactNode,
   type TransitionEventHandler,
@@ -324,6 +325,10 @@ export type Model<Item> = {
   // `Event.timeStamp` of the last time a gesture scrolled the content
   // instead of dragging the drawer
   lastDragPreventedAt: O.Option<number>
+  // The last press dragged the drawer: the click the browser fires on its
+  // release (on the element pressed, which moved along under the pointer) is
+  // not a tap, and is swallowed. The next press clears it.
+  swallowNextClick: boolean
   // Incremented whenever an animation starts, so frame and timeout messages
   // of an interrupted animation are ignored
   seq: number
@@ -337,6 +342,7 @@ export const getModelEq = <Item>(
     animate: getAnimateStateEq(itemEq),
     snap: SnapEq,
     lastDragPreventedAt: O.getEq(N.Eq),
+    swallowNextClick: B.Eq,
     seq: N.Eq,
     config: ConfigEq,
   })
@@ -371,6 +377,9 @@ export type Msg<Item, ItemMsg = never> =
   // Fallback for a `transitionend` that never fires
   | { _tag: 'AnimationTimeout'; seq: number }
   | { _tag: 'PointerDown'; press: Press }
+  // A press the drawer doesn't drag from (secondary button, outside the
+  // handle, ...): a click may follow, so it ends `swallowNextClick`
+  | { _tag: 'PressIgnored' }
   | {
       _tag: 'PointerMove'
       x: number
@@ -402,6 +411,7 @@ export type ContentAttrs = {
   'data-snap-points': 'true' | 'false'
   style: CSSProperties
   onPointerDown: PointerEventHandler<HTMLElement>
+  onClickCapture: MouseEventHandler<HTMLElement>
   onTransitionEnd: TransitionEventHandler<HTMLElement>
 }
 

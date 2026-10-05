@@ -334,6 +334,91 @@ describe('drag', () => {
   })
 })
 
+describe('click after a drag', () => {
+  it('swallows the click of a release that closes', () => {
+    const model = run(
+      visible(),
+      { _tag: 'PointerDown', press: press() },
+      { _tag: 'PointerMove', x: 0, y: 700, time: 50, hasSelection: false },
+      { _tag: 'PointerUp', x: 0, y: 700, time: 60 },
+    )
+    expect(model.animate._tag).toBe('AnimateOut')
+    expect(model.swallowNextClick).toBe(true)
+  })
+
+  it('swallows the click of a release that settles back', () => {
+    const model = run(
+      visible(),
+      { _tag: 'PointerDown', press: press() },
+      { _tag: 'PointerMove', x: 0, y: 550, time: 500, hasSelection: false },
+      { _tag: 'PointerUp', x: 0, y: 550, time: 1000 },
+    )
+    expect(model.animate._tag).toBe('Settling')
+    expect(model.swallowNextClick).toBe(true)
+  })
+
+  it('swallows the click of a cancelled drag', () => {
+    const model = run(
+      visible(),
+      { _tag: 'PointerDown', press: press() },
+      { _tag: 'PointerMove', x: 0, y: 550, time: 500, hasSelection: false },
+      { _tag: 'PointerCancel', time: 1000 },
+    )
+    expect(model.swallowNextClick).toBe(true)
+  })
+
+  it('lets the click of a tap through', () => {
+    const model = run(
+      visible(),
+      { _tag: 'PointerDown', press: press() },
+      { _tag: 'PointerUp', x: 0, y: 500, time: 60 },
+    )
+    expect(model.swallowNextClick).toBe(false)
+  })
+
+  it('lets the click of a scroll of the content through', () => {
+    const model = run(
+      visible(),
+      { _tag: 'PointerDown', press: press({ hasScrolledAncestor: true }) },
+      { _tag: 'PointerMove', x: 0, y: 600, time: 100, hasSelection: false },
+      { _tag: 'PointerUp', x: 0, y: 600, time: 200 },
+    )
+    expect(model.swallowNextClick).toBe(false)
+  })
+
+  const dragged = (): M =>
+    run(
+      visible(),
+      { _tag: 'PointerDown', press: press() },
+      { _tag: 'PointerMove', x: 0, y: 550, time: 500, hasSelection: false },
+      { _tag: 'PointerUp', x: 0, y: 550, time: 1000 },
+      { _tag: 'TransitionEnd' },
+    )
+
+  it('lets the click of the next press through', () => {
+    const model = run(dragged(), { _tag: 'PointerDown', press: press() })
+    expect(model.swallowNextClick).toBe(false)
+  })
+
+  it('lets the click of the next press through when it can’t drag', () => {
+    const config = {
+      ...defaultConfig('test', (s: string) => s, aria),
+      dismissible: false,
+    }
+    const model = run(
+      { ...visible(config), swallowNextClick: true },
+      { _tag: 'PointerDown', press: press() },
+    )
+    expect(model.swallowNextClick).toBe(false)
+  })
+
+  it('lets the click of an ignored press through', () => {
+    const model = run(dragged(), { _tag: 'PressIgnored' })
+    expect(model.swallowNextClick).toBe(false)
+    expect(model.animate._tag).toBe('Visible')
+  })
+})
+
 describe('snap points', () => {
   const config = {
     ...defaultConfig('test', (s: string) => s, aria),

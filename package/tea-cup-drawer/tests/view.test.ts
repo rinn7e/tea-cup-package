@@ -20,11 +20,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as O from 'fp-ts/lib/Option'
-import { createElement } from 'react'
-import { describe, expect, it } from 'vitest'
+import { type MouseEvent, type PointerEvent, createElement } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as Drawer from '../src'
-import { defaultHandleView, drawerHandleView } from '../src/view'
+import { contentAttrs, defaultHandleView, drawerHandleView } from '../src/view'
 
 const aria: Drawer.AriaConfig = {
   label: { _tag: 'Text', value: 'Test' },
@@ -99,5 +99,111 @@ describe('drawerHandleView', () => {
     // A tap moves to the next snap point
     arg.attrs.onClick()
     expect(dispatched).toEqual([{ _tag: 'CycleSnap' }])
+  })
+})
+
+// The tests run without a DOM: just enough of one for the content's handlers
+class FakeNode {}
+class FakeElement extends FakeNode {
+  closest() {
+    return null
+  }
+}
+
+describe('contentAttrs — click after a drag', () => {
+  beforeEach(() => {
+    vi.stubGlobal('Node', FakeNode)
+    vi.stubGlobal('Element', FakeElement)
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const visible = (swallowNextClick: boolean): Drawer.Model<null> => ({
+    ...Drawer.defaultModel(config()),
+    animate: { _tag: 'Visible', internal: null, gesture: { _tag: 'Idle' } },
+    swallowNextClick,
+  })
+
+  const dragging: Drawer.Model<null> = {
+    ...Drawer.defaultModel(config()),
+    animate: {
+      _tag: 'Dragging',
+      internal: null,
+      press: {
+        pointerType: 'mouse',
+        startX: 0,
+        startY: 0,
+        startedAt: 0,
+        startDistance: 0,
+        size: 100,
+        viewport: 100,
+        isNoDragTarget: false,
+        hasScrolledAncestor: false,
+      },
+      distance: 40,
+      last: { x: 0, y: 40 },
+    },
+  }
+
+  const inside = new FakeElement()
+  const content = { contains: (node: unknown) => node === inside }
+
+  // Clicks the content's capture handler; true when the click was stopped
+  const click = (
+    model: Drawer.Model<null>,
+    over: { detail?: number; target?: unknown } = {},
+  ): boolean => {
+    let stopped = false
+    contentAttrs(model, () => {}).onClickCapture({
+      detail: over.detail ?? 1,
+      target: over.target ?? inside,
+      currentTarget: content,
+      preventDefault: () => {},
+      stopPropagation: () => {
+        stopped = true
+      },
+    } as unknown as MouseEvent<HTMLElement>)
+    return stopped
+  }
+
+  it('lets a tap through', () => {
+    expect(click(visible(false))).toBe(false)
+  })
+
+  it('stops the click of a released drag', () => {
+    expect(click(visible(true))).toBe(true)
+  })
+
+  it('stops a click that comes before the release is rendered', () => {
+    expect(click(dragging)).toBe(true)
+  })
+
+  it('lets a click from the keyboard through', () => {
+    expect(click(visible(true), { detail: 0 })).toBe(false)
+  })
+
+  it('lets a click from a portal inside the content through', () => {
+    expect(click(visible(true), { target: new FakeElement() })).toBe(false)
+  })
+
+  // Presses the content with a button the drawer doesn't drag with
+  const pressIgnored = (model: Drawer.Model<null>): Drawer.Msg<null>[] => {
+    const dispatched: Drawer.Msg<null>[] = []
+    contentAttrs(model, (m) => dispatched.push(m)).onPointerDown({
+      button: 2,
+      isPrimary: true,
+      target: inside,
+      currentTarget: content,
+    } as unknown as PointerEvent<HTMLElement>)
+    return dispatched
+  }
+
+  it('lets the click of an ignored press through again', () => {
+    expect(pressIgnored(visible(true))).toEqual([{ _tag: 'PressIgnored' }])
+  })
+
+  it('sends nothing for an ignored press when nothing is swallowed', () => {
+    expect(pressIgnored(visible(false))).toEqual([])
   })
 })
