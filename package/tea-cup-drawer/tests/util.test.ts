@@ -38,7 +38,7 @@ import {
   dragDistance,
   draggedDistance,
   fadeFromIndex,
-  isDeltaInDirection,
+  gestureStart,
   isModal,
   locksBody,
   overlayOpacity,
@@ -156,15 +156,46 @@ describe('dragDistance', () => {
   })
 })
 
-describe('isDeltaInDirection', () => {
-  it('ignores tiny moves across the axis', () => {
-    expect(isDeltaInDirection('bottom', 2, 1, 10)).toBe(false)
-    expect(isDeltaInDirection('bottom', 1, 2, 10)).toBe(true)
+describe('gestureStart', () => {
+  const bottom = defaultConfig('basic', () => 'basic', aria)
+  const right = { ...bottom, direction: 'right' as const }
+  const tag = (
+    config: typeof bottom,
+    pointerType: string,
+    dx: number,
+    dy: number,
+  ) => gestureStart(config, pointerType, dx, dy)._tag
+
+  it('waits for the pointer to travel past its noise', () => {
+    // 10px for a finger, 2px for a mouse (total distance)
+    expect(tag(bottom, 'touch', 6, 6)).toBe('Undecided')
+    expect(tag(bottom, 'touch', 0, 9)).toBe('Undecided')
+    expect(tag(bottom, 'mouse', 0, 1)).toBe('Undecided')
+    expect(tag(bottom, 'mouse', 0, 2)).toBe('AlongAxis')
   })
 
-  it('accepts any move past the threshold or toward open', () => {
-    expect(isDeltaInDirection('bottom', 30, 20, 10)).toBe(true)
-    expect(isDeltaInDirection('bottom', 5, -1, 10)).toBe(true)
+  it('drags within the angle of the axis, either way along it', () => {
+    expect(tag(bottom, 'touch', 5, 12)).toBe('AlongAxis')
+    expect(tag(bottom, 'touch', -5, -12)).toBe('AlongAxis')
+    expect(tag(right, 'touch', 12, 5)).toBe('AlongAxis')
+    expect(tag(right, 'touch', -12, 5)).toBe('AlongAxis')
+  })
+
+  it('leaves steeper gestures to the content', () => {
+    // Scrolling a list in a right drawer, drifting a little sideways
+    expect(tag(right, 'touch', -3, 12)).toBe('AcrossAxis')
+    expect(tag(right, 'touch', 8, 12)).toBe('AcrossAxis')
+    expect(tag(bottom, 'touch', 12, 5)).toBe('AcrossAxis')
+  })
+
+  it('reads the threshold and the angle from the config', () => {
+    const strict = { ...right, dragThreshold: { touch: 20, mouse: 2 } }
+    expect(tag(strict, 'touch', 15, 0)).toBe('Undecided')
+    // 30 degrees off the axis: dragged by default, not with 20
+    expect(tag(right, 'touch', 17, 9.8)).toBe('AlongAxis')
+    expect(tag({ ...right, dragAngle: 20 }, 'touch', 17, 9.8)).toBe(
+      'AcrossAxis',
+    )
   })
 })
 

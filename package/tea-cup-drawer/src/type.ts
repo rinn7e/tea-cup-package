@@ -151,6 +151,14 @@ export type Config<Item = unknown> = {
   velocityThreshold: number
   // Time (ms) after a content scroll during which dragging stays disabled
   scrollLockTimeout: number
+  // Distance (px) the pointer travels from the press before the gesture is
+  // read: a few px of a finger (or a mouse) are noise. Then it is decided
+  // once for the press, like the OS's touch slop.
+  dragThreshold: { touch: number; mouse: number }
+  // Max angle (degrees) between that travel and the drawer axis for the
+  // gesture to drag the drawer; a steeper one is left to the content (e.g.
+  // scrolling a list in a side drawer)
+  dragAngle: number
   // Duration (ms) of the open, close and snap transitions
   durationMs: number
   portal: Portal

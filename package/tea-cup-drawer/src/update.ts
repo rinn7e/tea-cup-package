@@ -38,6 +38,7 @@ import {
   type Gesture,
   type Model,
   type Msg,
+  type PointerPosition,
   type Press,
   SnapEq,
   type SnapPoint,
@@ -50,13 +51,12 @@ import {
   decideRelease,
   dragDistance,
   draggedDistance,
+  gestureStart,
   hasSnapPoints,
-  isDeltaInDirection,
   lastSnapIndex,
   replaceSnapPoints,
   selectSnap,
   snapFromConfig,
-  swipeStartThreshold,
 } from './util'
 
 // Defaults (vaul's)
@@ -82,6 +82,8 @@ export const defaultConfig = <Item>(
   closeThreshold: 0.25,
   velocityThreshold: 0.4,
   scrollLockTimeout: 100,
+  dragThreshold: { touch: 10, mouse: 2 },
+  dragAngle: 30,
   durationMs: 500,
   portal: { _tag: 'Body' },
   ui,
@@ -436,56 +438,85 @@ const pressedMoveHandler =
   ) =>
   (model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const config = model.config
-    const dx = move.x - press.startX
-    const dy = move.y - press.startY
-    const threshold = swipeStartThreshold(press.pointerType)
     const dragged = draggedDistance(config.direction, press, move.x, move.y)
     const isDraggingInDirection = dragged > 0
     const last = { x: move.x, y: move.y }
+    const start = gestureStart(
+      config,
+      press.pointerType,
+      move.x - press.startX,
+      move.y - press.startY,
+    )
 
-    if (!isDeltaInDirection(config.direction, dx, dy, threshold)) {
-      if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
-        // Swiping across the drawer axis: leave the gesture to the content
-        return [withGesture({ _tag: 'Idle' })(model), Cmd.none()]
-      } else {
+    switch (start._tag) {
+      case 'Undecided':
+        // Still within the noise of the press
         return [
           withGesture({ _tag: 'Pressed', press, last })(model),
           Cmd.none(),
         ]
-      }
-    } else {
-      const decision = decideDrag(config, press, {
-        isDraggingInDirection,
-        hasSelection,
-        time: move.time,
-        lastDragPreventedAt: model.lastDragPreventedAt,
-      })
-      if (decision.allow) {
-        // `Dragging` now holds the press
-        return [
-          {
-            ...model,
-            lastDragPreventedAt: decision.lastDragPreventedAt,
-            animate: {
-              _tag: 'Dragging',
-              internal: animate.internal,
-              press,
-              distance: dragDistance(config, model.snap, press, dragged),
-              last,
-            },
+      case 'AcrossAxis':
+        // Leave the gesture to the content (e.g. a scroll) until release
+        return [withGesture({ _tag: 'Idle' })(model), Cmd.none()]
+      case 'AlongAxis':
+        return alongAxisMoveHandler(animate, press, {
+          dragged,
+          isDraggingInDirection,
+          last,
+          time: move.time,
+          hasSelection,
+        })(model)
+    }
+  }
+
+// The gesture runs along the drawer axis: drag the drawer, unless the
+// content takes it (`decideDrag`: a scrolled list, selected text, ...)
+const alongAxisMoveHandler =
+  <Item>(
+    animate: Extract<AnimateState<Item>, { _tag: 'Visible' | 'Settling' }>,
+    press: Press,
+    move: {
+      dragged: number
+      isDraggingInDirection: boolean
+      last: PointerPosition
+      time: number
+      hasSelection: boolean
+    },
+  ) =>
+  (model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
+    const config = model.config
+    const { dragged, isDraggingInDirection, last, hasSelection } = move
+    const decision = decideDrag(config, press, {
+      isDraggingInDirection,
+      hasSelection,
+      time: move.time,
+      lastDragPreventedAt: model.lastDragPreventedAt,
+    })
+    if (decision.allow) {
+      // `Dragging` now holds the press
+      return [
+        {
+          ...model,
+          lastDragPreventedAt: decision.lastDragPreventedAt,
+          animate: {
+            _tag: 'Dragging',
+            internal: animate.internal,
+            press,
+            distance: dragDistance(config, model.snap, press, dragged),
+            last,
           },
-          Cmd.none(),
-        ]
-      } else {
-        // Not a drag (yet): the content scrolls. Re-evaluated on the next move.
-        return [
-          withGesture({ _tag: 'Pressed', press, last })({
-            ...model,
-            lastDragPreventedAt: decision.lastDragPreventedAt,
-          }),
-          Cmd.none(),
-        ]
-      }
+        },
+        Cmd.none(),
+      ]
+    } else {
+      // Not a drag (yet): the content scrolls. Re-evaluated on the next move.
+      return [
+        withGesture({ _tag: 'Pressed', press, last })({
+          ...model,
+          lastDragPreventedAt: decision.lastDragPreventedAt,
+        }),
+        Cmd.none(),
+      ]
     }
   }
 

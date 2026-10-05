@@ -457,39 +457,38 @@ export const dragDistance = (
   }
 }
 
-/**
- * Port of vaul's `isDeltaInDirection`: whether a pointer that moved by
- * `(dx, dy)` since the press moves along the drawer axis. Small moves in the
- * closing direction only count when they are mostly along the axis.
- */
-export const isDeltaInDirection = (
-  direction: Direction,
+// How a press started to move, read once it travelled `dragThreshold` px
+// from the press (the pointer's noise until then): along the drawer axis
+// (within `dragAngle` degrees of it, either way) or across it. Decided once
+// for the press, from the whole travel rather than one move, as Android's
+// touch slop and iOS's pan hysteresis do.
+export type GestureStart =
+  | { _tag: 'Undecided' }
+  | { _tag: 'AlongAxis' }
+  | { _tag: 'AcrossAxis' }
+
+export const gestureStart = (
+  config: Config,
+  pointerType: string,
   dx: number,
   dy: number,
-  threshold: number,
-): boolean => {
-  const factor = directionMultiplier(direction)
-  const isDeltaX = Math.abs(dx) > Math.abs(dy)
-  if (isVertical(direction)) {
-    const isReverseDirection = dy * factor < 0
-    if (!isReverseDirection && Math.abs(dy) <= threshold) {
-      return !isDeltaX
-    } else {
-      return true
-    }
+): GestureStart => {
+  const threshold =
+    pointerType === 'touch'
+      ? config.dragThreshold.touch
+      : config.dragThreshold.mouse
+  if (Math.hypot(dx, dy) < threshold) {
+    return { _tag: 'Undecided' }
   } else {
-    const isReverseDirection = dx * factor < 0
-    if (!isReverseDirection && Math.abs(dx) <= threshold) {
-      return isDeltaX
-    } else {
-      return true
-    }
+    const vertical = isVertical(config.direction)
+    const along = Math.abs(vertical ? dy : dx)
+    const across = Math.abs(vertical ? dx : dy)
+    const angle = (Math.atan2(across, along) * 180) / Math.PI
+    return angle <= config.dragAngle
+      ? { _tag: 'AlongAxis' }
+      : { _tag: 'AcrossAxis' }
   }
 }
-
-// Pointers move a few px when tapping; ignore that before deciding.
-export const swipeStartThreshold = (pointerType: string): number =>
-  pointerType === 'touch' ? 10 : 2
 
 export type DragDecision = {
   allow: boolean

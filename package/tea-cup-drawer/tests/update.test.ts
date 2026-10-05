@@ -281,6 +281,54 @@ describe('drag', () => {
     expect(model.animate._tag).toBe('Visible')
   })
 
+  it('waits for the pointer to travel past its noise before deciding', () => {
+    const model = run(
+      visible(),
+      { _tag: 'PointerDown', press: press({ pointerType: 'touch' }) },
+      // A wobble that used to start a drag on its first event
+      { _tag: 'PointerMove', x: 1, y: 502, time: 10, hasSelection: false },
+      { _tag: 'PointerMove', x: -1, y: 506, time: 20, hasSelection: false },
+    )
+    expect(gestureTag(model)).toBe('Pressed')
+  })
+
+  it('leaves a scroll of a side drawer to the content despite a drift', () => {
+    const right = {
+      ...defaultConfig('test', (s: string) => s, aria),
+      direction: 'right' as const,
+    }
+    const model = run(
+      visible(right),
+      {
+        _tag: 'PointerDown',
+        press: press({ pointerType: 'touch', startX: 200, startY: 500 }),
+      },
+      // Back toward the open side (rubber band) by 1px, then mostly down
+      { _tag: 'PointerMove', x: 199, y: 503, time: 10, hasSelection: false },
+      { _tag: 'PointerMove', x: 197, y: 515, time: 20, hasSelection: false },
+      // Decided once: no longer a candidate for a drag
+      { _tag: 'PointerMove', x: 260, y: 516, time: 30, hasSelection: false },
+    )
+    expect(model.animate._tag).toBe('Visible')
+    expect(gestureTag(model)).toBe('Idle')
+  })
+
+  it('drags a side drawer along its axis', () => {
+    const right = {
+      ...defaultConfig('test', (s: string) => s, aria),
+      direction: 'right' as const,
+    }
+    const model = run(
+      visible(right),
+      {
+        _tag: 'PointerDown',
+        press: press({ pointerType: 'touch', startX: 200, startY: 500 }),
+      },
+      { _tag: 'PointerMove', x: 215, y: 506, time: 20, hasSelection: false },
+    )
+    expect(model.animate._tag).toBe('Dragging')
+  })
+
   it('scrolls scrolled content instead of dragging', () => {
     const model = run(
       visible(),
