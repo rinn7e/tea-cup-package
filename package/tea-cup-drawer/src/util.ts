@@ -490,6 +490,10 @@ export const gestureStart = (
   }
 }
 
+// How long after opening (or reaching the last snap point) a gesture
+// scrolls the content instead of dragging the drawer (vaul's)
+const openDragDelay = 500
+
 export type DragDecision = {
   allow: boolean
   lastDragPreventedAt: O.Option<number>
@@ -507,6 +511,7 @@ export const decideDrag = (
     hasSelection: boolean
     time: number
     lastDragPreventedAt: O.Option<number>
+    openedAt: O.Option<number>
   },
 ): DragDecision => {
   const keep = (allow: boolean): DragDecision => ({
@@ -523,11 +528,18 @@ export const decideDrag = (
   const isWithinScrollLock = O.exists(
     (at: number) => args.time - at < config.scrollLockTimeout,
   )(args.lastDragPreventedAt)
+  const isJustOpened = O.exists((at: number) => args.time - at < openDragDelay)(
+    args.openedAt,
+  )
 
   if (press.isNoDragTarget) {
     return keep(false)
   } else if (!isVertical(config.direction)) {
     return keep(true)
+  } else if (isJustOpened) {
+    // Allow scrolling when animating: just opened, or just expanded to its
+    // last snap point (its content may be scrollable)
+    return keep(false)
   } else if (isSwiped) {
     return keep(true)
   } else if (args.hasSelection) {

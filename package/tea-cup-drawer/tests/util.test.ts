@@ -206,6 +206,7 @@ describe('decideDrag', () => {
     hasSelection: false,
     time: 1000,
     lastDragPreventedAt: O.none,
+    openedAt: O.none,
   }
 
   it('drags by default', () => {
@@ -261,6 +262,27 @@ describe('decideDrag', () => {
         lastDragPreventedAt: O.some(800),
       }).allow,
     ).toBe(true)
+  })
+
+  it('scrolls the content within 500ms of opening, then drags again', () => {
+    // Just opened (or expanded to its last snap point): the content may be
+    // scrollable, like vaul's `openTime`
+    expect(
+      decideDrag(config, press(), { ...args, openedAt: O.some(600) }),
+    ).toEqual({ allow: false, lastDragPreventedAt: O.none })
+    expect(
+      decideDrag(config, press(), { ...args, openedAt: O.some(400) }).allow,
+    ).toBe(true)
+  })
+
+  it('scrolls within 500ms of opening even while the drawer settles', () => {
+    // Checked before the drawer being away from its open position, as vaul
+    expect(
+      decideDrag(config, press({ startDistance: 600 }), {
+        ...args,
+        openedAt: O.some(900),
+      }).allow,
+    ).toBe(false)
   })
 
   it('always drags a drawer that is away from its open position', () => {

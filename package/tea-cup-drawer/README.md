@@ -303,7 +303,7 @@ AnimateIn  ─Close→ AnimateOut    (reverse from the current position)
 
 Each animation bumps `model.seq`; `AnimationTimeout` (sent `durationMs + 50` after it starts) settles the state if `transitionend` never fires, and is ignored once a newer animation has started.
 
-A press can only start at rest, so only `Visible` and `Settling` carry a `gesture` (`Idle` / `Pressed`). It becomes `Dragging` once the pointer moves along the axis and `decideDrag` allows it; `Dragging` then holds the press, so it exists in one place. Otherwise the gesture belongs to the content (scrolling, horizontal swipes, text selection).
+A press can only start at rest, so only `Visible` and `Settling` carry a `gesture` (`Idle` / `Pressed`). It becomes `Dragging` once the pointer moves along the axis and `decideDrag` allows it; `Dragging` then holds the press, so it exists in one place. Otherwise the gesture belongs to the content (scrolling, horizontal swipes, text selection). For 500ms after the drawer opens or reaches its last snap point (`model.openedAt`, vaul's `openTime`), a vertical drawer leaves the gesture to the content too: its content may be scrollable.
 
 The model can't represent impossible states (see the code convention): no press while invisible, opening or closing; no active snap point without snap points (`model.snap` is `NoSnap` or a zipper of the points, so the active one always exists); no snap settings without snap points; no body-lock setting on a non-modal drawer. `config.snap` (`SnapConfig`, zipper `initial`) is only the setup; `model.snap` (`Snap`, zipper `current`) is created from it on init and on every open, and is the only snap state the physics, overlay and view read.
 

@@ -58,7 +58,10 @@ This was the single biggest win. In vaul, "where is the drawer right now?"
 is answered by combining several booleans, refs and Radix's internal presence
 state, and some combinations are impossible but representable (dragging while
 closed, "just released" while opening). vaul needs guards like "don't allow a
-drag within 500ms of opening" (`openTime`) to stay out of those corners.
+drag within 500ms of opening" (`openTime`) partly to stay out of those
+corners. Here the states rule them out; `openedAt` keeps only the guard's
+other job: the content of a drawer that just opened, or just reached its last
+snap point, scrolls instead of the drawer being dragged.
 
 With `AnimateState`, every phase is one tag, and every interruption is an
 explicit branch in `update`:
@@ -66,7 +69,7 @@ explicit branch in `update`:
 - close while `AnimateIn` → `AnimateOut` (reverse from the current position)
 - open while `AnimateOut` → `AnimateIn` with the new payload
 - close while `Mounting` → straight to `Invisible`, nothing to animate
-- press while `AnimateIn` → ignored (replaces vaul's 500ms `openTime` guard)
+- press while `AnimateIn` → ignored (a drawer sliding in can't be grabbed)
 
 It is also inspectable: the example app prints the tag of every drawer, the
 Playwright suite asserts on `data-state`, and the tea-cup dev tools show each
@@ -322,7 +325,6 @@ but more code than passing a callback.
   and Safari `position: fixed` are ported
 - `preventScrollRestoration`
 - The handle's double-tap / long-press timing
-- The 500ms drag lock after reaching the last snap point
 
 ---
 

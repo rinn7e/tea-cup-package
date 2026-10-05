@@ -23,7 +23,7 @@ import { delayCmd } from '@rinn7e/tea-cup-prelude'
 import type * as NEA from 'fp-ts/lib/NonEmptyArray'
 import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
-import { Cmd } from 'tea-cup-fp'
+import { Cmd, Task } from 'tea-cup-fp'
 
 import {
   afterNextPaintCmd,
@@ -93,6 +93,7 @@ export const defaultModel = <Item>(config: Config<Item>): Model<Item> => ({
   animate: { _tag: 'Invisible' },
   snap: snapFromConfig(config.snap),
   lastDragPreventedAt: O.none,
+  openedAt: O.none,
   swallowNextClick: false,
   seq: 0,
   config,
@@ -491,6 +492,7 @@ const alongAxisMoveHandler =
       hasSelection,
       time: move.time,
       lastDragPreventedAt: model.lastDragPreventedAt,
+      openedAt: model.openedAt,
     })
     if (decision.allow) {
       // `Dragging` now holds the press
@@ -629,7 +631,7 @@ const pointerCancelHandler =
 // Update
 // ---------------------------------
 
-export const update = <Item, ItemMsg>(
+const updateMsg = <Item, ItemMsg>(
   msg: Msg<Item, ItemMsg>,
   model: Model<Item>,
 ): [Model<Item>, Cmd<Msg<Item, ItemMsg>>] => {
@@ -670,7 +672,33 @@ export const update = <Item, ItemMsg>(
       return releaseHandler(msg)(model)
     case 'PointerCancel':
       return pointerCancelHandler(msg.time)(model)
+    case 'Opened':
+      return [{ ...model, openedAt: O.some(msg.time) }, Cmd.none()]
     case 'NoOp':
       return [model, Cmd.none()]
   }
+}
+
+// Whether `next` just opened or just reached its last snap point
+const isJustOpened = <Item>(prev: Model<Item>, next: Model<Item>): boolean =>
+  (prev.animate._tag === 'Invisible' && next.animate._tag !== 'Invisible') ||
+  (hasSnapPoints(next.snap) &&
+    activeSnapIndex(prev.snap) !== activeSnapIndex(next.snap) &&
+    activeSnapIndex(next.snap) === lastSnapIndex(next.snap))
+
+// The time now, on the `Event.timeStamp` clock
+const openedCmd = <Item>(): Cmd<Msg<Item>> =>
+  Task.perform(
+    Task.succeedLazy(() => performance.now()),
+    (time): Msg<Item> => ({ _tag: 'Opened', time }),
+  )
+
+export const update = <Item, ItemMsg>(
+  msg: Msg<Item, ItemMsg>,
+  model: Model<Item>,
+): [Model<Item>, Cmd<Msg<Item, ItemMsg>>] => {
+  const [next, cmd] = updateMsg(msg, model)
+  return isJustOpened(model, next)
+    ? [next, Cmd.batch([cmd, openedCmd<Item>()])]
+    : [next, cmd]
 }

@@ -333,6 +333,10 @@ export type Model<Item> = {
   // `Event.timeStamp` of the last time a gesture scrolled the content
   // instead of dragging the drawer
   lastDragPreventedAt: O.Option<number>
+  // When the drawer last opened or reached its last snap point (on the
+  // `Event.timeStamp` clock): for a moment after, a gesture scrolls the
+  // content rather than dragging the drawer, like vaul's `openTime`
+  openedAt: O.Option<number>
   // The last press dragged the drawer: the click the browser fires on its
   // release (on the element pressed, which moved along under the pointer) is
   // not a tap, and is swallowed. The next press clears it.
@@ -350,6 +354,7 @@ export const getModelEq = <Item>(
     animate: getAnimateStateEq(itemEq),
     snap: SnapEq,
     lastDragPreventedAt: O.getEq(N.Eq),
+    openedAt: O.getEq(N.Eq),
     swallowNextClick: B.Eq,
     seq: N.Eq,
     config: ConfigEq,
@@ -398,6 +403,9 @@ export type Msg<Item, ItemMsg = never> =
   | { _tag: 'PointerUp'; x: number; y: number; time: number }
   // `pointercancel` / `contextmenu`: release at the last known position
   | { _tag: 'PointerCancel'; time: number }
+  // The drawer opened or reached its last snap point at `time` (sent by the
+  // drawer itself)
+  | { _tag: 'Opened'; time: number }
   | { _tag: 'NoOp' }
 
 // View

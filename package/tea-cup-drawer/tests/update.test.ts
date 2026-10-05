@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as O from 'fp-ts/lib/Option'
 import * as S from 'fp-ts/lib/string'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   type AriaConfig,
@@ -515,6 +515,43 @@ describe('snap points', () => {
     )
     expect(activeSnapIndex(model.snap)).toBe(1)
     expect(model.animate._tag).toBe('Settling')
+  })
+
+  // The messages a message's commands send, by tag
+  const sentTags = async (model: M, msg: Msg<string>): Promise<string[]> => {
+    const sent: string[] = []
+    update(msg, model)[1].execute((m) => sent.push(m._tag))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    return sent
+  }
+
+  it('notes when it reaches its last snap point, like vaul `openTime`', async () => {
+    expect(
+      await sentTags(visible(config), { _tag: 'SetSnap', index: 2 }),
+    ).toContain('Opened')
+    expect(
+      await sentTags(visible(config), { _tag: 'SetSnap', index: 1 }),
+    ).not.toContain('Opened')
+  })
+
+  it('notes when it opens', async () => {
+    // Opening also remembers the focus and waits for a frame
+    vi.stubGlobal('document', { activeElement: null })
+    vi.stubGlobal('HTMLElement', class {})
+    vi.stubGlobal('requestAnimationFrame', () => 0)
+    try {
+      expect(
+        await sentTags(closed(config), { _tag: 'Open', internal: 'apple' }),
+      ).toContain('Opened')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('keeps the time it opened, for `decideDrag`', () => {
+    expect(
+      run(visible(config), { _tag: 'Opened', time: 1234 }).openedAt,
+    ).toEqual(O.some(1234))
   })
 
   describe('SetSnapPoints', () => {
