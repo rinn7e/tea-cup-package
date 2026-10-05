@@ -88,8 +88,10 @@ export type SnapConfig =
       sequential: boolean
     }
 
-// Modal drawers render an overlay, trap focus and (with `lockBody`) lock
-// the body scroll. Non-modal drawers leave the page behind them interactive.
+// Modal drawers render an overlay, are marked `aria-modal`, and (with
+// `lockBody`) lock the body scroll. They don't trap Tab: keys are the
+// owner's, who knows the app's other layers (see subscription.ts). Non-modal
+// drawers leave the page behind them interactive.
 export type Modality =
   | { _tag: 'NonModal' }
   // `lockBody: false`: don't touch `document.body` styles
