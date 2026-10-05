@@ -29,9 +29,12 @@ import { type CSSProperties, type JSX, type PointerEvent } from 'react'
 import { type Dispatcher } from 'tea-cup-fp'
 
 import {
+  type Config,
   type ContentAttrs,
   type ContentUiArg,
   type Direction,
+  type HandleAttrs,
+  type HandleUiArg,
   type Model,
   type Msg,
   type OverlayAttrs,
@@ -210,23 +213,64 @@ const directionClassName = (direction: Direction): string => {
   }
 }
 
-export const defaultContentView =
-  (className?: string) =>
-  ({ attrs, direction, children }: ContentUiArg): JSX.Element => (
-    <div
-      {...attrs}
-      className={cn(
-        'flex flex-col bg-white shadow-xl outline-none',
-        directionClassName(direction),
-        className,
-      )}
-    >
-      {children}
-    </div>
-  )
+export const defaultContentView = ({
+  attrs,
+  direction,
+  className,
+  children,
+}: ContentUiArg): JSX.Element => (
+  <div
+    {...attrs}
+    className={cn(
+      'flex flex-col bg-white shadow-xl outline-none',
+      directionClassName(direction),
+      className,
+    )}
+  >
+    {children}
+  </div>
+)
 
-export const defaultOverlayView =
-  (className?: string) =>
-  ({ attrs }: OverlayUiArg): JSX.Element => (
-    <div {...attrs} className={cn('bg-black/40', className)} />
-  )
+export const defaultOverlayView = ({
+  attrs,
+  className,
+}: OverlayUiArg): JSX.Element => (
+  <div {...attrs} className={cn('bg-black/40', className)} />
+)
+
+export const defaultHandleView = ({
+  attrs,
+  className,
+  children,
+}: HandleUiArg): JSX.Element => (
+  <div
+    {...attrs}
+    className={cn(
+      'mx-auto my-3 h-[5px] w-9 shrink-0 cursor-grab rounded-full bg-gray-300 opacity-70 hover:opacity-100',
+      className,
+    )}
+  >
+    {children}
+  </div>
+)
+
+const handleAttrs = <Item,>(dispatch: Dispatcher<Msg<Item>>): HandleAttrs => ({
+  'data-drawer-handle': '',
+  'aria-hidden': 'true',
+  onClick: () => dispatch({ _tag: 'CycleSnap' }),
+})
+
+// Drag handle, rendered by the content where it wants it, in the config's
+// look (`ui.handle`). A tap cycles through the snap points (closing from the
+// last one when dismissible); with `handleOnly`, only the handle starts a
+// drag.
+export const drawerHandleView = <Item,>(
+  config: Config<Item>,
+  dispatch: Dispatcher<Msg<Item>>,
+  className?: string,
+): JSX.Element =>
+  (config.ui?.handle ?? defaultHandleView)({
+    attrs: handleAttrs(dispatch),
+    className,
+    children: <span data-drawer-handle-hitarea='' />,
+  })

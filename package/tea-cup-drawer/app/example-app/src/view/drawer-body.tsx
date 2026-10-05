@@ -1,5 +1,5 @@
 import * as Drawer from '@rinn7e/tea-cup-drawer'
-import { DrawerHandle } from '@rinn7e/tea-cup-drawer/component'
+import { drawerHandleView } from '@rinn7e/tea-cup-drawer/component'
 import * as O from 'fp-ts/lib/Option'
 import { type ReactNode } from 'react'
 import { type Dispatcher } from 'tea-cup-fp'
@@ -30,6 +30,7 @@ export const bodyConfig = <Item,>(
 // for the `data-test` ids.
 export const drawerBody = <Item,>(args: {
   id: string
+  config: Drawer.Config<Item>
   dispatch: Dispatcher<Drawer.Msg<Item>>
   title: string
   description: string
@@ -39,7 +40,7 @@ export const drawerBody = <Item,>(args: {
     data-test={`content-${args.id}`}
     className='flex min-h-0 flex-1 flex-col'
   >
-    <DrawerHandle dispatch={args.dispatch} />
+    {drawerHandleView(args.config, args.dispatch)}
     <div className='flex min-h-0 flex-1 flex-col gap-3 px-6 pt-2 pb-8'>
       <h2 id={titleId(args.id)} className='text-lg font-bold text-slate-900'>
         {args.title}

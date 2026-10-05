@@ -29,6 +29,7 @@ export const PayloadDrawer = ({
       renderContent={(internal) =>
         drawerBody({
           id,
+          config: model.drawer.config,
           dispatch: drawerDispatch,
           title: 'Payload',
           description:

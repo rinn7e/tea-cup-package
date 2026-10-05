@@ -29,6 +29,7 @@ export const DirectionDrawer = ({
       renderContent={(_internal) =>
         drawerBody({
           id,
+          config: model.drawer.config,
           dispatch: drawerDispatch,
           title: `From the ${id}`,
           description: `Swipe it ${id === 'top' ? 'up' : id} to close.`,

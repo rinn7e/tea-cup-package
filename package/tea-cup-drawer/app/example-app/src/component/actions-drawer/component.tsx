@@ -1,5 +1,5 @@
 import type * as Drawer from '@rinn7e/tea-cup-drawer'
-import { DrawerHandle, DrawerMemo } from '@rinn7e/tea-cup-drawer/component'
+import { DrawerMemo, drawerHandleView } from '@rinn7e/tea-cup-drawer/component'
 import { type Dispatcher, map } from 'tea-cup-fp'
 
 import {
@@ -43,7 +43,7 @@ export const ActionsDrawer = ({
           data-test='content-actions'
           className='flex min-h-0 flex-1 flex-col'
         >
-          <DrawerHandle dispatch={drawerDispatch} />
+          {drawerHandleView(model.drawer.config, drawerDispatch)}
           <div className='flex flex-col gap-3 px-6 pt-2 pb-8'>
             <h2
               id={titleId}

@@ -29,6 +29,7 @@ export const SnapFullscreenDrawer = ({
       renderContent={(_internal) =>
         drawerBody({
           id,
+          config: model.drawer.config,
           dispatch: drawerDispatch,
           title: 'Snap to full screen',
           description:

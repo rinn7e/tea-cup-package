@@ -19,20 +19,21 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-import { cn } from '@rinn7e/tea-cup-prelude'
 import {
   type ReactElement,
   type ReactNode,
   memo,
+  useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
+  useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { type Dispatcher } from 'tea-cup-fp'
 
 import './drawer.css'
-import { holdBodyLock, releaseDrawer } from './effect'
+import { followKeyboard, holdBodyLock, releaseDrawer } from './effect'
 import { type Msg, type Portal, type Props, getPropsEq } from './type'
 import { isModal } from './util'
 import {
@@ -105,22 +106,48 @@ export const DrawerComponent = <Item, ItemMsg, Parent>({
     }
   }, [viewId])
 
+  // Lift the drawer above the on-screen keyboard while it is shown
+  useEffect(() => {
+    if (isShown) {
+      return followKeyboard(latest.current.config)
+    } else {
+      return undefined
+    }
+  }, [isShown])
+
+  // Portals render only once this view is mounted (as Radix's, which vaul
+  // used), so the drawer is added after anything its owner adds to the same
+  // container in that commit: React adds a nested portal's nodes first, and
+  // an owner portaled to the body too (e.g. a mobile page) would otherwise
+  // cover a drawer without a z-index. The layout effect re-renders before
+  // the browser paints.
+  const [isPortalReady, setIsPortalReady] = useState(false)
+  useLayoutEffect(() => {
+    setIsPortalReady(true)
+  }, [])
+
   const animate = model.animate
   const config = model.config
-  if (animate._tag === 'Invisible') {
+  if (
+    animate._tag === 'Invisible' ||
+    (!isPortalReady && config.portal._tag !== 'Inline')
+  ) {
     return null
   } else {
-    const contentView = config.ui?.content ?? defaultContentView(className)
-    const overlayView =
-      config.ui?.overlay ?? defaultOverlayView(overlayClassName)
+    const contentView = config.ui?.content ?? defaultContentView
+    const overlayView = config.ui?.overlay ?? defaultOverlayView
     return renderInPortal(
       config.portal,
       <>
         {isModal(config) &&
-          overlayView({ attrs: overlayAttrs(model, dispatch) })}
+          overlayView({
+            attrs: overlayAttrs(model, dispatch),
+            className: overlayClassName,
+          })}
         {contentView({
           attrs: contentAttrs(model, dispatch),
           direction: config.direction,
+          className,
           children: renderContent(
             animate.internal,
             // Bound to this payload: once it is replaced or closed, its
@@ -139,39 +166,33 @@ export const DrawerComponent = <Item, ItemMsg, Parent>({
   }
 }
 
-// Re-renders only when the model (`itemEq`) or `parent` (`parentEq`) change.
-// Sound because `renderContent` receives everything it renders from as
-// arguments.
-export const DrawerMemo = memo(DrawerComponent, (prev, next) =>
+const DrawerInner = memo(DrawerComponent, (prev, next) =>
   getPropsEq(prev.itemEq, prev.parentEq).equals(prev, next),
 ) as <Item, ItemMsg, Parent>(
   props: Props<Item, ItemMsg, Parent>,
 ) => ReactElement | null
 
-export type HandleProps<Item> = {
-  dispatch: Dispatcher<Msg<Item>>
-  className?: string
+// Re-renders only when the model (`itemEq`) or `parent` (`parentEq`) change.
+// Sound because `renderContent` receives everything it renders from as
+// arguments. `dispatch` isn't compared but always reaches the latest one: an
+// owner may pass a closure over its current data (e.g. a pick running an
+// action), which the content of a skipped render would otherwise keep.
+export const DrawerMemo = <Item, ItemMsg, Parent>(
+  props: Props<Item, ItemMsg, Parent>,
+): ReactElement | null => {
+  const latestDispatch = useRef(props.dispatch)
+  latestDispatch.current = props.dispatch
+  const dispatch = useCallback(
+    (msg: Msg<Item, ItemMsg>) => latestDispatch.current(msg),
+    [],
+  )
+  return <DrawerInner {...props} dispatch={dispatch} />
 }
 
-// Drag handle. A tap cycles through the snap points (closing from the last
-// one when dismissible); with `handleOnly`, only the handle starts a drag.
-// Not memoized: it is a tiny leaf that only holds `dispatch`.
-export const DrawerHandle = <Item,>({
-  dispatch,
-  className,
-}: HandleProps<Item>) => (
-  <div
-    data-drawer-handle=''
-    aria-hidden='true'
-    onClick={() => dispatch({ _tag: 'CycleSnap' })}
-    className={cn(
-      'mx-auto my-3 h-[5px] w-9 shrink-0 cursor-grab rounded-full bg-gray-300 opacity-70 hover:opacity-100',
-      className,
-    )}
-  >
-    <span data-drawer-handle-hitarea='' />
-  </div>
-)
-
 // Re-exported so a `ui` override can start from the default look
-export { defaultContentView, defaultOverlayView } from './view'
+export {
+  defaultContentView,
+  defaultHandleView,
+  defaultOverlayView,
+  drawerHandleView,
+} from './view'

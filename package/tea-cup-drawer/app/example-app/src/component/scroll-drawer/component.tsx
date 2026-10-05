@@ -28,6 +28,7 @@ export const ScrollDrawer = ({
       renderContent={(_internal) =>
         drawerBody({
           id,
+          config: model.drawer.config,
           dispatch: drawerDispatch,
           title: 'Scrollable content',
           description:

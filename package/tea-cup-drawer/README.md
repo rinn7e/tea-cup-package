@@ -11,6 +11,7 @@ A drawer (bottom sheet / side panel) for React and The Elm Architecture, powered
 - **vaul's gestures**: swipe to dismiss with velocity and distance thresholds, rubber-banding past the open position, snap points (fractions or px), handle taps that cycle snap points, `handleOnly`, and drags that leave scrolled content and selected text alone.
 - **Four directions**: `bottom`, `top`, `left`, `right`.
 - **Modal or not**: modal drawers render an overlay, lock the body scroll (with vaul's iOS Safari fix), move the focus into the drawer and give it back on close. Non-modal drawers leave the page interactive.
+- **Above the on-screen keyboard**: a bottom drawer whose text field is focused sits above the keyboard, capped to the visible height, until the keyboard closes (`repositionInputs`, on by default).
 - **No keyboard listener**: keys (Escape, Tab) belong to the owner, who knows the app's other layers (dialogs, popups of other libraries) and sends `Dismiss` or `Close`. See [Keyboard](#keyboard).
 - **Accessible name**: `config.aria` names the `role="dialog"` with a text or with its title element, and can point at a description.
 - **Snap points that follow the content**: `SetSnapPoints` replaces them while open (e.g. measured from the content), keeping the active one.
@@ -81,7 +82,7 @@ export const init = (): [Model, Cmd<Msg>] => [
 ]
 ```
 
-Customize the config by spreading the defaults:
+Customize the config by spreading the defaults. A fourth argument sets the view overrides (`ui`, see [Customizing the view](#customizing-the-view)):
 
 ```ts
 // No payload (`null`): a constant key
@@ -130,7 +131,7 @@ Open it from anywhere by sending `{ _tag: 'Open', internal: message }`, and clos
 ### 3. View
 
 ```tsx
-import { DrawerHandle, DrawerMemo } from '@rinn7e/tea-cup-drawer/component'
+import { DrawerMemo, drawerHandleView } from '@rinn7e/tea-cup-drawer/component'
 
 const actionsDispatch = map(dispatch, (subMsg): Msg => ({
   _tag: 'ActionsMsg',
@@ -145,14 +146,14 @@ const actionsDispatch = map(dispatch, (subMsg): Msg => ({
   parentEq={ParentEq}
   renderContent={(message, contentDispatch, parent) => (
     <>
-      <DrawerHandle dispatch={actionsDispatch} />
+      {drawerHandleView(model.actions.config, actionsDispatch)}
       <MessageActions message={message} currentUserId={parent.currentUserId} />
     </>
   )}
 />
 ```
 
-`DrawerMemo` re-renders only when the model (compared with `itemEq`) or `parent` (compared with `parentEq`) change. `renderContent` must therefore only use its arguments: the content sends its own messages with `contentDispatch` (see below), never with the owner's `dispatch`. `DrawerHandle` and controls such as a Close button use the drawer's own dispatch. Use `DrawerComponent` for the unmemoized version.
+`DrawerMemo` re-renders only when the model (compared with `itemEq`) or `parent` (compared with `parentEq`) change. `renderContent` must therefore only use its arguments: the content sends its own messages with `contentDispatch` (see below), never with the owner's `dispatch`. `drawerHandleView(config, dispatch, className?)` (the drag handle, in the config's `ui.handle` look) and controls such as a Close button use the drawer's own dispatch. Use `DrawerComponent` for the unmemoized version.
 
 ### `internal` vs `parent`
 
@@ -318,14 +319,15 @@ The model can't represent impossible states (see the code convention): no press 
 | `modality`          | `Modal { lockBody: true }` | `Modal` (overlay, `aria-modal`, focus moved in, body scroll lock when `lockBody`) or `NonModal`                                                                                                                                                                                                                                                                        |
 | `dismissible`       | `true`                     | When `false`, only `Close` closes the drawer                                                                                                                                                                                                                                                                                                                           |
 | `snap`              | `NoSnap`                   | `NoSnap`, or `Snap { initial, fadeFrom, sequential }`: `initial` is a zipper of `{ _tag: 'Fraction' \| 'Pixel', value }` whose `active` is where it opens (the drawer must span the screen along its axis); `fadeFrom` is the index from which the overlay is opaque (`none` = last, clamped); `sequential` makes flicks move one point instead of jumping to the edge |
-| `handleOnly`        | `false`                    | Only `DrawerHandle` starts a drag                                                                                                                                                                                                                                                                                                                                      |
+| `handleOnly`        | `false`                    | Only the handle (`drawerHandleView`) starts a drag                                                                                                                                                                                                                                                                                                                     |
 | `autoFocus`         | `false`                    | Focus the first focusable element on open (instead of the drawer)                                                                                                                                                                                                                                                                                                      |
+| `repositionInputs`  | `true`                     | Bottom drawers only: while one of its text fields is focused with the on-screen keyboard open, lift the drawer above the keyboard and cap its height to the visible area, until the keyboard closes                                                                                                                                                                    |
 | `closeThreshold`    | `0.25`                     | Fraction of the drawer a slow swipe must cover to close                                                                                                                                                                                                                                                                                                                |
 | `velocityThreshold` | `0.4`                      | px/ms above which a swipe is a flick                                                                                                                                                                                                                                                                                                                                   |
 | `scrollLockTimeout` | `100`                      | ms after a content scroll during which dragging stays off                                                                                                                                                                                                                                                                                                              |
 | `durationMs`        | `500`                      | Transition duration                                                                                                                                                                                                                                                                                                                                                    |
 | `portal`            | `{ _tag: 'Body' }`         | `Body`, `Inline` or `{ _tag: 'Container', get }`                                                                                                                                                                                                                                                                                                                       |
-| `ui`                | —                          | `{ content?, overlay? }` view overrides                                                                                                                                                                                                                                                                                                                                |
+| `ui`                | —                          | `{ content?, overlay?, handle? }` view overrides, also the 4th argument of `defaultConfig`                                                                                                                                                                                                                                                                             |
 
 Mark elements that should never start a drag with `data-drawer-no-drag` (e.g. sliders, carousels).
 
@@ -333,17 +335,27 @@ Mark elements that should never start a drag with `data-drawer-no-drag` (e.g. sl
 
 ## Customizing the view
 
-`className` / `overlayClassName` on `DrawerComponent` merge into the default views. For full control, give `config.ui.content` / `config.ui.overlay` a render function and spread `attrs` on your element:
+`className` / `overlayClassName` on `DrawerComponent` merge into the default views, as does the `className` given to `drawerHandleView`. For full control, give `config.ui.content` / `config.ui.overlay` / `config.ui.handle` a render function and spread `attrs` on your element. Each one also receives that `className`, to merge with its own; `content` gets `direction` and `children`, and `handle` gets `children` (the handle's larger hit area, to render inside it):
 
 ```tsx
-ui: {
-  content: ({ attrs, children }) => (
-    <section {...attrs} className='bg-zinc-900 text-white'>
+const config = Drawer.defaultConfig('actions', (m: Message) => m.id, aria, {
+  content: ({ attrs, className, children }) => (
+    <section {...attrs} className={cn('bg-zinc-900 text-white', className)}>
       {children}
     </section>
   ),
-}
+  handle: ({ attrs, className, children }) => (
+    <div
+      {...attrs}
+      className={cn('mx-auto my-3 h-1 w-12 bg-zinc-500', className)}
+    >
+      {children}
+    </div>
+  ),
+})
 ```
+
+`defaultContentView`, `defaultOverlayView` and `defaultHandleView` (from `@rinn7e/tea-cup-drawer/component`) are the package's own views, taking the same argument: an override can start from them.
 
 Style per phase with the `data-state` attribute (e.g. `data-[state=Dragging]:shadow-2xl`).
 
@@ -351,11 +363,11 @@ Style per phase with the `data-state` attribute (e.g. `data-[state=Dragging]:sha
 
 ## Differences from vaul
 
-`DrawerHandle` sits on the drawer's inner edge for every direction: at the top of a bottom drawer (in the flow, as in vaul), at the bottom of a top drawer, and as a vertical bar on the inner side of a left or right drawer (vaul always draws a horizontal handle at the top). It is placed by `drawer.css` from `data-drawer-direction`, so the content layout doesn't change.
+The handle (`drawerHandleView`) sits on the drawer's inner edge for every direction: at the top of a bottom drawer (in the flow, as in vaul), at the bottom of a top drawer, and as a vertical bar on the inner side of a left or right drawer (vaul always draws a horizontal handle at the top). It is placed by `drawer.css` from `data-drawer-direction`, so the content layout doesn't change.
 
 No keyboard handling: vaul (through Radix Dialog) closes on Escape and traps Tab for the topmost layer of its own stack. Here the owner handles keys with the app's layer stack, which also knows layers that aren't drawers (see [Keyboard](#keyboard)).
 
-Not ported (yet): background scaling (`shouldScaleBackground`), nested drawers, keyboard-aware repositioning (`repositionInputs`, `fixed`), vaul's iOS touch-move scroll prevention (the body lock and Safari `position: fixed` are ported), `preventScrollRestoration`, and the handle's double-tap / long-press timing. `onDrag` / `onRelease` / `onAnimationEnd` callbacks are replaced by intercepting the drawer's messages.
+Not ported (yet): background scaling (`shouldScaleBackground`), nested drawers, vaul's `fixed`, vaul's iOS touch-move scroll prevention (the body lock and Safari `position: fixed` are ported), `preventScrollRestoration`, and the handle's double-tap / long-press timing. `onDrag` / `onRelease` / `onAnimationEnd` callbacks are replaced by intercepting the drawer's messages.
 
 ---
 

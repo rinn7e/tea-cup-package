@@ -135,11 +135,15 @@ export type Config<Item = unknown> = {
   // clicks and swipes are ignored.
   dismissible: boolean
   snap: SnapConfig
-  // Only elements inside `DrawerHandle` start a drag
+  // Only elements inside the handle (`drawerHandleView`) start a drag
   handleOnly: boolean
   // Focus the first focusable element on open instead of the drawer itself
   // (keep false on mobile to avoid popping the keyboard)
   autoFocus: boolean
+  // Bottom drawers only: while a text field in the drawer is focused and the
+  // on-screen keyboard is open, lift the drawer above the keyboard and cap
+  // its height to the visible area (vaul's `repositionInputs`)
+  repositionInputs: boolean
   // Fraction of the drawer size that a slow swipe has to cover to close it
   closeThreshold: number
   // px/ms above which a swipe counts as a flick
@@ -408,19 +412,40 @@ export type OverlayAttrs = {
   onClick: () => void
 }
 
+// `className` is the view's `className` / `overlayClassName` prop, for a
+// `ui` override to merge with its own
 export type ContentUiArg = {
   attrs: ContentAttrs
   direction: Direction
+  className: string | undefined
   children: ReactNode
 }
 
 export type OverlayUiArg = {
   attrs: OverlayAttrs
+  className: string | undefined
+}
+
+// Attributes of the drag handle; spread them on the element when
+// overriding the view with `ui.handle`.
+export type HandleAttrs = {
+  'data-drawer-handle': ''
+  'aria-hidden': 'true'
+  onClick: () => void
+}
+
+// `className` is the one given to `drawerHandleView`; `children` is the
+// handle's larger hit area, to render inside the handle
+export type HandleUiArg = {
+  attrs: HandleAttrs
+  className: string | undefined
+  children: ReactNode
 }
 
 export type Ui = {
   content?: (arg: ContentUiArg) => JSX.Element
   overlay?: (arg: OverlayUiArg) => JSX.Element
+  handle?: (arg: HandleUiArg) => JSX.Element
 }
 
 // The drawer content has two sources of data, like link-pagination's `Item`

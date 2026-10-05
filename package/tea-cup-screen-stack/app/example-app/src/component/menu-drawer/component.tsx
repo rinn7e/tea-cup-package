@@ -1,5 +1,5 @@
 import type * as Drawer from '@rinn7e/tea-cup-drawer'
-import { DrawerHandle, DrawerMemo } from '@rinn7e/tea-cup-drawer/component'
+import { DrawerMemo, drawerHandleView } from '@rinn7e/tea-cup-drawer/component'
 import { nullEq } from '@rinn7e/tea-cup-prelude'
 import type * as ScreenStack from '@rinn7e/tea-cup-screen-stack'
 import { ScreenStackComponent } from '@rinn7e/tea-cup-screen-stack/component'
@@ -143,7 +143,7 @@ export const MenuDrawer = ({
       parentEq={nullEq}
       renderContent={(stack, contentDispatch) => (
         <div data-test='content-menu' className='flex flex-col'>
-          <DrawerHandle dispatch={drawerDispatch} />
+          {drawerHandleView(model.drawer.config, drawerDispatch)}
           {/* Not memoized: the drawer's memo already compares the stack */}
           <ScreenStackComponent
             model={stack}

@@ -28,6 +28,7 @@ export const HandleOnlyDrawer = ({
       renderContent={(_internal) =>
         drawerBody({
           id,
+          config: model.drawer.config,
           dispatch: drawerDispatch,
           title: 'Handle only',
           description: 'Only the handle at the top starts a drag.',

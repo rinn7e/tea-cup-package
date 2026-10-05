@@ -29,6 +29,7 @@ export const SnapDrawer = ({
       renderContent={(_internal) =>
         drawerBody({
           id,
+          config: model.drawer.config,
           dispatch: drawerDispatch,
           title: 'Snap points',
           description:

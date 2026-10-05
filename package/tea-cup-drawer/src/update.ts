@@ -42,6 +42,7 @@ import {
   SnapEq,
   type SnapPoint,
   SnapPointEq,
+  type Ui,
 } from './type'
 import {
   activeSnapIndex,
@@ -61,10 +62,12 @@ import {
 // Defaults (vaul's)
 // ---------------------------------
 
+// `ui` overrides the default views (an app's own look)
 export const defaultConfig = <Item>(
   id: string,
   uniqueKeyField: (internal: Item) => string,
   aria: AriaConfig,
+  ui?: Ui,
 ): Config<Item> => ({
   id,
   uniqueKeyField,
@@ -75,11 +78,13 @@ export const defaultConfig = <Item>(
   snap: { _tag: 'NoSnap' },
   handleOnly: false,
   autoFocus: false,
+  repositionInputs: true,
   closeThreshold: 0.25,
   velocityThreshold: 0.4,
   scrollLockTimeout: 100,
   durationMs: 500,
   portal: { _tag: 'Body' },
+  ui,
 })
 
 export const defaultModel = <Item>(config: Config<Item>): Model<Item> => ({

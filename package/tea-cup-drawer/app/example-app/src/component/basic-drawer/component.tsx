@@ -28,6 +28,7 @@ export const BasicDrawer = ({
       renderContent={(_internal) =>
         drawerBody({
           id,
+          config: model.drawer.config,
           dispatch: drawerDispatch,
           title: 'Basic drawer',
           description: 'Drag it down or tap the overlay to close it.',

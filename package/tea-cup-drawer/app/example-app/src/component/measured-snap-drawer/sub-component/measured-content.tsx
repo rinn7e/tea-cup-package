@@ -1,5 +1,5 @@
 import type * as Drawer from '@rinn7e/tea-cup-drawer'
-import { DrawerHandle } from '@rinn7e/tea-cup-drawer/component'
+import { drawerHandleView } from '@rinn7e/tea-cup-drawer/component'
 import { useLayoutEffect, useRef } from 'react'
 import { type Dispatcher } from 'tea-cup-fp'
 
@@ -13,10 +13,12 @@ import { type MeasuredContentMsg, type Summary, titleId } from '../type'
 // when the drawer model didn't change.
 export const MeasuredContent = ({
   summary,
+  config,
   dispatch,
   drawerDispatch,
 }: {
   summary: Summary
+  config: Drawer.Config<Summary>
   dispatch: Dispatcher<MeasuredContentMsg>
   drawerDispatch: Dispatcher<Drawer.Msg<Summary, MeasuredContentMsg>>
 }) => {
@@ -47,7 +49,7 @@ export const MeasuredContent = ({
       className='flex min-h-0 flex-1 flex-col'
     >
       <div ref={compactRef} data-test='compact-measuredSnap'>
-        <DrawerHandle dispatch={drawerDispatch} />
+        {drawerHandleView(config, drawerDispatch)}
         <div className='flex flex-col gap-2 px-6 pt-2 pb-4'>
           <h2 id={titleId} className='text-lg font-bold text-slate-900'>
             Measured snap point

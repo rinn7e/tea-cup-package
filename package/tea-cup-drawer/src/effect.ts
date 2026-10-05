@@ -241,6 +241,107 @@ export const releaseDrawer = (viewId: string, config: Config): void => {
   restoreFocus(config)
 }
 
+// On-screen keyboard
+// ---------------------------------
+
+// Space (px) kept above a drawer shrunk to fit above the keyboard (vaul's)
+const keyboardTopOffset = 26
+
+// Visual viewport shrinks this much or more: the keyboard is open (smaller
+// changes come from the browser's toolbars)
+const keyboardMinHeight = 60
+
+const nonTextInputTypes = new Set([
+  'checkbox',
+  'radio',
+  'range',
+  'color',
+  'file',
+  'image',
+  'button',
+  'submit',
+  'reset',
+])
+
+const isTextField = (element: Element): boolean =>
+  (element instanceof HTMLInputElement &&
+    !nonTextInputTypes.has(element.type)) ||
+  element instanceof HTMLTextAreaElement ||
+  (element instanceof HTMLElement && element.isContentEditable)
+
+// Keep a bottom drawer's text field above the on-screen keyboard: once one
+// of its fields is focused with the keyboard open, the drawer sits on top of
+// the keyboard, capped to the visible height, until the keyboard closes.
+// Only the keyboard closing (a viewport resize) puts it back: dropping it as
+// soon as the field loses focus would move it under the finger in the middle
+// of a tap on one of its buttons, and the tap would be lost. Returns the
+// cleanup, which puts the drawer back on the bottom edge.
+export const followKeyboard = (config: Config): (() => void) => {
+  const viewport = window.visualViewport
+  if (
+    viewport === null ||
+    !config.repositionInputs ||
+    config.direction !== 'bottom'
+  ) {
+    return () => {}
+  } else {
+    const content = () => document.getElementById(contentDomId(config.id))
+    const keyboardHeight = () =>
+      Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+    const isFieldFocusedIn = (element: HTMLElement): boolean => {
+      const active = document.activeElement
+      return active !== null && element.contains(active) && isTextField(active)
+    }
+    const lift = (element: HTMLElement) => {
+      element.style.bottom = `${keyboardHeight()}px`
+      element.style.maxHeight = `${viewport.height - keyboardTopOffset}px`
+    }
+    const reset = () => {
+      const element = content()
+      if (element === null) {
+        // Not rendered (closed in the meantime)
+      } else {
+        element.style.bottom = ''
+        element.style.maxHeight = ''
+      }
+    }
+    // The keyboard opened, closed or changed size
+    const onResize = () => {
+      const element = content()
+      if (element === null) {
+        // Not rendered (closed in the meantime)
+      } else if (keyboardHeight() < keyboardMinHeight) {
+        reset()
+      } else if (isFieldFocusedIn(element) || element.style.bottom !== '') {
+        lift(element)
+      } else {
+        // The keyboard is for a field outside the drawer
+      }
+    }
+    // A field of the drawer focused while the keyboard is already open
+    // (moving from another field doesn't resize the viewport)
+    const onFocusIn = () => {
+      const element = content()
+      if (
+        element !== null &&
+        keyboardHeight() >= keyboardMinHeight &&
+        isFieldFocusedIn(element)
+      ) {
+        lift(element)
+      } else {
+        // Not one of its fields, or no keyboard
+      }
+    }
+    viewport.addEventListener('resize', onResize)
+    document.addEventListener('focusin', onFocusIn)
+    return () => {
+      viewport.removeEventListener('resize', onResize)
+      document.removeEventListener('focusin', onFocusIn)
+      reset()
+    }
+  }
+}
+
 const focusableSelector = [
   'a[href]',
   'button:not([disabled])',

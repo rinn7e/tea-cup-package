@@ -28,6 +28,7 @@ export const NonDismissibleDrawer = ({
       renderContent={(_internal) =>
         drawerBody({
           id,
+          config: model.drawer.config,
           dispatch: drawerDispatch,
           title: 'Non-dismissible',
           description:

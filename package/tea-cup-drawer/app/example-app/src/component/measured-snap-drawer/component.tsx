@@ -37,6 +37,7 @@ export const MeasuredSnapDrawer = ({
       renderContent={(summary, contentDispatch) => (
         <MeasuredContent
           summary={summary}
+          config={model.drawer.config}
           dispatch={contentDispatch}
           drawerDispatch={drawerDispatch}
         />

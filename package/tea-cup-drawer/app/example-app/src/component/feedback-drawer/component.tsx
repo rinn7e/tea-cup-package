@@ -1,5 +1,5 @@
 import type * as Drawer from '@rinn7e/tea-cup-drawer'
-import { DrawerHandle, DrawerMemo } from '@rinn7e/tea-cup-drawer/component'
+import { DrawerMemo, drawerHandleView } from '@rinn7e/tea-cup-drawer/component'
 import { nullEq } from '@rinn7e/tea-cup-prelude'
 import { type Dispatcher, map } from 'tea-cup-fp'
 
@@ -39,7 +39,7 @@ export const FeedbackDrawer = ({
           data-test='content-feedback'
           className='flex min-h-0 flex-1 flex-col'
         >
-          <DrawerHandle dispatch={drawerDispatch} />
+          {drawerHandleView(model.drawer.config, drawerDispatch)}
           <div className='flex flex-col gap-3 px-6 pt-2 pb-8'>
             <h2 className='text-lg font-bold text-slate-900'>Feedback</h2>
             <FeedbackForm model={feedback} dispatch={contentDispatch} />

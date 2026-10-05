@@ -31,20 +31,21 @@ buried inside event handlers that read and write refs.
 
 ## 2. How the pieces were mapped
 
-| vaul                                                                                          | tea-cup-drawer                                                                                                                                     |
-| --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `isOpen` + `isDragging` + `hasBeenOpened` + `justReleased` + `shouldAnimate` + Radix presence | One sum type, `AnimateState<Item>`: `Invisible`, `Mounting`, `AnimateIn`, `Visible`, `Dragging`, `Settling`, `AnimateOut`                          |
-| `pointerStart`, `dragStartTime`, `isAllowedToDrag` refs                                       | `Press` (captured on pointer down) inside `Gesture.Pressed` / `Dragging`                                                                           |
-| `onPress` / `onDrag` / `onRelease`                                                            | `PointerDown` / `PointerMove` / `PointerUp` / `PointerCancel` messages                                                                             |
-| `onRelease` decision, `dampenValue`, `useSnapPoints.onRelease`                                | Pure functions in `util.ts`: `dragDistance`, `decideRelease`, `overlayOpacityAt`                                                                   |
-| `shouldDrag` (DOM walk + timing refs)                                                         | DOM facts measured at pointer down (`isNoDragTarget`, `hasScrolledAncestor`), timing decided by the pure `decideDrag`                              |
-| `element.style.transform = ...` during drags                                                  | Rendered from the model: `--drawer-translate` CSS variable from `translateCss(model)`                                                              |
-| `setTimeout(TRANSITIONS.DURATION)`                                                            | `transitionend` → `TransitionEnd`, with `AnimationTimeout` (`delayCmd`) as a fallback                                                              |
-| Window listeners (pointer, keyboard)                                                          | `Sub`: document pointer events only while a gesture is active; no keyboard listener (keys are the owner's)                                         |
-| Body `position: fixed` (Safari), scroll lock, focus restore                                   | `effect.ts`: the lock held by the drawer's view (`holdBodyLock` / `releaseDrawer`), `Cmd`s for focus (`rememberFocusCmd` / `restoreFocusCmd`, ...) |
-| `open` / `onOpenChange` / `defaultOpen` (controlled + uncontrolled)                           | Always controlled: `Open { internal }`, `Close`, `Dismiss` messages; parents compare `isOpen` before/after `update`                                |
-| Radix Dialog                                                                                  | Plain `div role="dialog"` + overlay, named by `config.aria`; Escape and the Tab trap are left to the owner                                         |
-| `children` as React elements (re-render with the parent)                                      | `DrawerMemo` with `renderContent(content, contentDispatch, parent)`, compared with `itemEq` / `parentEq`                                           |
+| vaul                                                                                          | tea-cup-drawer                                                                                                                                                                      |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `isOpen` + `isDragging` + `hasBeenOpened` + `justReleased` + `shouldAnimate` + Radix presence | One sum type, `AnimateState<Item>`: `Invisible`, `Mounting`, `AnimateIn`, `Visible`, `Dragging`, `Settling`, `AnimateOut`                                                           |
+| `pointerStart`, `dragStartTime`, `isAllowedToDrag` refs                                       | `Press` (captured on pointer down) inside `Gesture.Pressed` / `Dragging`                                                                                                            |
+| `onPress` / `onDrag` / `onRelease`                                                            | `PointerDown` / `PointerMove` / `PointerUp` / `PointerCancel` messages                                                                                                              |
+| `onRelease` decision, `dampenValue`, `useSnapPoints.onRelease`                                | Pure functions in `util.ts`: `dragDistance`, `decideRelease`, `overlayOpacityAt`                                                                                                    |
+| `shouldDrag` (DOM walk + timing refs)                                                         | DOM facts measured at pointer down (`isNoDragTarget`, `hasScrolledAncestor`), timing decided by the pure `decideDrag`                                                               |
+| `element.style.transform = ...` during drags                                                  | Rendered from the model: `--drawer-translate` CSS variable from `translateCss(model)`                                                                                               |
+| `setTimeout(TRANSITIONS.DURATION)`                                                            | `transitionend` → `TransitionEnd`, with `AnimationTimeout` (`delayCmd`) as a fallback                                                                                               |
+| Window listeners (pointer, keyboard)                                                          | `Sub`: document pointer events only while a gesture is active; no keyboard listener (keys are the owner's)                                                                          |
+| Body `position: fixed` (Safari), scroll lock, focus restore                                   | `effect.ts`: the lock held by the drawer's view (`holdBodyLock` / `releaseDrawer`), `Cmd`s for focus (`rememberFocusCmd` / `restoreFocusCmd`, ...)                                  |
+| `repositionInputs` (`visualViewport` resize listener)                                         | `followKeyboard` in `effect.ts`, run by the view while the drawer shows: a bottom drawer sits above the keyboard while one of its text fields is focused, until the keyboard closes |
+| `open` / `onOpenChange` / `defaultOpen` (controlled + uncontrolled)                           | Always controlled: `Open { internal }`, `Close`, `Dismiss` messages; parents compare `isOpen` before/after `update`                                                                 |
+| Radix Dialog                                                                                  | Plain `div role="dialog"` + overlay, named by `config.aria`; Escape and the Tab trap are left to the owner                                                                          |
+| `children` as React elements (re-render with the parent)                                      | `DrawerMemo` with `renderContent(content, contentDispatch, parent)`, compared with `itemEq` / `parentEq`                                                                            |
 
 ---
 
@@ -314,8 +315,8 @@ but more code than passing a callback.
 
 - Background scaling (`shouldScaleBackground`, `setBackgroundColorOnScale`)
 - Nested drawers (`onNestedDrag`, `onNestedOpenChange`)
-- Keyboard-aware repositioning (`repositionInputs`, `fixed`,
-  `visualViewport` handling)
+- vaul's `fixed` (keyboard repositioning itself is ported as
+  `repositionInputs`, for bottom drawers)
 - vaul's iOS touch-move scroll prevention (`usePreventScroll`); the body lock
   and Safari `position: fixed` are ported
 - `preventScrollRestoration`
@@ -330,7 +331,6 @@ but more code than passing a callback.
   between frame coalescing and the CSS-variable hybrid only with numbers.
 - Optional scrollbar-width compensation in the scroll lock, for apps whose
   page scrolls on `body`.
-- Port `repositionInputs` if a consumer needs it.
 - Stale replies across close + reopen: a request started before closing can
   land in the content of the next open. Content that makes requests should
   carry an id, or the drawer could expose its `seq` for tagging commands.
