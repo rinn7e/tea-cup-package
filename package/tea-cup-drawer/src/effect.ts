@@ -88,6 +88,10 @@ let lockedScroll = { x: 0, y: 0 }
 
 let isPositionFixed = false
 
+// Counts the body locks, so a check scheduled by one lock is skipped once it
+// was released (or replaced by a newer one)
+let lockGeneration = 0
+
 // All browsers on iOS report as Safari.
 const isSafari = (): boolean =>
   /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
@@ -101,6 +105,8 @@ const lockBodyScroll = (id: string): void => {
   } else {
     lockHolders.add(id)
     if (lockHolders.size === 1) {
+      lockGeneration += 1
+      const generation = lockGeneration
       const body = document.body
       previousBodyStyle = {
         overflow: body.style.overflow,
@@ -141,9 +147,16 @@ const lockBodyScroll = (id: string): void => {
           () =>
             window.requestAnimationFrame(() => {
               // Attempt to check if the bottom bar appeared due to the
-              // position change
+              // position change. Not once this lock is released: the body's
+              // `top` would then shift the page.
+              const isStillLocked =
+                isPositionFixed && generation === lockGeneration
               const bottomBarHeight = innerHeight - window.innerHeight
-              if (bottomBarHeight && lockedScroll.y >= innerHeight) {
+              if (
+                isStillLocked &&
+                bottomBarHeight &&
+                lockedScroll.y >= innerHeight
+              ) {
                 // Move the content further up so that the bottom bar doesn't
                 // hide it
                 body.style.top = `${-(lockedScroll.y + bottomBarHeight)}px`

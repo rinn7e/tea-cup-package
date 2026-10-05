@@ -23,7 +23,7 @@ import * as O from 'fp-ts/lib/Option'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as Drawer from '../src'
-import { followKeyboard } from '../src/effect'
+import { followKeyboard, holdBodyLock, releaseDrawer } from '../src/effect'
 
 const aria: Drawer.AriaConfig = {
   label: { _tag: 'Text', value: 'Test' },
@@ -207,5 +207,91 @@ describe('followKeyboard', () => {
     vi.stubGlobal('window', { visualViewport: null, innerHeight: windowHeight })
     followKeyboard(config())
     expect(doc.count()).toBe(0)
+  })
+})
+
+// The body scroll lock on iOS Safari (pinned with `position: fixed`): the
+// same fakes as above, plus the body's style and fake timers for vaul's
+// 300ms bottom-bar check
+// ---------------------------------
+
+describe('body scroll lock on iOS Safari', () => {
+  let win: {
+    innerHeight: number
+    innerWidth: number
+    scrollX: number
+    scrollY: number
+  }
+  let style: Record<string, string>
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    // The body's own styles: none set
+    style = {
+      overflow: '',
+      position: '',
+      top: '',
+      left: '',
+      right: '',
+      height: '',
+      paddingRight: '',
+    }
+    win = { innerHeight: 800, innerWidth: 400, scrollX: 0, scrollY: 1000 }
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+    })
+    vi.stubGlobal('window', {
+      get innerHeight() {
+        return win.innerHeight
+      },
+      innerWidth: win.innerWidth,
+      get scrollX() {
+        return win.scrollX
+      },
+      get scrollY() {
+        return win.scrollY
+      },
+      matchMedia: () => ({ matches: false }),
+      setTimeout: (fn: () => void, ms: number) => setTimeout(fn, ms),
+      requestAnimationFrame: (fn: () => void) => setTimeout(fn, 16),
+      scrollTo: () => {},
+    })
+    vi.stubGlobal('document', {
+      body: {
+        style: Object.assign(style, {
+          setProperty: (key: string, value: string) => {
+            style[key] = value
+          },
+        }),
+      },
+      documentElement: { clientWidth: 400 },
+      activeElement: null,
+      getElementById: () => null,
+    })
+    vi.stubGlobal('getComputedStyle', () => ({ paddingRight: '0px' }))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('moves the page up when the bottom bar appears while locked', () => {
+    holdBodyLock('view', config())
+    // The bottom bar takes 100px
+    win.innerHeight = 700
+    vi.advanceTimersByTime(400)
+    expect(style.top).toBe('-1100px')
+    releaseDrawer('view', config())
+  })
+
+  it('leaves the page alone once the lock is released', () => {
+    holdBodyLock('view', config())
+    // Closed before vaul's 300ms check runs
+    releaseDrawer('view', config())
+    win.innerHeight = 700
+    vi.advanceTimersByTime(400)
+    expect(style.top).toBe('')
   })
 })
