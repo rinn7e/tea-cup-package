@@ -444,6 +444,7 @@ export type ContentAttrs = {
 }
 
 export type OverlayAttrs = {
+  id: string
   'data-drawer-overlay': ''
   'data-state': AnimateState<unknown>['_tag']
   style: CSSProperties

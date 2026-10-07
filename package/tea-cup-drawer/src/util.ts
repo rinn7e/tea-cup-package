@@ -86,6 +86,10 @@ export const draggedDistance = (
 
 export const contentDomId = (id: string): string => `tea-cup-drawer-${id}`
 
+// The overlay's element id (the view sets its opacity while dragging)
+export const overlayDomId = (id: string): string =>
+  `tea-cup-drawer-overlay-${id}`
+
 // Modality
 // ---------------------------------
 

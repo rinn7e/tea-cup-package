@@ -69,9 +69,29 @@ const gestureSubscriptions = <Item>(): Sub<Msg<Item>> =>
     ),
   ])
 
+// The release of a drag: here, so it is heard from the moment the drag
+// starts (the view's own listeners attach on its next commit)
+const releaseSubscriptions = <Item>(): Sub<Msg<Item>> =>
+  documentEvents.on(
+    'pointerup',
+    (e): Msg<Item> =>
+      e.isPrimary
+        ? { _tag: 'PointerUp', x: e.pageX, y: e.pageY, time: e.timeStamp }
+        : { _tag: 'NoOp' },
+  )
+
 // Only the pointer gesture: the drawer has no keyboard listener. Keys
 // (e.g. Escape) are the owner's to handle, by sending `Dismiss` or `Close`.
-export const subscriptions = <Item>(model: Model<Item>): Sub<Msg<Item>> =>
-  isGestureActive(model.animate)
-    ? gestureSubscriptions<Item>()
-    : Sub.none<Msg<Item>>()
+// While a press is undecided its moves are messages (`update` decides
+// whether it drags the drawer or scrolls the content). Once it drags, the
+// view follows the pointer itself (`DrawerComponent`), without a message per
+// move; only the release is still a message.
+export const subscriptions = <Item>(model: Model<Item>): Sub<Msg<Item>> => {
+  if (model.animate._tag === 'Dragging') {
+    return releaseSubscriptions<Item>()
+  } else if (isGestureActive(model.animate)) {
+    return gestureSubscriptions<Item>()
+  } else {
+    return Sub.none<Msg<Item>>()
+  }
+}

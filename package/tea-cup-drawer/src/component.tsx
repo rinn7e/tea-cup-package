@@ -19,7 +19,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
+import * as O from 'fp-ts/lib/Option'
 import {
+  type CSSProperties,
   type ReactElement,
   type ReactNode,
   memo,
@@ -35,7 +37,14 @@ import { createPortal } from 'react-dom'
 import './drawer.css'
 import { followKeyboard, holdBodyLock, releaseDrawer } from './effect'
 import { type Msg, type Portal, type Props, getPropsEq } from './type'
-import { isModal } from './util'
+import {
+  contentDomId,
+  dragDistance,
+  draggedDistance,
+  isModal,
+  overlayDomId,
+  overlayOpacityAt,
+} from './util'
 import {
   contentAttrs,
   defaultContentView,
@@ -115,6 +124,67 @@ export const DrawerComponent = <Item, ItemMsg, Parent>({
     }
   }, [isShown])
 
+  // While dragging, the view follows the pointer itself: each move sets the
+  // drawer's position (and its overlay's opacity) on the elements, without a
+  // message, so a move costs no `update` and no render of the owner's app.
+  // The model keeps where the drag started; `decideRelease` only needs the
+  // press and the release. The release (`pointerup`) is a subscription, heard
+  // from the drag's first moment; `pointercancel` / `contextmenu` carry no
+  // position, so the view releases them where the pointer was last seen,
+  // like vaul. A layout effect: attached right after the commit that starts
+  // the drag, before the next paint.
+  const live = useRef<{ x: number; y: number; distance: number } | null>(null)
+  const isDragging = model.animate._tag === 'Dragging'
+  useLayoutEffect(() => {
+    const start = latest.current
+    if (start.animate._tag !== 'Dragging') {
+      live.current = null
+      return undefined
+    } else {
+      const { press, last } = start.animate
+      live.current = { ...last, distance: start.animate.distance }
+      const onMove = (e: PointerEvent) => {
+        if (e.isPrimary) {
+          const { config, snap } = latest.current
+          const distance = dragDistance(
+            config,
+            snap,
+            press,
+            draggedDistance(config.direction, press, e.pageX, e.pageY),
+          )
+          live.current = { x: e.pageX, y: e.pageY, distance }
+          document
+            .getElementById(contentDomId(config.id))
+            ?.style.setProperty('--drawer-translate', `${distance}px`)
+          document
+            .getElementById(overlayDomId(config.id))
+            ?.style.setProperty(
+              '--drawer-overlay-opacity',
+              `${overlayOpacityAt(snap, press.size, distance)}`,
+            )
+        } else {
+          // Another finger
+        }
+      }
+      const onCancel = (e: Event) => {
+        if (!(e instanceof PointerEvent) || e.isPrimary) {
+          const at = live.current ?? last
+          dispatch({ _tag: 'PointerUp', x: at.x, y: at.y, time: e.timeStamp })
+        } else {
+          // Another finger
+        }
+      }
+      document.addEventListener('pointermove', onMove)
+      document.addEventListener('pointercancel', onCancel)
+      document.addEventListener('contextmenu', onCancel)
+      return () => {
+        document.removeEventListener('pointermove', onMove)
+        document.removeEventListener('pointercancel', onCancel)
+        document.removeEventListener('contextmenu', onCancel)
+      }
+    }
+  }, [isDragging, dispatch])
+
   // Portals render only once this view is mounted (as Radix's, which vaul
   // used), so the drawer is added after anything its owner adds to the same
   // container in that commit: React adds a nested portal's nodes first, and
@@ -136,16 +206,42 @@ export const DrawerComponent = <Item, ItemMsg, Parent>({
   } else {
     const contentView = config.ui?.content ?? defaultContentView
     const overlayView = config.ui?.overlay ?? defaultOverlayView
+    // A render in the middle of a drag (the owner re-rendered for another
+    // reason) keeps the position the pointer moved it to, not the model's
+    // (where the drag started)
+    const dragged =
+      animate._tag === 'Dragging' && live.current !== null
+        ? O.some(live.current.distance)
+        : O.none
+    const contentAttrsNow = contentAttrs(model, dispatch)
+    const overlayAttrsNow = overlayAttrs(model, dispatch)
+    const withDragged = <A extends { style: CSSProperties }>(
+      attrs: A,
+      style: (distance: number) => CSSProperties,
+    ): A =>
+      O.isSome(dragged)
+        ? { ...attrs, style: { ...attrs.style, ...style(dragged.value) } }
+        : attrs
     return renderInPortal(
       config.portal,
       <>
         {isModal(config) &&
           overlayView({
-            attrs: overlayAttrs(model, dispatch),
+            attrs: withDragged(overlayAttrsNow, (distance) =>
+              animate._tag === 'Dragging'
+                ? ({
+                    '--drawer-overlay-opacity': `${overlayOpacityAt(model.snap, animate.press.size, distance)}`,
+                  } as CSSProperties)
+                : {},
+            ),
             className: overlayClassName,
           })}
         {contentView({
-          attrs: contentAttrs(model, dispatch),
+          attrs: withDragged(
+            contentAttrsNow,
+            (distance) =>
+              ({ '--drawer-translate': `${distance}px` }) as CSSProperties,
+          ),
           direction: config.direction,
           className,
           children: renderContent(

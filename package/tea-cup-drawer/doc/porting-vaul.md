@@ -130,29 +130,34 @@ messages the parent can intercept with `updateAndCmd`.
 
 ## 4. What was hard, or worse than vaul
 
-### Every pointer move goes through the whole TEA loop
+### Every pointer move went through the whole TEA loop
 
 vaul writes `transform` straight to the element during a drag and never
-re-renders. Here each `pointermove` dispatches a message, updates the model
-and re-renders from the root down to the drawer. `DrawerMemo` does not help
-here: the drawer's model changes on every move, so it re-renders and calls
-`children` each time. It only skips renders caused by unrelated parent
-changes. Heavy content therefore needs its own memo inside `children`. This
-has been smooth in desktop Chromium, but **it has not been measured on a
-low-end phone with heavy drawer content yet**, and this is the most likely
-place for jank.
+re-renders. The first port dispatched a message on each `pointermove`,
+updated the model and re-rendered from the root down to the drawer.
+`DrawerMemo` couldn't help: the drawer's model changed on every move. In an
+app with a heavy root, that measured about 18-35ms per move on a desktop
+browser, over a frame's budget, and phones send a move every ~8ms at 120Hz:
+the drawer lagged behind the finger.
 
-Mitigations if it shows up: coalesce moves to one per animation frame, make
-sure drawer content is memoized, or (the hybrid option) keep only the phase
-in the model and write the live offset to a CSS variable from a `Cmd`. The
-hybrid gives up "the model is the whole truth" during a drag, so it should
-only happen if profiling demands it.
+It now uses the hybrid: the model keeps the phase and the press, and the
+view follows the pointer itself while `Dragging`. Its document listener
+computes the distance with the same pure functions `update` uses
+(`draggedDistance`, `dragDistance`, `overlayOpacityAt`) and writes the
+drawer's `--drawer-translate` and its overlay's opacity on the elements,
+without a message (about 0.1ms a move). A render during the drag keeps that
+live position. The release is still one `PointerUp`, from a subscription so
+it is heard from the drag's first moment; `pointercancel` / `contextmenu`
+release where the pointer was last seen. Undecided presses still go
+through `update`, which decides between dragging the drawer and scrolling
+the content. The cost: during a drag, `Dragging.distance` is where the drag
+started, not where the pointer is.
 
 ### Subscriptions are rebuilt on every update
 
-`subscriptions(model)` is re-evaluated after each message, so the document
-`pointermove` listener is removed and re-added on every move of a drag.
-It works and is cheap in practice, but it is a pattern vaul does not pay for.
+`subscriptions(model)` is re-evaluated after each message. While a press is
+undecided, the document `pointermove` listener is removed and re-added on
+every move. Once it drags, the view's own listener takes over for the moves.
 
 ### CSS transitions need a frame the model doesn't naturally have
 
@@ -268,7 +273,7 @@ but more code than passing a callback.
 
 |                       | vaul                                  | tea-cup-drawer                                                               |
 | --------------------- | ------------------------------------- | ---------------------------------------------------------------------------- |
-| Drag performance      | Direct DOM writes, no re-render       | Re-render per move (unmeasured on low-end phones)                            |
+| Drag performance      | Direct DOM writes, no re-render       | Direct DOM writes while dragging; the model keeps the phase and the press    |
 | Where state lives     | Hooks, refs, Radix internals          | One model, one `AnimateState`                                                |
 | Interruptions         | Guards and timeouts                   | Explicit transitions, `seq` for stale messages                               |
 | Content while closing | Radix keeps the old tree mounted      | Payload kept in the state                                                    |

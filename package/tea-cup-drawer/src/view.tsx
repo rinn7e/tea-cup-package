@@ -47,6 +47,7 @@ import {
   hasSnapPoints,
   isModal,
   isVertical,
+  overlayDomId,
   overlayOpacity,
   restDistancePx,
   scrollerTakesGesture,
@@ -249,6 +250,7 @@ export const overlayAttrs = <Item,>(
   model: Model<Item>,
   dispatch: Dispatcher<Msg<Item>>,
 ): OverlayAttrs => ({
+  id: overlayDomId(model.config.id),
   'data-drawer-overlay': '',
   'data-state': model.animate._tag,
   style: {
