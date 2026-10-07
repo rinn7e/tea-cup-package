@@ -6,7 +6,7 @@ A drawer (bottom sheet / side panel) for React and The Elm Architecture, powered
 
 ## Features
 
-- **Animation as data**: the drawer is always in exactly one `AnimateState` (`Invisible`, `Mounting`, `AnimateIn`, `Visible`, `Dragging`, `Settling`, `AnimateOut`). Interruptions (close while opening, reopen while closing, grab while settling) are explicit transitions in `update`, not timers racing each other.
+- **Animation as data**: the drawer is always in exactly one `AnimateState` (`Invisible`, `Mounting`, `AnimateIn`, `Visible`, `Dragging`, `Settling`, `AnimateOut`). Interruptions (close while opening, reopen while closing, grab while opening or settling) are explicit transitions in `update`, not timers racing each other.
 - **Payload kept while closing**: open the drawer with a payload (`{ _tag: 'Open', internal: item }`). It stays in the state until the drawer has fully slid away, so the content never goes blank mid-animation even if the parent already cleared its own data.
 - **vaul's gestures**: swipe to dismiss with velocity and distance thresholds, rubber-banding past the open position, snap points (fractions or px), handle taps that cycle snap points, `handleOnly`, and drags that leave scrolled content and selected text alone, on every side (a swipe on a side drawer's table that scrolls sideways scrolls the table).
 - **Four directions**: `bottom`, `top`, `left`, `right`.
@@ -313,13 +313,14 @@ Invisible ─Open { skipAnimation }→ Visible   (focus moved in on FocusFrame, 
 Visible   ─Close / Dismiss / swipe→ AnimateOut ─(transitionend)→ Invisible
 Visible   ─pointer moves along the axis→ Dragging ─release→ Settling | AnimateOut
 Settling  ─(transitionend)→ Visible
+AnimateIn ─press→ Settling       (grabbed while sliding in: the same transition goes on)
 AnimateOut ─Open→ AnimateIn      (reverse from the current position)
 AnimateIn  ─Close→ AnimateOut    (reverse from the current position)
 ```
 
 Each animation bumps `model.seq`; `AnimationTimeout` (sent `durationMs + 50` after it starts) settles the state if `transitionend` never fires, and is ignored once a newer animation has started.
 
-A press can only start at rest, so only `Visible` and `Settling` carry a `gesture` (`Idle` / `Pressed`). It becomes `Dragging` once the pointer moves along the axis and `decideDrag` allows it; `Dragging` then holds the press, so it exists in one place. Otherwise the gesture belongs to the content (scrolling, swipes across the axis, text selection). A press inside a scroller that takes the gesture (`scrollerTakesGesture`) scrolls it: in a top or bottom drawer, while the scroller can still move the way a closing drag goes (a bottom sheet's list away from its top; at its top a swipe down closes the sheet, as on iOS); in a left or right drawer, whenever it scrolls sideways, at any position (the drawer is dragged from the rest of its content). For 500ms after the drawer opens or reaches its last snap point (`model.openedAt`, vaul's `openTime`), the gesture is left to the content too: its content may be scrollable. These checks run for every direction; vaul skips them for left and right drawers.
+A press can only start at rest, so only `Visible` and `Settling` carry a `gesture` (`Idle` / `Pressed`). A drawer looks open well before its slide-in transition ends (its curve eases out), so a press while `AnimateIn` turns it into `Settling` with that press: the same transition goes on to the open position, and the press is measured where the drawer is. It becomes `Dragging` once the pointer moves along the axis and `decideDrag` allows it; `Dragging` then holds the press, so it exists in one place. Otherwise the gesture belongs to the content (scrolling, swipes across the axis, text selection). A press inside a scroller that takes the gesture (`scrollerTakesGesture`) scrolls it: in a top or bottom drawer, while the scroller can still move the way a closing drag goes (a bottom sheet's list away from its top; at its top a swipe down closes the sheet, as on iOS); in a left or right drawer, whenever it scrolls sideways, at any position (the drawer is dragged from the rest of its content). For 500ms after a top or bottom drawer opens or reaches its last snap point (`model.openedAt`, vaul's `openTime`), the gesture is left to the content too: its content may be scrollable. A left or right drawer is dragged at once, as in vaul: its content scrolls across its axis. The other checks run for every direction; vaul skips them for left and right drawers.
 
 While `Dragging`, the view follows the pointer itself: it writes the drawer's position and its overlay's opacity on the elements, without a message per move, so a drag costs no `update` and no render of the owner's app. The model keeps the press (`Dragging.distance` is where the drag started); the release is one `PointerUp`.
 

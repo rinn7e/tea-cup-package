@@ -314,13 +314,73 @@ describe('close', () => {
 })
 
 describe('drag', () => {
-  it('ignores presses while animating in', () => {
-    const mounting = run(closed(), { _tag: 'Open', internal: 'apple' })
-    const animating = run(mounting, { _tag: 'MountFrame', seq: mounting.seq })
-    // `AnimateIn` can't hold a press at all
-    const pressed = run(animating, { _tag: 'PointerDown', press: press() })
-    expect(pressed.animate._tag).toBe('AnimateIn')
-    expect(gestureTag(pressed)).toBe('None')
+  // Opened at time 0, sliding in
+  const animatingIn = (direction: Config<string>['direction']): M => {
+    const config = {
+      ...defaultConfig('test', (s: string) => s, aria),
+      direction,
+    }
+    const mounting = run(
+      closed(config),
+      { _tag: 'Open', internal: 'apple' },
+      { _tag: 'Opened', time: 0 },
+    )
+    return run(mounting, { _tag: 'MountFrame', seq: mounting.seq })
+  }
+
+  it('can be grabbed while animating in: it settles with the press', () => {
+    const pressed = run(animatingIn('bottom'), {
+      _tag: 'PointerDown',
+      press: press({ startDistance: 40 }),
+    })
+    // The same transition goes on to the open position
+    expect(pressed.animate._tag).toBe('Settling')
+    expect(gestureTag(pressed)).toBe('Pressed')
+  })
+
+  it('keeps that press when its transition ends', () => {
+    const ended = run(
+      animatingIn('right'),
+      { _tag: 'PointerDown', press: press({ startDistance: 40 }) },
+      { _tag: 'TransitionEnd' },
+    )
+    expect(ended.animate._tag).toBe('Visible')
+    expect(gestureTag(ended)).toBe('Pressed')
+  })
+
+  it('drags a side drawer grabbed while it animates in at once', () => {
+    const dragged = run(
+      animatingIn('right'),
+      {
+        _tag: 'PointerDown',
+        press: press({
+          startX: 100,
+          startY: 400,
+          startedAt: 100,
+          startDistance: 40,
+        }),
+      },
+      { _tag: 'PointerMove', x: 160, y: 400, time: 150, hasSelection: false },
+    )
+    expect(dragged.animate._tag).toBe('Dragging')
+  })
+
+  it("leaves a just-opened bottom sheet's gesture to its content (vaul)", () => {
+    const moved = run(
+      animatingIn('bottom'),
+      {
+        _tag: 'PointerDown',
+        press: press({
+          startX: 100,
+          startY: 400,
+          startedAt: 100,
+          startDistance: 40,
+        }),
+      },
+      { _tag: 'PointerMove', x: 100, y: 470, time: 150, hasSelection: false },
+    )
+    expect(moved.animate._tag).toBe('Settling')
+    expect(gestureTag(moved)).toBe('Pressed')
   })
 
   it('ignores presses when it can neither close nor snap', () => {

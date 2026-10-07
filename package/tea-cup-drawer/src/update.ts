@@ -465,7 +465,27 @@ const pointerDownHandler =
       (model.config.dismissible || hasSnapPoints(model.snap))
     // A new press: its click is a tap until it drags
     const pressed = { ...model, swallowNextClick: false }
-    if (canDrag) {
+    const animate = model.animate
+    if (canDrag && animate._tag === 'AnimateIn') {
+      // Grabbed while it slides in (it looks open well before its transition
+      // ends): it goes on to its open position as when settling, the same
+      // transition, and the press may drag it from where it is
+      return [
+        {
+          ...pressed,
+          animate: {
+            _tag: 'Settling',
+            internal: animate.internal,
+            gesture: {
+              _tag: 'Pressed',
+              press,
+              last: { x: press.startX, y: press.startY },
+            },
+          },
+        },
+        Cmd.none(),
+      ]
+    } else if (canDrag) {
       // Only taken by a drawer at rest (`withGesture`)
       return [
         withGesture({

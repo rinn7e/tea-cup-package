@@ -52,6 +52,17 @@ test.describe('Directions', () => {
     await drag(page, await pointIn(page, 'right'), { dx: 250, dy: 0 })
     await expectClosed(page, 'right')
   })
+  test('right drawer can be swiped closed while it slides in', async ({
+    page,
+  }) => {
+    await expectClosed(page, 'right')
+    await page.locator('[data-test="trigger-right"]').click()
+    // Grabbed right away, before its slide-in transition ends
+    await page.waitForTimeout(150)
+    await drag(page, await pointIn(page, 'right'), { dx: 250, dy: 0 })
+    await expectClosed(page, 'right')
+  })
+
   test('the handle sits on the inner edge, along it', async ({ page }) => {
     // Distance (px) between the handle and the edge it should sit on
     const handleGap = async (key: string) => {

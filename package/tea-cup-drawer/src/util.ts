@@ -584,9 +584,11 @@ export const decideDrag = (
   const isWithinScrollLock = O.exists(
     (at: number) => args.time - at < config.scrollLockTimeout,
   )(args.lastDragPreventedAt)
-  const isJustOpened = O.exists((at: number) => args.time - at < openDragDelay)(
-    args.openedAt,
-  )
+  // Top and bottom drawers only, like vaul: a side drawer is dragged at
+  // once (even while it slides in), its content scrolls across the axis
+  const isJustOpened =
+    isVertical(config.direction) &&
+    O.exists((at: number) => args.time - at < openDragDelay)(args.openedAt)
 
   if (press.isNoDragTarget) {
     return keep(false)
