@@ -223,6 +223,8 @@ describe('body scroll lock on iOS Safari', () => {
     scrollY: number
   }
   let style: Record<string, string>
+  // The body's attributes
+  let attributes: Set<string>
   // Height of the scrolled document: taller than the window when the window
   // itself scrolls
   let pageHeight: number
@@ -240,6 +242,7 @@ describe('body scroll lock on iOS Safari', () => {
       height: '',
       paddingRight: '',
     }
+    attributes = new Set()
     win = { innerHeight: 800, innerWidth: 400, scrollX: 0, scrollY: 1000 }
     vi.stubGlobal('navigator', {
       userAgent:
@@ -268,6 +271,8 @@ describe('body scroll lock on iOS Safari', () => {
             style[key] = value
           },
         }),
+        setAttribute: (name: string) => attributes.add(name),
+        removeAttribute: (name: string) => attributes.delete(name),
       },
       documentElement: { clientWidth: 400 },
       scrollingElement: {
@@ -316,6 +321,19 @@ describe('body scroll lock on iOS Safari', () => {
     expect(style.height).toBe('')
     releaseDrawer('view', config())
     expect(style).toMatchObject({ position: '', top: '', height: '' })
+  })
+
+  it("holds the lock with an attribute, not the body's inline overflow", () => {
+    // A dialog's lock, released while the drawer opens, restores the inline
+    // `overflow` it saved: the drawer's lock must not live there
+    style.overflow = 'hidden'
+    holdBodyLock('view', config())
+    expect(attributes.has('data-drawer-scroll-lock')).toBe(true)
+    style.overflow = ''
+    expect(attributes.has('data-drawer-scroll-lock')).toBe(true)
+    releaseDrawer('view', config())
+    expect(attributes.has('data-drawer-scroll-lock')).toBe(false)
+    expect(style.overflow).toBe('')
   })
 
   it('leaves the page alone once the lock is released', () => {

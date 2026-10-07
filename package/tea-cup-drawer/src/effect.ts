@@ -74,8 +74,10 @@ export const afterNextPaintCmd = <Msg>(config: Config, msg: Msg): Cmd<Msg> =>
 // views of models sharing an id can't release each other's hold.
 const lockHolders = new Set<string>()
 
+// Set on the body while it is locked: `drawer.css` hides its overflow
+const bodyLockAttribute = 'data-drawer-scroll-lock'
+
 let previousBodyStyle: {
-  overflow: string
   position: string
   top: string
   left: string
@@ -116,7 +118,6 @@ const lockBodyScroll = (id: string): void => {
       const generation = lockGeneration
       const body = document.body
       previousBodyStyle = {
-        overflow: body.style.overflow,
         position: body.style.position,
         top: body.style.top,
         left: body.style.left,
@@ -135,7 +136,10 @@ const lockBodyScroll = (id: string): void => {
       } else {
         // Overlay scrollbars (mobile, macOS default) take no space
       }
-      body.style.overflow = 'hidden'
+      // An attribute (`drawer.css`), not the inline `overflow`: another lock
+      // on the body (e.g. a dialog's, released in the same moment) saves and
+      // restores the inline style, and would undo or keep this one
+      body.setAttribute(bodyLockAttribute, '')
 
       // `overflow: hidden` doesn't stop iOS Safari from scrolling the page
       // (and shifting its toolbar) behind the drawer; pinning the body does.
@@ -195,6 +199,7 @@ const unlockBodyScroll = (id: string): void => {
     lockHolders.delete(id)
     if (lockHolders.size === 0 && previousBodyStyle !== null) {
       Object.assign(document.body.style, previousBodyStyle)
+      document.body.removeAttribute(bodyLockAttribute)
       previousBodyStyle = null
       if (isPositionFixed) {
         isPositionFixed = false

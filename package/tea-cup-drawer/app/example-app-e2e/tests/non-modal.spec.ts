@@ -17,7 +17,9 @@ test.beforeEach(async ({ page }) => {
 test.describe('Non-modal', () => {
   test('has no overlay and does not lock the page', async ({ page }) => {
     await expect(page.locator('[data-drawer-overlay]')).toHaveCount(0)
-    expect(await page.evaluate(() => document.body.style.overflow)).toBe('')
+    expect(
+      await page.evaluate(() => getComputedStyle(document.body).overflow),
+    ).toBe('visible')
   })
 
   test('keeps the page behind interactive', async ({ page }) => {

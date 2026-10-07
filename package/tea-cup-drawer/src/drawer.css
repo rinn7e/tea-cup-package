@@ -3,6 +3,11 @@
    default view. Ported from vaul's style.css (MIT, Copyright (c) 2023 Emil
    Kowalski). */
 
+/* The body scroll lock (`effect.ts`), held while a modal drawer is shown */
+body[data-drawer-scroll-lock] {
+  overflow: hidden !important;
+}
+
 [data-drawer] {
   position: fixed;
   z-index: 50;

@@ -71,9 +71,9 @@ test.describe('skipAnimation', () => {
   }) => {
     await openAtOnce(page)
     await expect(drawer(page, 'skipAnimation')).toBeFocused()
-    expect(await page.evaluate(() => document.body.style.overflow)).toBe(
-      'hidden',
-    )
+    expect(
+      await page.evaluate(() => getComputedStyle(document.body).overflow),
+    ).toBe('hidden')
   })
 
   test('"Open" still slides in', async ({ page }) => {
@@ -94,7 +94,9 @@ test.describe('skipAnimation', () => {
     await page.locator('[data-test="close-skipAnimation"]').click()
     await expect(state(page, 'skipAnimation')).toHaveText('AnimateOut')
     await expectClosed(page, 'skipAnimation')
-    expect(await page.evaluate(() => document.body.style.overflow)).toBe('')
+    expect(
+      await page.evaluate(() => getComputedStyle(document.body).overflow),
+    ).toBe('visible')
     await expect(
       page.locator('[data-test="trigger-skipAnimation-at-once"]'),
     ).toBeFocused()

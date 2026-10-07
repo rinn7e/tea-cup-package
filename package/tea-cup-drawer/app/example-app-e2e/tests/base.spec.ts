@@ -59,12 +59,19 @@ test.describe('Base', () => {
   })
 
   test('locks the body scroll while open', async ({ page }) => {
-    const overflow = () => page.evaluate(() => document.body.style.overflow)
+    const overflow = () =>
+      page.evaluate(() => getComputedStyle(document.body).overflow)
     await openDrawer(page, 'basic')
+    expect(await overflow()).toBe('hidden')
+    // Another lock restoring the body's inline `overflow` (e.g. a dialog's,
+    // released while the drawer opens) doesn't undo the drawer's
+    await page.evaluate(() => {
+      document.body.style.overflow = ''
+    })
     expect(await overflow()).toBe('hidden')
     await page.locator('[data-test="close-basic"]').click()
     await expectClosed(page, 'basic')
-    expect(await overflow()).toBe('')
+    expect(await overflow()).toBe('visible')
   })
 
   test('closes when dragged down', async ({ page }) => {
