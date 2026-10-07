@@ -346,6 +346,10 @@ export type Model<Item> = {
   // Incremented whenever an animation starts, so frame and timeout messages
   // of an interrupted animation are ignored
   seq: number
+  // Set by the owner (`lockDrag` / `unlockDrag`): a press doesn't drag the
+  // drawer (e.g. while something inside it takes the gestures). Kept across
+  // opening and closing.
+  isDragLocked: boolean
   config: Config<Item>
 }
 
@@ -359,6 +363,7 @@ export const getModelEq = <Item>(
     openedAt: O.getEq(N.Eq),
     swallowNextClick: B.Eq,
     seq: N.Eq,
+    isDragLocked: B.Eq,
     config: ConfigEq,
   })
 

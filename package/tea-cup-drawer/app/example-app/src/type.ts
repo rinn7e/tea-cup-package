@@ -1,6 +1,7 @@
 import type * as ActionsDrawer from './component/actions-drawer'
 import type * as BasicDrawer from './component/basic-drawer'
 import type * as DirectionDrawer from './component/direction-drawer'
+import type * as DragLockDrawer from './component/drag-lock-drawer'
 import type * as FeedbackDrawer from './component/feedback-drawer'
 import type * as HandleOnlyDrawer from './component/handle-only-drawer'
 import type * as MeasuredSnapDrawer from './component/measured-snap-drawer'
@@ -29,6 +30,8 @@ export type Model = {
   scrollXDrawer: ScrollXDrawer.Model
   // A bottom sheet shown inside a right drawer
   nestedDrawer: NestedDrawer.Model
+  // Dragging locked and unlocked by its content
+  dragLockDrawer: DragLockDrawer.Model
   nonModalDrawer: NonModalDrawer.Model
   payloadDrawer: PayloadDrawer.Model
   handleOnlyDrawer: HandleOnlyDrawer.Model
@@ -56,6 +59,7 @@ export type Msg =
   | { _tag: 'ScrollDrawerMsg'; subMsg: ScrollDrawer.Msg }
   | { _tag: 'ScrollXDrawerMsg'; subMsg: ScrollXDrawer.Msg }
   | { _tag: 'NestedDrawerMsg'; subMsg: NestedDrawer.Msg }
+  | { _tag: 'DragLockDrawerMsg'; subMsg: DragLockDrawer.Msg }
   | { _tag: 'NonModalDrawerMsg'; subMsg: NonModalDrawer.Msg }
   | { _tag: 'PayloadDrawerMsg'; subMsg: PayloadDrawer.Msg }
   | { _tag: 'HandleOnlyDrawerMsg'; subMsg: HandleOnlyDrawer.Msg }

@@ -3,6 +3,7 @@ import { Sub } from 'tea-cup-fp'
 import * as ActionsDrawer from './component/actions-drawer'
 import * as BasicDrawer from './component/basic-drawer'
 import * as DirectionDrawer from './component/direction-drawer'
+import * as DragLockDrawer from './component/drag-lock-drawer'
 import * as FeedbackDrawer from './component/feedback-drawer'
 import * as HandleOnlyDrawer from './component/handle-only-drawer'
 import * as MeasuredSnapDrawer from './component/measured-snap-drawer'
@@ -48,6 +49,9 @@ export const subscriptions = (model: Model): Sub<Msg> =>
     ),
     NestedDrawer.subscriptions(model.nestedDrawer).map(
       (subMsg): Msg => ({ _tag: 'NestedDrawerMsg', subMsg }),
+    ),
+    DragLockDrawer.subscriptions(model.dragLockDrawer).map(
+      (subMsg): Msg => ({ _tag: 'DragLockDrawerMsg', subMsg }),
     ),
     NonModalDrawer.subscriptions(model.nonModalDrawer).map(
       (subMsg): Msg => ({ _tag: 'NonModalDrawerMsg', subMsg }),

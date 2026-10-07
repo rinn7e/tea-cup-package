@@ -5,6 +5,7 @@ import { Cmd } from 'tea-cup-fp'
 import * as ActionsDrawer from './component/actions-drawer'
 import * as BasicDrawer from './component/basic-drawer'
 import * as DirectionDrawer from './component/direction-drawer'
+import * as DragLockDrawer from './component/drag-lock-drawer'
 import * as FeedbackDrawer from './component/feedback-drawer'
 import * as HandleOnlyDrawer from './component/handle-only-drawer'
 import * as MeasuredSnapDrawer from './component/measured-snap-drawer'
@@ -31,6 +32,7 @@ export const init = (): [Model, Cmd<Msg>] => [
     scrollDrawer: ScrollDrawer.defaultModel(),
     scrollXDrawer: ScrollXDrawer.defaultModel(),
     nestedDrawer: NestedDrawer.defaultModel(),
+    dragLockDrawer: DragLockDrawer.defaultModel(),
     nonModalDrawer: NonModalDrawer.defaultModel(),
     payloadDrawer: PayloadDrawer.defaultModel(),
     handleOnlyDrawer: HandleOnlyDrawer.defaultModel(),
@@ -178,6 +180,15 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
         update: NestedDrawer.update,
         isOpen: NestedDrawer.isOpen,
         toMsg: (subMsg): Msg => ({ _tag: 'NestedDrawerMsg', subMsg }),
+      })(msg.subMsg)(model)
+    case 'DragLockDrawerMsg':
+      return childDrawerHandler({
+        name: 'dragLock',
+        get: (m) => m.dragLockDrawer,
+        set: (m, dragLockDrawer) => ({ ...m, dragLockDrawer }),
+        update: DragLockDrawer.update,
+        isOpen: DragLockDrawer.isOpen,
+        toMsg: (subMsg): Msg => ({ _tag: 'DragLockDrawerMsg', subMsg }),
       })(msg.subMsg)(model)
     case 'NonModalDrawerMsg':
       return childDrawerHandler({

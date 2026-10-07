@@ -37,7 +37,9 @@ import {
   getInternal,
   getPropsEq,
   isOpen,
+  lockDrag,
   modifyContent,
+  unlockDrag,
   update,
 } from '../src'
 
@@ -451,6 +453,59 @@ describe('drag', () => {
     )
     expect(model.animate._tag).toBe('Visible')
     expect(gestureTag(model)).toBe('Idle')
+  })
+})
+
+describe('drag lock', () => {
+  it("stops a press from dragging the drawer, until it's unlocked", () => {
+    const locked = lockDrag(visible())
+    expect(locked.isDragLocked).toBe(true)
+    const pressed = run(
+      locked,
+      { _tag: 'PointerDown', press: press() },
+      { _tag: 'PointerMove', x: 0, y: 600, time: 100, hasSelection: false },
+    )
+    expect(gestureTag(pressed)).toBe('Idle')
+    expect(pressed.animate._tag).toBe('Visible')
+
+    const dragged = run(
+      unlockDrag(locked),
+      { _tag: 'PointerDown', press: press() },
+      { _tag: 'PointerMove', x: 0, y: 600, time: 100, hasSelection: false },
+    )
+    expect(dragged.animate).toMatchObject({ _tag: 'Dragging', distance: 100 })
+  })
+
+  it('lets a drag already under way go on', () => {
+    const dragging = run(
+      visible(),
+      { _tag: 'PointerDown', press: press() },
+      { _tag: 'PointerMove', x: 0, y: 600, time: 100, hasSelection: false },
+    )
+    const moved = run(lockDrag(dragging), {
+      _tag: 'PointerMove',
+      x: 0,
+      y: 650,
+      time: 150,
+      hasSelection: false,
+    })
+    expect(moved.animate).toMatchObject({ _tag: 'Dragging', distance: 150 })
+  })
+
+  it('is kept across closing and opening', () => {
+    const locked = lockDrag(closed())
+    const reopened = run(
+      locked,
+      { _tag: 'Open', internal: 'apple' },
+      { _tag: 'Close' },
+      { _tag: 'Open', internal: 'banana' },
+    )
+    expect(reopened.isDragLocked).toBe(true)
+  })
+
+  it('still closes on Close', () => {
+    const closing = run(lockDrag(visible()), { _tag: 'Close' })
+    expect(isOpen(closing.animate)).toBe(false)
   })
 })
 

@@ -4,6 +4,7 @@ import { type Dispatcher, map } from 'tea-cup-fp'
 import { ActionsDrawer } from './component/actions-drawer/component'
 import { BasicDrawer } from './component/basic-drawer/component'
 import { DirectionDrawer } from './component/direction-drawer/component'
+import { DragLockDrawer } from './component/drag-lock-drawer/component'
 import { FeedbackDrawer } from './component/feedback-drawer/component'
 import { HandleOnlyDrawer } from './component/handle-only-drawer/component'
 import { MeasuredSnapDrawer } from './component/measured-snap-drawer/component'
@@ -161,6 +162,14 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
         },
       ],
       open: { _tag: 'NestedDrawerMsg', subMsg: { _tag: 'Open' } },
+    },
+    {
+      id: 'dragLock',
+      title: 'Drag lock',
+      description:
+        'Its content locks and unlocks dragging (`lockDrag` / `unlockDrag`).',
+      state: model.dragLockDrawer.drawer.animate._tag,
+      open: { _tag: 'DragLockDrawerMsg', subMsg: { _tag: 'Open' } },
     },
     {
       id: 'handleOnly',
@@ -441,6 +450,13 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
         dispatch={map(
           dispatch,
           (subMsg): Msg => ({ _tag: 'NestedDrawerMsg', subMsg }),
+        )}
+      />
+      <DragLockDrawer
+        model={model.dragLockDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'DragLockDrawerMsg', subMsg }),
         )}
       />
       <NonModalDrawer

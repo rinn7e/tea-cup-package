@@ -96,7 +96,23 @@ export const defaultModel = <Item>(config: Config<Item>): Model<Item> => ({
   openedAt: O.none,
   swallowNextClick: false,
   seq: 0,
+  isDragLocked: false,
   config,
+})
+
+// The owner stops a press from dragging the drawer, until `unlockDrag` (e.g.
+// while something inside it takes the gestures). A drag already under way
+// goes on; the next press doesn't drag. Taps on the handle still cycle the
+// snap points, and `Close` / `Dismiss` still close it.
+export const lockDrag = <Item>(model: Model<Item>): Model<Item> => ({
+  ...model,
+  isDragLocked: true,
+})
+
+// The owner lets a press drag the drawer again
+export const unlockDrag = <Item>(model: Model<Item>): Model<Item> => ({
+  ...model,
+  isDragLocked: false,
 })
 
 // Effects
@@ -444,7 +460,9 @@ const withGesture =
 const pointerDownHandler =
   (press: Press) =>
   <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
-    const canDrag = model.config.dismissible || hasSnapPoints(model.snap)
+    const canDrag =
+      !model.isDragLocked &&
+      (model.config.dismissible || hasSnapPoints(model.snap))
     // A new press: its click is a tap until it drags
     const pressed = { ...model, swallowNextClick: false }
     if (canDrag) {

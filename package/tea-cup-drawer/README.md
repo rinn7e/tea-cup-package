@@ -15,6 +15,7 @@ A drawer (bottom sheet / side panel) for React and The Elm Architecture, powered
 - **No keyboard listener**: keys (Escape, Tab) belong to the owner, who knows the app's other layers (dialogs, popups of other libraries) and sends `Dismiss` or `Close`. See [Keyboard](#keyboard).
 - **Accessible name**: `config.aria` names the `role="dialog"` with a text or with its title element, and can point at a description.
 - **Snap points that follow the content**: `SetSnapPoints` replaces them while open (e.g. measured from the content), keeping the active one.
+- **Drag lock**: `lockDrag` / `unlockDrag` stop presses from dragging the drawer while something inside it takes the gestures.
 - **Memoized, with two data channels**: `DrawerMemo`'s `renderContent(content, contentDispatch, parent)` gets everything as arguments: the payload (owned by the drawer, dropped when it closes), a dispatch for the content's own messages, and `parent` (owned by the parent), each data channel with its own `Eq`.
 - **Keyed content messages**: the payload is identified by `Config.uniqueKeyField` (like tea-cup-pagination's items and the screen stack's screens), so a reply from a payload that was closed or replaced never reaches the new one.
 - **Pure, tested logic**: the physics (`decideDrag`, `decideRelease`, `dragDistance`, ...) are pure functions in `util.ts`. DOM reads happen at event time and reach `update` as facts inside messages.
@@ -269,6 +270,18 @@ case 'Measured':
 ```
 
 The points last until the drawer closes: every open starts again from `config.snap`, and `SetSnapPoints` is ignored while it is closed or without snap points. Measure from the content (it renders while `Mounting`, before sliding in), not before opening.
+
+### Locking the drag
+
+When something inside the drawer takes the gestures for a while (a full-screen composer in a side page, a canvas), stop presses from dragging the drawer with `lockDrag`, and let them again with `unlockDrag`. They are model helpers, like `modifyContent`: call them in your `update`, e.g. whenever the state they follow changes:
+
+```ts
+const drawer = isEditing
+  ? Drawer.lockDrag(model.drawer)
+  : Drawer.unlockDrag(model.drawer)
+```
+
+The lock (`isDragLocked`) is kept across opening and closing. A drag already under way goes on; the next press doesn't drag. Taps on the handle still cycle the snap points, and `Close` / `Dismiss` still close it.
 
 ### Reacting to open changes
 
