@@ -367,8 +367,10 @@ export const getModelEq = <Item>(
 
 // `ItemMsg`: the messages of the content (`never` when it has none)
 export type Msg<Item, ItemMsg = never> =
-  // Open the drawer with a payload, or replace the payload while it is open
-  | { _tag: 'Open'; internal: Item }
+  // Open the drawer with a payload, or replace the payload while it is open.
+  // `skipAnimation`: a closed drawer is shown at its open position at once
+  // (e.g. a page restored on load); a drawer already on screen moves as usual.
+  | { _tag: 'Open'; internal: Item; skipAnimation?: true }
   // From the content's view (`contentDispatch`), with the payload's key.
   // Not handled here: the owner intercepts it and updates the payload with
   // `getContent` / `modifyContent`.
@@ -387,6 +389,8 @@ export type Msg<Item, ItemMsg = never> =
   // Tap on the handle: move to the next snap point
   | { _tag: 'CycleSnap' }
   | { _tag: 'MountFrame'; seq: number }
+  // A drawer opened without animation has been painted: move the focus in
+  | { _tag: 'FocusFrame'; seq: number }
   // The drawer's own transform transition finished
   | { _tag: 'TransitionEnd' }
   // Fallback for a `transitionend` that never fires

@@ -8,6 +8,7 @@ import type * as NonDismissibleDrawer from './component/non-dismissible-drawer'
 import type * as NonModalDrawer from './component/non-modal-drawer'
 import type * as PayloadDrawer from './component/payload-drawer'
 import type * as ScrollDrawer from './component/scroll-drawer'
+import type * as SkipAnimationDrawer from './component/skip-animation-drawer'
 import type * as SnapDrawer from './component/snap-drawer'
 import type * as SnapFullscreenDrawer from './component/snap-fullscreen-drawer'
 
@@ -31,6 +32,8 @@ export type Model = {
   feedbackDrawer: FeedbackDrawer.Model
   // A snap point measured from the content
   measuredSnapDrawer: MeasuredSnapDrawer.Model
+  // Shown at once, without sliding in
+  skipAnimationDrawer: SkipAnimationDrawer.Model
   // Open / close changes the parent noticed in its children (vaul's
   // `onOpenChange`), newest first
   openLog: string[]
@@ -51,3 +54,4 @@ export type Msg =
   | { _tag: 'ActionsDrawerMsg'; subMsg: ActionsDrawer.Msg }
   | { _tag: 'FeedbackDrawerMsg'; subMsg: FeedbackDrawer.Msg }
   | { _tag: 'MeasuredSnapDrawerMsg'; subMsg: MeasuredSnapDrawer.Msg }
+  | { _tag: 'SkipAnimationDrawerMsg'; subMsg: SkipAnimationDrawer.Msg }

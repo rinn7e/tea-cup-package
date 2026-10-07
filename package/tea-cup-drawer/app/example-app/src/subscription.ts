@@ -10,6 +10,7 @@ import * as NonDismissibleDrawer from './component/non-dismissible-drawer'
 import * as NonModalDrawer from './component/non-modal-drawer'
 import * as PayloadDrawer from './component/payload-drawer'
 import * as ScrollDrawer from './component/scroll-drawer'
+import * as SkipAnimationDrawer from './component/skip-animation-drawer'
 import * as SnapDrawer from './component/snap-drawer'
 import * as SnapFullscreenDrawer from './component/snap-fullscreen-drawer'
 import { type Model, type Msg } from './type'
@@ -57,5 +58,8 @@ export const subscriptions = (model: Model): Sub<Msg> =>
     ),
     MeasuredSnapDrawer.subscriptions(model.measuredSnapDrawer).map(
       (subMsg): Msg => ({ _tag: 'MeasuredSnapDrawerMsg', subMsg }),
+    ),
+    SkipAnimationDrawer.subscriptions(model.skipAnimationDrawer).map(
+      (subMsg): Msg => ({ _tag: 'SkipAnimationDrawerMsg', subMsg }),
     ),
   ])

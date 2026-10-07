@@ -11,6 +11,7 @@ import { NonDismissibleDrawer } from './component/non-dismissible-drawer/compone
 import { NonModalDrawer } from './component/non-modal-drawer/component'
 import { PayloadDrawer } from './component/payload-drawer/component'
 import { ScrollDrawer } from './component/scroll-drawer/component'
+import { SkipAnimationDrawer } from './component/skip-animation-drawer/component'
 import { SnapDrawer } from './component/snap-drawer/component'
 import { SnapFullscreenDrawer } from './component/snap-fullscreen-drawer/component'
 import { type Model, type Msg } from './type'
@@ -261,6 +262,39 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
             })}
 
             {demoCard({
+              id: 'skipAnimation',
+              title: 'Skip animation',
+              description:
+                'A page from the right. "Open at once" shows it without sliding in (`skipAnimation`), e.g. for a page an app restores on load; "Open" slides it in.',
+              state: model.skipAnimationDrawer.drawer.animate._tag,
+              children: (
+                <>
+                  {openButton({
+                    id: 'skipAnimation',
+                    onClick: () =>
+                      dispatch({
+                        _tag: 'SkipAnimationDrawerMsg',
+                        subMsg: { _tag: 'Open' },
+                      }),
+                  })}
+                  <button
+                    type='button'
+                    data-test='trigger-skipAnimation-at-once'
+                    className={secondaryButtonClassName}
+                    onClick={() =>
+                      dispatch({
+                        _tag: 'SkipAnimationDrawerMsg',
+                        subMsg: { _tag: 'OpenAtOnce' },
+                      })
+                    }
+                  >
+                    Open at once
+                  </button>
+                </>
+              ),
+            })}
+
+            {demoCard({
               id: 'feedback',
               title: 'Side by side',
               description:
@@ -399,6 +433,13 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
         dispatch={map(
           dispatch,
           (subMsg): Msg => ({ _tag: 'MeasuredSnapDrawerMsg', subMsg }),
+        )}
+      />
+      <SkipAnimationDrawer
+        model={model.skipAnimationDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'SkipAnimationDrawerMsg', subMsg }),
         )}
       />
     </div>

@@ -128,6 +128,8 @@ export const subscriptions = (model: Model): Sub<Msg> =>
 
 Open it from anywhere by sending `{ _tag: 'Open', internal: message }`, and close it with `{ _tag: 'Close' }`. The subscriptions only follow a drag in progress; the drawer listens to no keys (see [Keyboard](#keyboard)).
 
+To show it without sliding in (e.g. a page restored from the URL on load), add `skipAnimation: true`: a closed drawer appears at its open position at once, and the focus moves in once it is painted. Leave it out for anything the user does. A drawer already on screen ignores it and moves as usual (closing still animates).
+
 ### 3. View
 
 ```tsx
@@ -294,6 +296,7 @@ case 'ActionsMsg': {
 
 ```
 Invisible ─Open→ Mounting ─(next paint)→ AnimateIn ─(transitionend)→ Visible
+Invisible ─Open { skipAnimation }→ Visible   (focus moved in on FocusFrame, after the next paint)
 Visible   ─Close / Dismiss / swipe→ AnimateOut ─(transitionend)→ Invisible
 Visible   ─pointer moves along the axis→ Dragging ─release→ Settling | AnimateOut
 Settling  ─(transitionend)→ Visible

@@ -161,6 +161,78 @@ describe('open', () => {
   })
 })
 
+describe('open — skipAnimation', () => {
+  const openAtRest: Msg<string> = {
+    _tag: 'Open',
+    internal: 'apple',
+    skipAnimation: true,
+  }
+
+  it('is visible at once, at rest', () => {
+    const model = run(closed(), openAtRest)
+    expect(model.animate).toEqual({
+      _tag: 'Visible',
+      internal: 'apple',
+      gesture: { _tag: 'Idle' },
+    })
+    expect(model.seq).toBe(closed().seq + 1)
+  })
+
+  it('opens at the initial snap point', () => {
+    const config = {
+      ...defaultConfig('test', (s: string) => s, aria),
+      snap: {
+        _tag: 'Snap',
+        initial: {
+          before: [{ _tag: 'Fraction', value: 0.4 }],
+          active: { _tag: 'Fraction', value: 1 },
+          after: [],
+        },
+        fadeFrom: O.none,
+        sequential: false,
+      },
+    } satisfies Config<string>
+    expect(activeSnapIndex(run(closed(config), openAtRest).snap)).toBe(1)
+  })
+
+  it('moves the focus in once painted, unless it has moved since', () => {
+    const shown = run(closed(), openAtRest)
+    const [same, cmd] = update({ _tag: 'FocusFrame', seq: shown.seq }, shown)
+    expect(same).toEqual(shown)
+    expect(cmd).not.toEqual(update({ _tag: 'NoOp' }, shown)[1])
+
+    const closing = run(shown, { _tag: 'Close' })
+    expect(update({ _tag: 'FocusFrame', seq: shown.seq }, closing)).toEqual(
+      update({ _tag: 'NoOp' }, closing),
+    )
+    expect(update({ _tag: 'FocusFrame', seq: shown.seq - 1 }, shown)).toEqual(
+      update({ _tag: 'NoOp' }, shown),
+    )
+  })
+
+  it('closes with its animation', () => {
+    const closing = run(closed(), openAtRest, { _tag: 'Close' })
+    expect(closing.animate._tag).toBe('AnimateOut')
+    expect(run(closing, { _tag: 'TransitionEnd' }).animate._tag).toBe(
+      'Invisible',
+    )
+  })
+
+  it('moves as usual when already on screen', () => {
+    // Reopened while closing: reverses from where it is
+    const closing = run(visible(), { _tag: 'Close' })
+    expect(run(closing, openAtRest).animate._tag).toBe('AnimateIn')
+    // Open: only the payload changes
+    expect(
+      run(visible(), { ...openAtRest, internal: 'banana' }).animate,
+    ).toEqual({
+      _tag: 'Visible',
+      internal: 'banana',
+      gesture: { _tag: 'Idle' },
+    })
+  })
+})
+
 describe('close', () => {
   it('keeps the payload while animating out', () => {
     const model = run(visible(), { _tag: 'Close' })

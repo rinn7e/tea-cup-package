@@ -125,28 +125,52 @@ const startAnimation = <Item>(
 // Handlers
 // ---------------------------------
 
+// `skipAnimation` only matters while closed: the drawer isn't rendered yet,
+// so it appears at its open position with no transition (a first render has
+// none to run). On screen, it moves from where it is.
 export const openHandler =
-  <Item>(internal: Item) =>
+  <Item>(internal: Item, skipAnimation?: true) =>
   (model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
-    const animate = model.animate
-    switch (animate._tag) {
+    const state = model.animate
+    switch (state._tag) {
       case 'Invisible': {
         const seq = model.seq + 1
-        return [
-          {
-            ...model,
-            animate: { _tag: 'Mounting', internal },
-            snap: snapFromConfig(model.config.snap),
-            seq,
-          },
-          Cmd.batch([
-            noOp(rememberFocusCmd(model.config)),
-            afterNextPaintCmd<Msg<Item>>(model.config, {
-              _tag: 'MountFrame',
-              seq,
-            }),
-          ]),
-        ]
+        return !skipAnimation
+          ? [
+              {
+                ...model,
+                animate: { _tag: 'Mounting', internal },
+                snap: snapFromConfig(model.config.snap),
+                seq,
+              },
+              Cmd.batch([
+                noOp(rememberFocusCmd(model.config)),
+                afterNextPaintCmd<Msg<Item>>(model.config, {
+                  _tag: 'MountFrame',
+                  seq,
+                }),
+              ]),
+            ]
+          : [
+              {
+                ...model,
+                animate: {
+                  _tag: 'Visible',
+                  internal,
+                  gesture: { _tag: 'Idle' },
+                },
+                snap: snapFromConfig(model.config.snap),
+                seq,
+              },
+              Cmd.batch([
+                noOp(rememberFocusCmd(model.config)),
+                // The focus moves in once it is rendered, as after `MountFrame`
+                afterNextPaintCmd<Msg<Item>>(model.config, {
+                  _tag: 'FocusFrame',
+                  seq,
+                }),
+              ]),
+            ]
       }
       case 'AnimateOut': {
         // Reopened while closing: reverse from the current position
@@ -159,7 +183,7 @@ export const openHandler =
       case 'Dragging':
       case 'Settling':
         // Already open: only the payload changes
-        return [{ ...model, animate: { ...animate, internal } }, Cmd.none()]
+        return [{ ...model, animate: { ...state, internal } }, Cmd.none()]
     }
   }
 
@@ -268,6 +292,17 @@ const mountFrameHandler =
       ]
     } else {
       // Closed or reopened in the meantime
+      return [model, Cmd.none()]
+    }
+  }
+
+const focusFrameHandler =
+  (seq: number) =>
+  <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
+    if (seq === model.seq && model.animate._tag === 'Visible') {
+      return [model, noOp(focusContentCmd(model.config))]
+    } else {
+      // Closed, moved or reopened in the meantime
       return [model, Cmd.none()]
     }
   }
@@ -637,7 +672,7 @@ const updateMsg = <Item, ItemMsg>(
 ): [Model<Item>, Cmd<Msg<Item, ItemMsg>>] => {
   switch (msg._tag) {
     case 'Open':
-      return openHandler(msg.internal)(model)
+      return openHandler(msg.internal, msg.skipAnimation)(model)
     case 'ContentMsg':
       // The owner intercepts this one (`getContent` / `modifyContent`)
       return [model, Cmd.none()]
@@ -653,6 +688,8 @@ const updateMsg = <Item, ItemMsg>(
       return cycleSnapHandler(model)
     case 'MountFrame':
       return mountFrameHandler(msg.seq)(model)
+    case 'FocusFrame':
+      return focusFrameHandler(msg.seq)(model)
     case 'TransitionEnd':
       return animationEndHandler(model)
     case 'AnimationTimeout':

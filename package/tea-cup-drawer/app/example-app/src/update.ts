@@ -12,6 +12,7 @@ import * as NonDismissibleDrawer from './component/non-dismissible-drawer'
 import * as NonModalDrawer from './component/non-modal-drawer'
 import * as PayloadDrawer from './component/payload-drawer'
 import * as ScrollDrawer from './component/scroll-drawer'
+import * as SkipAnimationDrawer from './component/skip-animation-drawer'
 import * as SnapDrawer from './component/snap-drawer'
 import * as SnapFullscreenDrawer from './component/snap-fullscreen-drawer'
 import { type Model, type Msg } from './type'
@@ -32,6 +33,7 @@ export const init = (): [Model, Cmd<Msg>] => [
     actionsDrawer: ActionsDrawer.defaultModel(),
     feedbackDrawer: FeedbackDrawer.defaultModel(),
     measuredSnapDrawer: MeasuredSnapDrawer.defaultModel(),
+    skipAnimationDrawer: SkipAnimationDrawer.defaultModel(),
     openLog: [],
   },
   Cmd.none(),
@@ -213,6 +215,15 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
         update: FeedbackDrawer.update,
         isOpen: FeedbackDrawer.isOpen,
         toMsg: (subMsg): Msg => ({ _tag: 'FeedbackDrawerMsg', subMsg }),
+      })(msg.subMsg)(model)
+    case 'SkipAnimationDrawerMsg':
+      return childDrawerHandler({
+        name: 'skipAnimation',
+        get: (m) => m.skipAnimationDrawer,
+        set: (m, skipAnimationDrawer) => ({ ...m, skipAnimationDrawer }),
+        update: SkipAnimationDrawer.update,
+        isOpen: SkipAnimationDrawer.isOpen,
+        toMsg: (subMsg): Msg => ({ _tag: 'SkipAnimationDrawerMsg', subMsg }),
       })(msg.subMsg)(model)
     case 'MeasuredSnapDrawerMsg':
       return childDrawerHandler({
