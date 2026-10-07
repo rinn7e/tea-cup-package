@@ -315,8 +315,11 @@ export const defaultHandleView = ({
   </div>
 )
 
-const handleAttrs = <Item,>(dispatch: Dispatcher<Msg<Item>>): HandleAttrs => ({
-  'data-drawer-handle': '',
+const handleAttrs = <Item,>(
+  config: Config<Item>,
+  dispatch: Dispatcher<Msg<Item>>,
+): HandleAttrs => ({
+  'data-drawer-handle': config.direction,
   'aria-hidden': 'true',
   onClick: () => dispatch({ _tag: 'CycleSnap' }),
 })
@@ -331,7 +334,7 @@ export const drawerHandleView = <Item,>(
   className?: string,
 ): JSX.Element =>
   (config.ui?.handle ?? defaultHandleView)({
-    attrs: handleAttrs(dispatch),
+    attrs: handleAttrs(config, dispatch),
     className,
     children: <span data-drawer-handle-hitarea='' />,
   })

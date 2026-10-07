@@ -8,6 +8,7 @@ import * as DirectionDrawer from './component/direction-drawer'
 import * as FeedbackDrawer from './component/feedback-drawer'
 import * as HandleOnlyDrawer from './component/handle-only-drawer'
 import * as MeasuredSnapDrawer from './component/measured-snap-drawer'
+import * as NestedDrawer from './component/nested-drawer'
 import * as NonDismissibleDrawer from './component/non-dismissible-drawer'
 import * as NonModalDrawer from './component/non-modal-drawer'
 import * as PayloadDrawer from './component/payload-drawer'
@@ -29,6 +30,7 @@ export const init = (): [Model, Cmd<Msg>] => [
     rightDrawer: DirectionDrawer.defaultModel('right'),
     scrollDrawer: ScrollDrawer.defaultModel(),
     scrollXDrawer: ScrollXDrawer.defaultModel(),
+    nestedDrawer: NestedDrawer.defaultModel(),
     nonModalDrawer: NonModalDrawer.defaultModel(),
     payloadDrawer: PayloadDrawer.defaultModel(),
     handleOnlyDrawer: HandleOnlyDrawer.defaultModel(),
@@ -167,6 +169,15 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
         update: ScrollXDrawer.update,
         isOpen: ScrollXDrawer.isOpen,
         toMsg: (subMsg): Msg => ({ _tag: 'ScrollXDrawerMsg', subMsg }),
+      })(msg.subMsg)(model)
+    case 'NestedDrawerMsg':
+      return childDrawerHandler({
+        name: 'nested',
+        get: (m) => m.nestedDrawer,
+        set: (m, nestedDrawer) => ({ ...m, nestedDrawer }),
+        update: NestedDrawer.update,
+        isOpen: NestedDrawer.isOpen,
+        toMsg: (subMsg): Msg => ({ _tag: 'NestedDrawerMsg', subMsg }),
       })(msg.subMsg)(model)
     case 'NonModalDrawerMsg':
       return childDrawerHandler({

@@ -6,6 +6,7 @@ import * as DirectionDrawer from './component/direction-drawer'
 import * as FeedbackDrawer from './component/feedback-drawer'
 import * as HandleOnlyDrawer from './component/handle-only-drawer'
 import * as MeasuredSnapDrawer from './component/measured-snap-drawer'
+import * as NestedDrawer from './component/nested-drawer'
 import * as NonDismissibleDrawer from './component/non-dismissible-drawer'
 import * as NonModalDrawer from './component/non-modal-drawer'
 import * as PayloadDrawer from './component/payload-drawer'
@@ -44,6 +45,9 @@ export const subscriptions = (model: Model): Sub<Msg> =>
     ),
     ScrollXDrawer.subscriptions(model.scrollXDrawer).map(
       (subMsg): Msg => ({ _tag: 'ScrollXDrawerMsg', subMsg }),
+    ),
+    NestedDrawer.subscriptions(model.nestedDrawer).map(
+      (subMsg): Msg => ({ _tag: 'NestedDrawerMsg', subMsg }),
     ),
     NonModalDrawer.subscriptions(model.nonModalDrawer).map(
       (subMsg): Msg => ({ _tag: 'NonModalDrawerMsg', subMsg }),

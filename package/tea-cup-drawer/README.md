@@ -368,7 +368,7 @@ Style per phase with the `data-state` attribute (e.g. `data-[state=Dragging]:sha
 
 ## Differences from vaul
 
-The handle (`drawerHandleView`) sits on the drawer's inner edge for every direction: at the top of a bottom drawer (in the flow, as in vaul), at the bottom of a top drawer, and as a vertical bar on the inner side of a left or right drawer (vaul always draws a horizontal handle at the top). It is placed by `drawer.css` from `data-drawer-direction`, so the content layout doesn't change.
+The handle (`drawerHandleView`) sits on the drawer's inner edge for every direction: at the top of a bottom drawer (in the flow, as in vaul), at the bottom of a top drawer, and as a vertical bar on the inner side of a left or right drawer (vaul always draws a horizontal handle at the top). It is placed by `drawer.css` from its own `data-drawer-handle` (its drawer's direction), so the content layout doesn't change, and a drawer shown inside another (e.g. a bottom sheet portaled into a side page with `portal: Container`) keeps its own handle.
 
 No keyboard handling: vaul (through Radix Dialog) closes on Escape and traps Tab for the topmost layer of its own stack. Here the owner handles keys with the app's layer stack, which also knows layers that aren't drawers (see [Keyboard](#keyboard)).
 

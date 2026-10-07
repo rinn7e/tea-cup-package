@@ -59,7 +59,7 @@ describe('drawerHandleView', () => {
     const handle = drawerHandleView(config(), (m) => dispatched.push(m), 'mine')
     const expected = defaultHandleView({
       attrs: {
-        'data-drawer-handle': '',
+        'data-drawer-handle': 'bottom',
         'aria-hidden': 'true',
         onClick: () => {},
       },
@@ -68,7 +68,7 @@ describe('drawerHandleView', () => {
     })
     expect(handle.type).toBe(expected.type)
     expect(handle.props.className).toBe(expected.props.className)
-    expect(handle.props['data-drawer-handle']).toBe('')
+    expect(handle.props['data-drawer-handle']).toBe('bottom')
   })
 
   it('renders the config’s handle with the attributes, class and hit area', () => {
@@ -91,7 +91,7 @@ describe('drawerHandleView', () => {
     expect(args).toHaveLength(1)
     const [arg] = args
     expect(arg.className).toBe('mine')
-    expect(arg.attrs['data-drawer-handle']).toBe('')
+    expect(arg.attrs['data-drawer-handle']).toBe('bottom')
     expect(arg.attrs['aria-hidden']).toBe('true')
     expect(
       (arg.children as { props: Record<string, unknown> }).props,

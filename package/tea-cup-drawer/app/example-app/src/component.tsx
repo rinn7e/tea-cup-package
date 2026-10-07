@@ -7,6 +7,7 @@ import { DirectionDrawer } from './component/direction-drawer/component'
 import { FeedbackDrawer } from './component/feedback-drawer/component'
 import { HandleOnlyDrawer } from './component/handle-only-drawer/component'
 import { MeasuredSnapDrawer } from './component/measured-snap-drawer/component'
+import { NestedDrawer } from './component/nested-drawer/component'
 import { NonDismissibleDrawer } from './component/non-dismissible-drawer/component'
 import { NonModalDrawer } from './component/non-modal-drawer/component'
 import { PayloadDrawer } from './component/payload-drawer/component'
@@ -27,6 +28,8 @@ const demoCard = (args: {
   description: string
   // The drawer's animation state
   state: string
+  // The states of other drawers in the demo (e.g. one shown inside it)
+  extraStates?: { id: string; state: string }[]
   children: ReactNode
 }) => (
   <div
@@ -41,6 +44,15 @@ const demoCard = (args: {
       >
         {args.state}
       </span>
+      {(args.extraStates ?? []).map((extra) => (
+        <span
+          key={extra.id}
+          data-test={`state-${extra.id}`}
+          className='rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600'
+        >
+          {extra.state}
+        </span>
+      ))}
     </div>
     <p className='text-sm text-slate-600'>{args.description}</p>
     <div className='flex flex-wrap gap-2'>{args.children}</div>
@@ -69,6 +81,7 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
     title: string
     description: string
     state: string
+    extraStates?: { id: string; state: string }[]
     open: Msg
   }[] = [
     {
@@ -134,6 +147,20 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
         'A right drawer with a wide table: swipes on the table scroll it, never the drawer.',
       state: model.scrollXDrawer.drawer.animate._tag,
       open: { _tag: 'ScrollXDrawerMsg', subMsg: { _tag: 'Open' } },
+    },
+    {
+      id: 'nested',
+      title: 'Nested drawer',
+      description:
+        'A right drawer with a bottom sheet inside it: each keeps its own handle.',
+      state: model.nestedDrawer.page.animate._tag,
+      extraStates: [
+        {
+          id: 'nestedSheet',
+          state: model.nestedDrawer.sheet.animate._tag,
+        },
+      ],
+      open: { _tag: 'NestedDrawerMsg', subMsg: { _tag: 'Open' } },
     },
     {
       id: 'handleOnly',
@@ -407,6 +434,13 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
         dispatch={map(
           dispatch,
           (subMsg): Msg => ({ _tag: 'ScrollXDrawerMsg', subMsg }),
+        )}
+      />
+      <NestedDrawer
+        model={model.nestedDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'NestedDrawerMsg', subMsg }),
         )}
       />
       <NonModalDrawer

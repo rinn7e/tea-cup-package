@@ -462,7 +462,9 @@ export type OverlayUiArg = {
 // Attributes of the drag handle; spread them on the element when
 // overriding the view with `ui.handle`.
 export type HandleAttrs = {
-  'data-drawer-handle': ''
+  // Its drawer's direction: the handle's place follows its own drawer, not
+  // a drawer it is nested in (`drawer.css`)
+  'data-drawer-handle': Direction
   'aria-hidden': 'true'
   onClick: () => void
 }

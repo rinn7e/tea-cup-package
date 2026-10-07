@@ -4,6 +4,7 @@ import type * as DirectionDrawer from './component/direction-drawer'
 import type * as FeedbackDrawer from './component/feedback-drawer'
 import type * as HandleOnlyDrawer from './component/handle-only-drawer'
 import type * as MeasuredSnapDrawer from './component/measured-snap-drawer'
+import type * as NestedDrawer from './component/nested-drawer'
 import type * as NonDismissibleDrawer from './component/non-dismissible-drawer'
 import type * as NonModalDrawer from './component/non-modal-drawer'
 import type * as PayloadDrawer from './component/payload-drawer'
@@ -26,6 +27,8 @@ export type Model = {
   scrollDrawer: ScrollDrawer.Model
   // Content that scrolls sideways, in a right drawer
   scrollXDrawer: ScrollXDrawer.Model
+  // A bottom sheet shown inside a right drawer
+  nestedDrawer: NestedDrawer.Model
   nonModalDrawer: NonModalDrawer.Model
   payloadDrawer: PayloadDrawer.Model
   handleOnlyDrawer: HandleOnlyDrawer.Model
@@ -52,6 +55,7 @@ export type Msg =
   | { _tag: 'RightDrawerMsg'; subMsg: DirectionDrawer.Msg }
   | { _tag: 'ScrollDrawerMsg'; subMsg: ScrollDrawer.Msg }
   | { _tag: 'ScrollXDrawerMsg'; subMsg: ScrollXDrawer.Msg }
+  | { _tag: 'NestedDrawerMsg'; subMsg: NestedDrawer.Msg }
   | { _tag: 'NonModalDrawerMsg'; subMsg: NonModalDrawer.Msg }
   | { _tag: 'PayloadDrawerMsg'; subMsg: PayloadDrawer.Msg }
   | { _tag: 'HandleOnlyDrawerMsg'; subMsg: HandleOnlyDrawer.Msg }
