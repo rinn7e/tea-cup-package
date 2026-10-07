@@ -284,6 +284,12 @@ but more code than passing a callback.
 
 ## 6. Things learned along the way
 
+- **vaul's iOS lock assumes the window scrolls.** It pins the body with
+  `position: fixed`, `top: -scrollY` and `height: auto`. In an app shell
+  (the body as tall as the window, the page scrolling in its own
+  container), `height: auto` grows that container to its content, so it
+  loses its scroll and the page jumps to the top. The body's height is now
+  only set to `auto` when the window itself scrolls.
 - **vaul's `shouldDrag` only knows vertical scrolling.** It returns `true`
   at once for left and right drawers, and only checks `scrollTop` (of a
   bottom drawer). A side drawer with a table or code block that scrolls

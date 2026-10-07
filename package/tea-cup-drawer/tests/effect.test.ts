@@ -223,8 +223,12 @@ describe('body scroll lock on iOS Safari', () => {
     scrollY: number
   }
   let style: Record<string, string>
+  // Height of the scrolled document: taller than the window when the window
+  // itself scrolls
+  let pageHeight: number
 
   beforeEach(() => {
+    pageHeight = 3000
     vi.useFakeTimers()
     // The body's own styles: none set
     style = {
@@ -266,6 +270,11 @@ describe('body scroll lock on iOS Safari', () => {
         }),
       },
       documentElement: { clientWidth: 400 },
+      scrollingElement: {
+        get scrollHeight() {
+          return pageHeight
+        },
+      },
       activeElement: null,
       getElementById: () => null,
     })
@@ -284,6 +293,29 @@ describe('body scroll lock on iOS Safari', () => {
     vi.advanceTimersByTime(400)
     expect(style.top).toBe('-1100px')
     releaseDrawer('view', config())
+  })
+
+  it('pins the body at the scroll, with the whole page height', () => {
+    holdBodyLock('view', config())
+    expect(style.position).toBe('fixed')
+    expect(style.top).toBe('-1000px')
+    expect(style.height).toBe('auto')
+    releaseDrawer('view', config())
+    expect(style).toMatchObject({ position: '', top: '', height: '' })
+  })
+
+  it("keeps the body's height when the page scrolls in its own containers", () => {
+    // An app shell: the body is the window's height, its containers scroll
+    pageHeight = 800
+    win.scrollY = 0
+    holdBodyLock('view', config())
+    expect(style.position).toBe('fixed')
+    expect(style.top).toBe('0px')
+    // `auto` would grow the containers to their content and reset their
+    // scroll
+    expect(style.height).toBe('')
+    releaseDrawer('view', config())
+    expect(style).toMatchObject({ position: '', top: '', height: '' })
   })
 
   it('leaves the page alone once the lock is released', () => {

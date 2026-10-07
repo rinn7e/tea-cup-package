@@ -99,6 +99,13 @@ const isSafari = (): boolean =>
 const isStandalone = (): boolean =>
   window.matchMedia('(display-mode: standalone)').matches
 
+// Whether the window itself scrolls (vaul's case), not only containers inside
+// the page (e.g. an app shell whose body is the viewport's height)
+const isWindowScrollable = (): boolean => {
+  const root = document.scrollingElement ?? document.documentElement
+  return root.scrollHeight > window.innerHeight
+}
+
 const lockBodyScroll = (id: string): void => {
   if (lockHolders.has(id)) {
     // Held already
@@ -141,8 +148,16 @@ const lockBodyScroll = (id: string): void => {
           top: `${-lockedScroll.y}px`,
           left: `${-lockedScroll.x}px`,
           right: '0px',
-          height: 'auto',
         })
+        if (isWindowScrollable()) {
+          // The pinned body keeps the whole page's height, shifted up by the
+          // window's scroll
+          body.style.height = 'auto'
+        } else {
+          // The page scrolls inside its own containers, sized from the
+          // body's height: `auto` would grow them to their content, and
+          // they would lose their scroll position
+        }
         window.setTimeout(
           () =>
             window.requestAnimationFrame(() => {
