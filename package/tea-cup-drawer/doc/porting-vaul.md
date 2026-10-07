@@ -37,7 +37,7 @@ buried inside event handlers that read and write refs.
 | `pointerStart`, `dragStartTime`, `isAllowedToDrag` refs                                       | `Press` (captured on pointer down) inside `Gesture.Pressed` / `Dragging`                                                                                                            |
 | `onPress` / `onDrag` / `onRelease`                                                            | `PointerDown` / `PointerMove` / `PointerUp` / `PointerCancel` messages                                                                                                              |
 | `onRelease` decision, `dampenValue`, `useSnapPoints.onRelease`                                | Pure functions in `util.ts`: `dragDistance`, `decideRelease`, `overlayOpacityAt`                                                                                                    |
-| `shouldDrag` (DOM walk + timing refs)                                                         | DOM facts measured at pointer down (`isNoDragTarget`, `hasScrolledAncestor`), timing decided by the pure `decideDrag`                                                               |
+| `shouldDrag` (DOM walk + timing refs)                                                         | DOM facts measured at pointer down (`isNoDragTarget`, `scrollerTakesGesture`), timing decided by the pure `decideDrag`                                                              |
 | `isDeltaInDirection` (on every move, from the first px; any move toward open counts)          | `gestureStart`: decided once, after `dragThreshold` px of travel, by its angle to the axis (`dragAngle`), like the OS's touch slop                                                  |
 | `element.style.transform = ...` during drags                                                  | Rendered from the model: `--drawer-translate` CSS variable from `translateCss(model)`                                                                                               |
 | `setTimeout(TRANSITIONS.DURATION)`                                                            | `transitionend` → `TransitionEnd`, with `AnimationTimeout` (`delayCmd`) as a fallback                                                                                               |
@@ -284,6 +284,16 @@ but more code than passing a callback.
 
 ## 6. Things learned along the way
 
+- **vaul's `shouldDrag` only knows vertical scrolling.** It returns `true`
+  at once for left and right drawers, and only checks `scrollTop` (of a
+  bottom drawer). A side drawer with a table or code block that scrolls
+  sideways closed on every swipe meant for the content. `decideDrag` now
+  runs every check for every direction. `scrollerTakesGesture` keeps vaul's
+  rule for top and bottom drawers (a list scrolls back first, and at its
+  top a swipe down closes the sheet), but gives a side drawer's sideways
+  scroller every swipe on it, at any position: "scroll back, then drag at
+  the edge" was hard to predict for a swipe across a table, and the rest of
+  the drawer is there to drag it.
 - **Port the tests' intent, not your assumptions.** One e2e test expected
   "drag an open drawer upward → it springs back". vaul actually treats that
   gesture as a content scroll and never starts a drag (`shouldDrag` returns

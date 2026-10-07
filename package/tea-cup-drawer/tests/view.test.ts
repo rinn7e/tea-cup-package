@@ -139,7 +139,7 @@ describe('contentAttrs — click after a drag', () => {
         size: 100,
         viewport: 100,
         isNoDragTarget: false,
-        hasScrolledAncestor: false,
+        scrollerTakesGesture: false,
       },
       distance: 40,
       last: { x: 0, y: 40 },

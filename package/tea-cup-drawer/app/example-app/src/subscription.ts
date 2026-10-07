@@ -10,6 +10,7 @@ import * as NonDismissibleDrawer from './component/non-dismissible-drawer'
 import * as NonModalDrawer from './component/non-modal-drawer'
 import * as PayloadDrawer from './component/payload-drawer'
 import * as ScrollDrawer from './component/scroll-drawer'
+import * as ScrollXDrawer from './component/scroll-x-drawer'
 import * as SkipAnimationDrawer from './component/skip-animation-drawer'
 import * as SnapDrawer from './component/snap-drawer'
 import * as SnapFullscreenDrawer from './component/snap-fullscreen-drawer'
@@ -40,6 +41,9 @@ export const subscriptions = (model: Model): Sub<Msg> =>
     ),
     ScrollDrawer.subscriptions(model.scrollDrawer).map(
       (subMsg): Msg => ({ _tag: 'ScrollDrawerMsg', subMsg }),
+    ),
+    ScrollXDrawer.subscriptions(model.scrollXDrawer).map(
+      (subMsg): Msg => ({ _tag: 'ScrollXDrawerMsg', subMsg }),
     ),
     NonModalDrawer.subscriptions(model.nonModalDrawer).map(
       (subMsg): Msg => ({ _tag: 'NonModalDrawerMsg', subMsg }),

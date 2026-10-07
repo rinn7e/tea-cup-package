@@ -11,6 +11,7 @@ import { NonDismissibleDrawer } from './component/non-dismissible-drawer/compone
 import { NonModalDrawer } from './component/non-modal-drawer/component'
 import { PayloadDrawer } from './component/payload-drawer/component'
 import { ScrollDrawer } from './component/scroll-drawer/component'
+import { ScrollXDrawer } from './component/scroll-x-drawer/component'
 import { SkipAnimationDrawer } from './component/skip-animation-drawer/component'
 import { SnapDrawer } from './component/snap-drawer/component'
 import { SnapFullscreenDrawer } from './component/snap-fullscreen-drawer/component'
@@ -125,6 +126,14 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
       description: 'Long content inside the drawer.',
       state: model.scrollDrawer.drawer.animate._tag,
       open: { _tag: 'ScrollDrawerMsg', subMsg: { _tag: 'Open' } },
+    },
+    {
+      id: 'scrollX',
+      title: 'Sideways content',
+      description:
+        'A right drawer with a wide table: swipes on the table scroll it, never the drawer.',
+      state: model.scrollXDrawer.drawer.animate._tag,
+      open: { _tag: 'ScrollXDrawerMsg', subMsg: { _tag: 'Open' } },
     },
     {
       id: 'handleOnly',
@@ -391,6 +400,13 @@ export const view = (dispatch: Dispatcher<Msg>, model: Model) => {
         dispatch={map(
           dispatch,
           (subMsg): Msg => ({ _tag: 'ScrollDrawerMsg', subMsg }),
+        )}
+      />
+      <ScrollXDrawer
+        model={model.scrollXDrawer}
+        dispatch={map(
+          dispatch,
+          (subMsg): Msg => ({ _tag: 'ScrollXDrawerMsg', subMsg }),
         )}
       />
       <NonModalDrawer

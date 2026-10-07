@@ -102,6 +102,9 @@ test.describe('skipAnimation', () => {
 
   test('closes when dragged right', async ({ page }) => {
     await openAtOnce(page)
+    // For 500ms after opening a swipe is left to the content (vaul's
+    // `openTime`), even without the slide-in
+    await page.waitForTimeout(ANIMATION_DURATION)
     await drag(page, await pointIn(page, 'skipAnimation'), { dx: 300, dy: 0 })
     await expectClosed(page, 'skipAnimation')
   })

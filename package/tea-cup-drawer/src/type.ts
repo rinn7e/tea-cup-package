@@ -188,9 +188,9 @@ export type Press = {
   viewport: number
   // The press started on a `select` or inside `[data-drawer-no-drag]`
   isNoDragTarget: boolean
-  // The press started inside a scrollable element that is not scrolled to
-  // the top, so the gesture should scroll it instead of dragging
-  hasScrolledAncestor: boolean
+  // The press started inside a scroller (up to the drawer) that takes the
+  // gesture (`scrollerTakesGesture`), so it scrolls instead of dragging
+  scrollerTakesGesture: boolean
 }
 
 export const PressEq: EqClass.Eq<Press> = EqClass.struct<Press>({
@@ -202,7 +202,7 @@ export const PressEq: EqClass.Eq<Press> = EqClass.struct<Press>({
   size: N.Eq,
   viewport: N.Eq,
   isNoDragTarget: B.Eq,
-  hasScrolledAncestor: B.Eq,
+  scrollerTakesGesture: B.Eq,
 })
 
 // Last known pointer position, used to release a drag on `pointercancel` /

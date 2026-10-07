@@ -12,6 +12,7 @@ import * as NonDismissibleDrawer from './component/non-dismissible-drawer'
 import * as NonModalDrawer from './component/non-modal-drawer'
 import * as PayloadDrawer from './component/payload-drawer'
 import * as ScrollDrawer from './component/scroll-drawer'
+import * as ScrollXDrawer from './component/scroll-x-drawer'
 import * as SkipAnimationDrawer from './component/skip-animation-drawer'
 import * as SnapDrawer from './component/snap-drawer'
 import * as SnapFullscreenDrawer from './component/snap-fullscreen-drawer'
@@ -27,6 +28,7 @@ export const init = (): [Model, Cmd<Msg>] => [
     leftDrawer: DirectionDrawer.defaultModel('left'),
     rightDrawer: DirectionDrawer.defaultModel('right'),
     scrollDrawer: ScrollDrawer.defaultModel(),
+    scrollXDrawer: ScrollXDrawer.defaultModel(),
     nonModalDrawer: NonModalDrawer.defaultModel(),
     payloadDrawer: PayloadDrawer.defaultModel(),
     handleOnlyDrawer: HandleOnlyDrawer.defaultModel(),
@@ -156,6 +158,15 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
         update: ScrollDrawer.update,
         isOpen: ScrollDrawer.isOpen,
         toMsg: (subMsg): Msg => ({ _tag: 'ScrollDrawerMsg', subMsg }),
+      })(msg.subMsg)(model)
+    case 'ScrollXDrawerMsg':
+      return childDrawerHandler({
+        name: 'scrollX',
+        get: (m) => m.scrollXDrawer,
+        set: (m, scrollXDrawer) => ({ ...m, scrollXDrawer }),
+        update: ScrollXDrawer.update,
+        isOpen: ScrollXDrawer.isOpen,
+        toMsg: (subMsg): Msg => ({ _tag: 'ScrollXDrawerMsg', subMsg }),
       })(msg.subMsg)(model)
     case 'NonModalDrawerMsg':
       return childDrawerHandler({

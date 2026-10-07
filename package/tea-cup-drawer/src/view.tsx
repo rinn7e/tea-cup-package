@@ -49,6 +49,7 @@ import {
   isVertical,
   overlayOpacity,
   restDistancePx,
+  scrollerTakesGesture,
   translateCss,
 } from './util'
 
@@ -72,18 +73,27 @@ const getTranslate = (element: HTMLElement, direction: Direction): number => {
   }
 }
 
-// Whether a scrollable element between `target` and the drawer (included) is
-// scrolled away from the top.
-const hasScrolledAncestor = (
+// Whether an element between `target` and the drawer (included) takes the
+// gesture (`scrollerTakesGesture`)
+const isInGestureScroller = (
   target: Element,
   content: HTMLElement,
+  direction: Direction,
 ): boolean => {
   let element: Element | null = target
   let found = false
   while (element !== null && !found) {
+    const style = window.getComputedStyle(element)
     if (
-      element.scrollHeight > element.clientHeight &&
-      element.scrollTop !== 0
+      scrollerTakesGesture(direction, {
+        scrollTop: element.scrollTop,
+        scrollHeight: element.scrollHeight,
+        scrollWidth: element.scrollWidth,
+        clientHeight: element.clientHeight,
+        clientWidth: element.clientWidth,
+        overflowX: style.overflowX,
+        overflowY: style.overflowY,
+      })
     ) {
       found = true
     } else if (element === content) {
@@ -133,7 +143,11 @@ const measurePress = <Item,>(
       isNoDragTarget:
         target.tagName === 'SELECT' ||
         target.closest('[data-drawer-no-drag]') !== null,
-      hasScrolledAncestor: hasScrolledAncestor(target, content),
+      scrollerTakesGesture: isInGestureScroller(
+        target,
+        content,
+        config.direction,
+      ),
     })
   }
 }

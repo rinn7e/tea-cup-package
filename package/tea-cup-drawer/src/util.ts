@@ -499,9 +499,61 @@ export type DragDecision = {
   lastDragPreventedAt: O.Option<number>
 }
 
+// An element between the pressed element and the drawer: what
+// `scrollerTakesGesture` needs from it
+export type ScrollBox = {
+  scrollTop: number
+  scrollHeight: number
+  scrollWidth: number
+  clientHeight: number
+  clientWidth: number
+  // Computed `overflow-x` / `overflow-y`
+  overflowX: string
+  overflowY: string
+}
+
+const isScrollable = (overflow: string): boolean =>
+  overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay'
+
+// Subpixel scroll positions: closer than this to an edge counts as there
+const scrollEdgeTolerance = 1
+
+/**
+ * Whether a gesture pressed inside `box` is the scroller's, not the
+ * drawer's.
+ * - Top and bottom drawers (vaul): while the scroller can still move the way
+ *   a closing drag goes, so it scrolls back first. At that edge (a bottom
+ *   sheet's list at its top) a swipe drags the drawer, as on iOS.
+ * - Left and right drawers: whenever it scrolls sideways at all, whatever
+ *   its position. A swipe across a table always scrolls the table; the
+ *   drawer is dragged from the rest of its content.
+ */
+export const scrollerTakesGesture = (
+  direction: Direction,
+  box: ScrollBox,
+): boolean => {
+  if (isVertical(direction)) {
+    const max = box.scrollHeight - box.clientHeight
+    return (
+      isScrollable(box.overflowY) &&
+      max > scrollEdgeTolerance &&
+      (direction === 'bottom'
+        ? box.scrollTop > scrollEdgeTolerance
+        : box.scrollTop < max - scrollEdgeTolerance)
+    )
+  } else {
+    return (
+      isScrollable(box.overflowX) &&
+      box.scrollWidth - box.clientWidth > scrollEdgeTolerance
+    )
+  }
+}
+
 /**
  * Port of vaul's `shouldDrag`: whether a gesture should drag the drawer or be
- * left to the content (scrolling, text selection, selects).
+ * left to the content (scrolling, text selection, selects). Unlike vaul, it
+ * runs for every direction: vaul always drags a left or right drawer, which
+ * takes horizontal scrolls away from its content.
  */
 export const decideDrag = (
   config: Config,
@@ -534,8 +586,6 @@ export const decideDrag = (
 
   if (press.isNoDragTarget) {
     return keep(false)
-  } else if (!isVertical(config.direction)) {
-    return keep(true)
   } else if (isJustOpened) {
     // Allow scrolling when animating: just opened, or just expanded to its
     // last snap point (its content may be scrollable)
@@ -551,8 +601,8 @@ export const decideDrag = (
   } else if (args.isDraggingInDirection) {
     // Pulling an open drawer further open scrolls the content instead
     return prevent
-  } else if (press.hasScrolledAncestor) {
-    // The content is scrolled, so the gesture scrolls it back first
+  } else if (press.scrollerTakesGesture) {
+    // Pressed inside a scroller that takes this gesture
     return prevent
   } else {
     return keep(true)

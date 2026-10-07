@@ -76,7 +76,7 @@ const press = (overrides: Partial<Press> = {}): Press => ({
   size: 1000,
   viewport: 1000,
   isNoDragTarget: false,
-  hasScrolledAncestor: false,
+  scrollerTakesGesture: false,
   ...overrides,
 })
 
@@ -404,7 +404,7 @@ describe('drag', () => {
   it('scrolls scrolled content instead of dragging', () => {
     const model = run(
       visible(),
-      { _tag: 'PointerDown', press: press({ hasScrolledAncestor: true }) },
+      { _tag: 'PointerDown', press: press({ scrollerTakesGesture: true }) },
       { _tag: 'PointerMove', x: 0, y: 600, time: 100, hasSelection: false },
     )
     expect(model.animate._tag).toBe('Visible')
@@ -499,7 +499,7 @@ describe('click after a drag', () => {
   it('lets the click of a scroll of the content through', () => {
     const model = run(
       visible(),
-      { _tag: 'PointerDown', press: press({ hasScrolledAncestor: true }) },
+      { _tag: 'PointerDown', press: press({ scrollerTakesGesture: true }) },
       { _tag: 'PointerMove', x: 0, y: 600, time: 100, hasSelection: false },
       { _tag: 'PointerUp', x: 0, y: 600, time: 200 },
     )

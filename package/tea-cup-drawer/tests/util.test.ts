@@ -28,6 +28,7 @@ import {
   type Config,
   type Model,
   type Press,
+  type ScrollBox,
   type Snap,
   type SnapPoints,
   activeSnapIndex,
@@ -44,6 +45,7 @@ import {
   overlayOpacity,
   overlayOpacityAt,
   replaceSnapPoints,
+  scrollerTakesGesture,
   selectSnap,
   selectSnapPoint,
   snapDistanceCss,
@@ -68,7 +70,7 @@ const press = (overrides: Partial<Press> = {}): Press => ({
   size: 1000,
   viewport: 1000,
   isNoDragTarget: false,
-  hasScrolledAncestor: false,
+  scrollerTakesGesture: false,
   ...overrides,
 })
 
@@ -222,13 +224,23 @@ describe('decideDrag', () => {
     ).toBe(false)
   })
 
-  it('always drags horizontal drawers', () => {
+  it('leaves the content first on left and right drawers too', () => {
+    const right = { ...config, direction: 'right' } satisfies Config
+    // Drags by default
+    expect(decideDrag(right, press(), args).allow).toBe(true)
+    // A scroller that can still move right takes the gesture
     expect(
-      decideDrag({ ...config, direction: 'left' }, press(), {
-        ...args,
-        isDraggingInDirection: true,
-      }).allow,
-    ).toBe(true)
+      decideDrag(right, press({ scrollerTakesGesture: true }), args),
+    ).toEqual({ allow: false, lastDragPreventedAt: O.some(1000) })
+    // Pulled further open: the content scrolls
+    expect(
+      decideDrag(right, press(), { ...args, isDraggingInDirection: true })
+        .allow,
+    ).toBe(false)
+    // Selected text stays selected
+    expect(
+      decideDrag(right, press(), { ...args, hasSelection: true }).allow,
+    ).toBe(false)
   })
 
   it('leaves selected text alone', () => {
@@ -245,7 +257,7 @@ describe('decideDrag', () => {
 
   it('scrolls scrolled content back first', () => {
     expect(
-      decideDrag(config, press({ hasScrolledAncestor: true }), args),
+      decideDrag(config, press({ scrollerTakesGesture: true }), args),
     ).toEqual({ allow: false, lastDragPreventedAt: O.some(1000) })
   })
 
@@ -293,6 +305,67 @@ describe('decideDrag', () => {
         hasSelection: true,
       }).allow,
     ).toBe(true)
+  })
+})
+
+describe('scrollerTakesGesture', () => {
+  // 300px of content in a 100px box, at the start
+  const box = (over: Partial<ScrollBox> = {}): ScrollBox => ({
+    scrollTop: 0,
+    scrollHeight: 300,
+    scrollWidth: 300,
+    clientHeight: 100,
+    clientWidth: 100,
+    overflowX: 'auto',
+    overflowY: 'auto',
+    ...over,
+  })
+
+  it('bottom: while the scroller is away from its top (vaul)', () => {
+    // At its top, a swipe down drags the sheet
+    expect(scrollerTakesGesture('bottom', box())).toBe(false)
+    expect(scrollerTakesGesture('bottom', box({ scrollTop: 50 }))).toBe(true)
+  })
+
+  it('top: while the scroller is away from its bottom', () => {
+    expect(scrollerTakesGesture('top', box())).toBe(true)
+    expect(scrollerTakesGesture('top', box({ scrollTop: 200 }))).toBe(false)
+  })
+
+  it('left and right: whenever it scrolls sideways, at any position', () => {
+    ;(['left', 'right'] as const).forEach((direction) => {
+      expect(scrollerTakesGesture(direction, box())).toBe(true)
+      expect(scrollerTakesGesture(direction, box({ scrollTop: 50 }))).toBe(true)
+    })
+  })
+
+  it('counts a subpixel offset from an edge as the edge', () => {
+    expect(scrollerTakesGesture('bottom', box({ scrollTop: 0.5 }))).toBe(false)
+    expect(scrollerTakesGesture('top', box({ scrollTop: 199.5 }))).toBe(false)
+  })
+
+  it('ignores elements that do not scroll on the axis', () => {
+    // Wider than its box, but clipped: `overflow: hidden` can't be scrolled
+    // by the user
+    expect(scrollerTakesGesture('left', box({ overflowX: 'hidden' }))).toBe(
+      false,
+    )
+    expect(scrollerTakesGesture('top', box({ overflowY: 'visible' }))).toBe(
+      false,
+    )
+    // Nothing to scroll sideways
+    expect(scrollerTakesGesture('right', box({ scrollWidth: 100 }))).toBe(false)
+    // A vertical list in a side drawer: the drawer is dragged from it
+    expect(
+      scrollerTakesGesture(
+        'right',
+        box({ scrollWidth: 100, scrollTop: 50, overflowX: 'hidden' }),
+      ),
+    ).toBe(false)
+    // A sideways scroller in a bottom sheet doesn't stop a swipe down
+    expect(scrollerTakesGesture('bottom', box({ overflowY: 'hidden' }))).toBe(
+      false,
+    )
   })
 })
 
