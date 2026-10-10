@@ -1,5 +1,5 @@
 import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
-import { Cmd } from 'tea-cup-fp'
+import { Cmd, Sub } from 'tea-cup-fp'
 
 import * as Api from '../../../../api'
 import { type AppRoute } from '../../../../common/route/type'
@@ -27,6 +27,7 @@ export const logicConfig: LinkPagination.LogicConfig<
   ord: Api.RoomOrd,
   uniqueKeyField: (r: Api.Room) => r.id,
   visibleStrategy: { _tag: 'HalfInView' },
+  subscriptions: () => Sub.none(),
   update: (_parent, msg, room) => {
     switch (msg._tag) {
       case 'SelectRoom':

@@ -22,39 +22,56 @@ SOFTWARE. */
 import * as TeaObserver from '@rinn7e/tea-cup-intersection-observer'
 import { Sub } from 'tea-cup-fp'
 
-import { type Model, type Msg, nextButtonId, prevButtonId } from './type'
+import {
+  type LogicConfig,
+  type Model,
+  type Msg,
+  nextButtonId,
+  prevButtonId,
+} from './type'
 
 /**
- * Subscribes to IntersectionObserver events on the prev/next load-more trigger elements.
+ * Subscribes to IntersectionObserver events on the prev/next load-more trigger elements,
+ * and to the subscriptions of every loaded item (`LogicConfig.subscriptions`).
  * When either button scrolls into view, it fires `InViewPrev` or `InViewNext` respectively.
  * These messages should be handled by the parent to trigger `getMorePrevData` / `getMoreNextData`.
+ * The items keep their subscriptions while scrolling.
  *
  * @example
  * ```typescript
  * // In parent subscriptions:
- * LinkPagin.subscriptions(model.linkPagin).map(subMsg => ({ _tag: 'LinkPaginMsg', subMsg }))
+ * LinkPagin.subscriptions(model.linkPagin, logicConfig).map(subMsg => ({ _tag: 'LinkPaginMsg', subMsg }))
  * ```
  */
-export const subscriptions = <Item, ItemMsg, Route>(
+export const subscriptions = <Item, ItemMsg, Route, Parent>(
   model: Model<Item>,
+  logic: LogicConfig<Item, Parent, ItemMsg>,
 ): Sub<Msg<Item, ItemMsg, Route>> => {
-  if (model.invisWhileScrolling) {
-    return Sub.none()
-  } else {
-    const dataSourceId = model.mode.dataSourceId
-    return Sub.batch([
-      TeaObserver.watch(
-        prevButtonId(dataSourceId),
-        { threshold: 0 },
-        (inView): Msg<Item, ItemMsg, Route> =>
-          inView ? { _tag: 'GetMorePrevData' } : { _tag: 'NoOp' },
-      ),
-      TeaObserver.watch(
-        nextButtonId(dataSourceId),
-        { threshold: 0 },
-        (inView): Msg<Item, ItemMsg, Route> =>
-          inView ? { _tag: 'GetMoreNextData' } : { _tag: 'NoOp' },
-      ),
-    ])
-  }
+  const dataSourceId = model.mode.dataSourceId
+  const loadMore: Sub<Msg<Item, ItemMsg, Route>>[] = model.invisWhileScrolling
+    ? []
+    : [
+        TeaObserver.watch(
+          prevButtonId(dataSourceId),
+          { threshold: 0 },
+          (inView): Msg<Item, ItemMsg, Route> =>
+            inView ? { _tag: 'GetMorePrevData' } : { _tag: 'NoOp' },
+        ),
+        TeaObserver.watch(
+          nextButtonId(dataSourceId),
+          { threshold: 0 },
+          (inView): Msg<Item, ItemMsg, Route> =>
+            inView ? { _tag: 'GetMoreNextData' } : { _tag: 'NoOp' },
+        ),
+      ]
+  const itemSubs = model.mode.overallData.value.map((item) =>
+    logic.subscriptions(item).map(
+      (subMsg): Msg<Item, ItemMsg, Route> => ({
+        _tag: 'ChildMsg',
+        childId: logic.uniqueKeyField(item),
+        subMsg,
+      }),
+    ),
+  )
+  return Sub.batch([...loadMore, ...itemSubs])
 }

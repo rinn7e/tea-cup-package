@@ -4,7 +4,11 @@ import { Cmd, type Sub } from 'tea-cup-fp'
 import type * as Api from '../../api'
 import { type AppRoute } from '../../common/route/type'
 import * as RoomList from './sub-component/room-list'
-import { type RoomItemMsg } from './sub-component/room-list/type'
+import {
+  type ParentContext,
+  type RoomItemMsg,
+} from './sub-component/room-list/type'
+import { logicConfig } from './sub-component/room-list/util'
 import { type Model, type Msg } from './type'
 
 export const init = (
@@ -82,8 +86,9 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
 }
 
 export const subscriptions = (model: Model): Sub<Msg> =>
-  LinkPagination.subscriptions<Api.Room, RoomItemMsg, AppRoute>(
+  LinkPagination.subscriptions<Api.Room, RoomItemMsg, AppRoute, ParentContext>(
     model.roomList.linkPagin,
+    logicConfig,
   ).map(
     (subMsg): Msg => ({
       _tag: 'RoomListMsg',

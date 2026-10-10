@@ -3,7 +3,7 @@ import { cn } from '@rinn7e/tea-cup-prelude'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as S from 'fp-ts/lib/string'
 import { ArrowDown } from 'lucide-react'
-import { Cmd } from 'tea-cup-fp'
+import { Cmd, Sub } from 'tea-cup-fp'
 
 import { type Chat, ChatOrd, type Reaction } from '../../api'
 import { type AppRoute } from '../../common/route/type'
@@ -32,6 +32,7 @@ export const logicConfig: LinkPagination.LogicConfig<
   ord: ChatOrd,
   uniqueKeyField: (c: Chat) => c.id,
   visibleStrategy: { _tag: 'HalfInView' },
+  subscriptions: () => Sub.none(),
   update: (
     parent: ParentContext,
     msg: ChatItemMsg,

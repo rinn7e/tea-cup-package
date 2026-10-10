@@ -600,8 +600,9 @@ const scrollToBottomHandler = (
 }
 
 export const subscriptions = (model: Model): Sub<Msg> =>
-  LinkPagination.subscriptions<Api.Chat, ChatItemMsg, AppRoute>(
+  LinkPagination.subscriptions<Api.Chat, ChatItemMsg, AppRoute, ParentContext>(
     model.linkPagin,
+    logicConfig,
   ).map(
     (subMsg): Msg => ({
       _tag: 'LinkPaginMsg',

@@ -45,6 +45,7 @@ import * as Eq from 'fp-ts/lib/Eq'
 import * as Ord from 'fp-ts/lib/Ord'
 import * as N from 'fp-ts/lib/number'
 import * as S from 'fp-ts/lib/string'
+import { Sub } from 'tea-cup-fp'
 
 export const mkLinkPaginationConfig = (
   refs: LinkPagination.Refs,
@@ -58,6 +59,8 @@ export const mkLinkPaginationConfig = (
     ord: Ord.contramap((m: Message) => m.timestamp)(N.Ord),
     uniqueKeyField: (m: Message) => m.id,
     visibleStrategy: { _tag: 'HalfInView' },
+    // Each item's own subscriptions (e.g. a drawer it opens); `Sub.none()` if none
+    subscriptions: (m: Message) => Sub.none(),
   },
   ui: {
     // Parent state arrives as `parent` (from `Props.parent`, compared with
@@ -70,6 +73,19 @@ export const mkLinkPaginationConfig = (
     ),
   },
 })
+```
+
+---
+
+## Item Subscriptions
+
+`LogicConfig.subscriptions` gives each loaded item its own subscriptions (an overlay or drawer it owns, a timer). `subscriptions(model, logicConfig)` batches them with the load-more triggers and delivers each item's messages to it as `ChildMsg`, handled by `LogicConfig.update` like any other item message. Items keep their subscriptions while the list scrolls.
+
+```ts
+LinkPagination.subscriptions(model.linkPagin, logicConfig).map((subMsg) => ({
+  _tag: 'LinkPaginMsg',
+  subMsg,
+}))
 ```
 
 ---
