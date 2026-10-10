@@ -33,6 +33,7 @@ import { pipe } from 'fp-ts/lib/function'
 
 import {
   type ContainerChangeEvent,
+  type Edge,
   type LogicConfig,
   type Mode,
   type Model,
@@ -180,17 +181,42 @@ export const removeElFromArray = <Item, Parent, ItemMsg>(
 // Mainly used to revert prevIsMax on syncing new bundle.
 // (Since new bundle has few Data, prevIsMax is reached right away.
 // When there are more old Data from syncing, we have to reset prevIsMax)
+// (`Exhausted` is the old `prevIsMax === true`; it goes back to `Idle`.)
 export const revertPrevIsMax = <Item>(model: Model<Item>): Model<Item> => {
-  if (model.mode.prevIsMax) {
+  if (model.mode.prev._tag === 'Exhausted') {
     return {
       ...model,
       mode: {
         ...model.mode,
-        prevIsMax: false,
+        prev: reopenEdge(model.mode.prev),
       },
     }
   } else return model
 }
+
+// Let an exhausted end load again (`Exhausted` -> `Idle`). A load in flight,
+// done or failed is left as it is.
+export const reopenEdge = (edge: Edge): Edge =>
+  edge._tag === 'Exhausted' ? { _tag: 'Idle' } : edge
+
+// Whether a new page may be requested at this end: not while one is in flight,
+// not once the end is exhausted. A failed load may be retried.
+export const canLoadEdge = (edge: Edge): boolean => {
+  switch (edge._tag) {
+    case 'Idle':
+    case 'Loaded':
+    case 'Failed':
+      return true
+    case 'Loading':
+    case 'Exhausted':
+      return false
+  }
+}
+
+// The state of an end after a page came back: `Exhausted` when it brought
+// nothing new.
+export const edgeAfterPage = (hasNewItems: boolean): Edge =>
+  hasNewItems ? { _tag: 'Loaded' } : { _tag: 'Exhausted' }
 
 /**
  * If the previousId is provided, in case it is found in the arr

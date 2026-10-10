@@ -1,4 +1,3 @@
-import * as RD from '@devexperts/remote-data-ts'
 import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 import { attemptTE } from '@rinn7e/tea-cup-prelude'
 import { type AppRouteUpdater } from '@rinn7e/tea-cup-prelude/type/app-route-updater'
@@ -29,10 +28,8 @@ export const mkLinkPaginationMode = (
   return {
     dataSourceId: roomId,
     overallData: SUA.empty(),
-    prevData: RD.initial,
+    prev: { _tag: 'Idle' },
     prevSize: size(15),
-    prevIsMax: false,
-    allowRetryPrev: false,
 
     initialHandler: () => ({
       cache: async () => Api.getCachedChats(roomId),
@@ -48,7 +45,7 @@ export const mkLinkPaginationMode = (
           TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
         ),
     }),
-    initialData: RD.initial,
+    initial: { _tag: 'Idle' },
     selectedKey: targetChatId ? targetChatId.replace('-repoint', '') : null,
     retriggerCurrentData: 'done',
     animationEnd: false,
@@ -90,9 +87,8 @@ export const mkLinkPaginationMode = (
         )
       },
     }),
-    nextData: RD.initial,
+    next: { _tag: 'Idle' },
     nextSize: size(15),
-    nextIsMax: false,
   }
 }
 
@@ -103,7 +99,7 @@ export const customScrollToNewestHandler = (
   Cmd<LinkPagination.Msg<Api.Chat, ChatItemMsg, AppRoute>>,
   AppRouteUpdater<AppRoute>,
 ] => {
-  if (model.mode.nextIsMax) {
+  if (model.mode.next._tag === 'Exhausted') {
     const [m, c] = LinkPagination.scrollToNewestHandler<
       Api.Chat,
       ChatItemMsg,
@@ -248,8 +244,8 @@ export const reInit = (
         ...updatedLinkPagin,
         mode: {
           ...updatedLinkPagin.mode,
-          nextIsMax: false,
-          prevIsMax: false,
+          next: LinkPagination.reopenEdge(updatedLinkPagin.mode.next),
+          prev: LinkPagination.reopenEdge(updatedLinkPagin.mode.prev),
         },
       },
     },

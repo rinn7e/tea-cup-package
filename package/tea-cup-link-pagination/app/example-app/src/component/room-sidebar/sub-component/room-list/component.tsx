@@ -24,7 +24,7 @@ const RoomListInner = (props: Props<any>): JSX.Element => {
       data-component='RoomListComponent'
       className='flex flex-1 flex-col overflow-hidden'
     >
-      {model.linkPagin.mode.initialData._tag === 'RemoteSuccess' &&
+      {model.linkPagin.mode.initial._tag === 'Loaded' &&
       paginOverallLength === 0
         ? noRoomView()
         : null}

@@ -19,7 +19,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-import * as RD from '@devexperts/remote-data-ts'
 import { type AppRouteUpdater } from '@rinn7e/tea-cup-prelude/type/app-route-updater'
 import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import { pipe } from 'fp-ts/lib/function'
@@ -179,14 +178,14 @@ export const update =
           null,
         ]
       }
-      case 'SetPrevData':
+      case 'SetPrev':
         if (msg.dataSourceId === model.mode.dataSourceId)
           return [
             {
               ...model,
               mode: {
                 ...model.mode,
-                prevData: msg.value,
+                prev: msg.value,
               },
             },
             Cmd.none(),
@@ -203,28 +202,14 @@ export const update =
           ]
         } else return [model, Cmd.none(), null]
       }
-      case 'SetPrevIsMax':
-        if (msg.dataSourceId === model.mode.dataSourceId)
-          return [
-            {
-              ...model,
-              mode: {
-                ...model.mode,
-                prevIsMax: msg.value,
-              },
-            },
-            Cmd.none(),
-            null,
-          ]
-        else return [model, Cmd.none(), null]
 
       case 'SetInitialData': {
         if (msg.dataSourceId === model.mode.dataSourceId)
-          if (msg.value._tag === 'RemoteSuccess') {
+          if (msg.value._tag === 'Right') {
             // const initialNextOverallData = msg.value.value.next
             // const initialCurrentData = msg.value.value.current
             // const initialPrevOverallData = msg.value.value.prev
-            const initialData = msg.value.value
+            const initialData = msg.value.right
 
             const overallData = pipe(
               initialData,
@@ -236,7 +221,7 @@ export const update =
                 ...model,
                 mode: {
                   ...model.mode,
-                  initialData: RD.success(initialData),
+                  initial: { _tag: 'Loaded' },
                   // prevData: prevRD,
                   // nextData: nextRD,
                   overallData,
@@ -256,7 +241,7 @@ export const update =
                 ...model,
                 mode: {
                   ...model.mode,
-                  initialData: msg.value,
+                  initial: { _tag: 'Failed', error: msg.value.left },
                 },
               },
               Cmd.none(),
@@ -265,14 +250,14 @@ export const update =
         else return [model, Cmd.none(), null]
       }
 
-      case 'SetNextData':
+      case 'SetNext':
         if (msg.dataSourceId === model.mode.dataSourceId)
           return [
             {
               ...model,
               mode: {
                 ...model.mode,
-                nextData: msg.value,
+                next: msg.value,
               },
             },
             Cmd.none(),
@@ -288,21 +273,6 @@ export const update =
           ]
         } else return [model, Cmd.none(), null]
       }
-
-      case 'SetNextIsMax':
-        if (msg.dataSourceId === model.mode.dataSourceId)
-          return [
-            {
-              ...model,
-              mode: {
-                ...model.mode,
-                nextIsMax: msg.value,
-              },
-            },
-            Cmd.none(),
-            null,
-          ]
-        else return [model, Cmd.none(), null]
 
       case 'SetReTriggerCurrentData':
         if (msg.dataSourceId === model.mode.dataSourceId)

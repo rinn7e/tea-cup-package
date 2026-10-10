@@ -1,4 +1,3 @@
-import * as RD from '@devexperts/remote-data-ts'
 import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 import { updateAndCmd } from '@rinn7e/tea-cup-prelude'
 import { mkHttpError } from '@rinn7e/tea-cup-prelude/type/http-error'
@@ -26,10 +25,8 @@ export const mkRoomListLinkPaginationMode = (
   return {
     dataSourceId: 'sidebar-rooms',
     overallData: SUA.empty(),
-    prevData: RD.initial,
+    prev: { _tag: 'Idle' },
     prevSize: size(15),
-    prevIsMax: false,
-    allowRetryPrev: false,
 
     initialHandler: () => ({
       cache: async () => Api.getCachedRooms(),
@@ -44,7 +41,7 @@ export const mkRoomListLinkPaginationMode = (
           TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
         ),
     }),
-    initialData: RD.initial,
+    initial: { _tag: 'Idle' },
     selectedKey: activeRoomId,
     retriggerCurrentData: 'done',
     animationEnd: false,
@@ -88,9 +85,8 @@ export const mkRoomListLinkPaginationMode = (
         )
       },
     }),
-    nextData: RD.initial,
+    next: { _tag: 'Exhausted' },
     nextSize: size(15),
-    nextIsMax: true,
   }
 }
 

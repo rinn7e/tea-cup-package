@@ -26,13 +26,16 @@ import {
   memoStrategy,
   useDebouncedCallback,
 } from '@rinn7e/tea-cup-prelude'
+import { type HttpErrorString } from '@rinn7e/tea-cup-prelude/type/http-error'
 import * as A from 'fp-ts/lib/Array'
 import { pipe } from 'fp-ts/lib/function'
 import { type JSX, useCallback, useEffect, useRef, useState } from 'react'
 
+import { ScrollPort } from './scroll-port'
 import { IconAdd } from './sub-component/add-icon'
 import { loadingIcon } from './sub-component/loading-icon'
 import {
+  type FailedViewParam,
   type Mode,
   type Msg,
   type Props,
@@ -67,8 +70,6 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
   const { model, config } = props
 
   const containerRef = config.logic.refs.containerRef
-  const currentScrollHeightRef = config.logic.refs.currentScrollHeightRef
-  const currentScrollPosRef = config.logic.refs.currentScrollPosRef
 
   // -------------------------------------------
   // State that only affects the UI so we don't have to put into Model
@@ -97,9 +98,10 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
 
         // If nextIsMax is true, there is no next data,
         // and we can pick the last data as the actual latest data
-        const lastDataNode = model.mode.nextIsMax
-          ? document.getElementById(lastDataId)
-          : null
+        const lastDataNode =
+          model.mode.next._tag === 'Exhausted'
+            ? document.getElementById(lastDataId)
+            : null
 
         if (!lastDataNode) return false
         return isInView(lastDataNode, { margin: -84 })
@@ -113,22 +115,15 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
     }
   }, 124)
 
-  // Listen to LinkPagin scrolling. If it is, check if last message is in view.
+  // Check if last message is in view when the list changes. Scrolling checks
+  // it from the scroll handler.
   useEffect(() => {
     updateLatestDataFloater()
   }, [
-    currentScrollPosRef.current,
     model.isScrolling,
     model.mode.overallData.value.length,
-    model.mode.nextIsMax,
+    model.mode.next._tag,
   ])
-
-  useEffect(() => {
-    // Set current height
-    if (!model.invisWhileScrolling && containerRef.current) {
-      currentScrollHeightRef.current = containerRef.current.scrollHeight
-    }
-  }, [containerRef.current, model.invisWhileScrolling])
 
   // Note: Since `containerRefOnScrollHandler` is used with `onScroll`, instead of addEventListener,
   // throttle doesn't work.
@@ -137,88 +132,34 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
       if (!model.isScrolling)
         dispatch(props)({ _tag: 'SetIsScrolling', value: true })
 
-      // Note: A more performant approach might be to record
-      // the scrollTop and scrollHeight at the moment that we know an element
-      // will be added/removed instead of on scroll.
+      // Listen to LinkPagin scrolling. If it is, check if last message is in view.
+      updateLatestDataFloater()
 
-      // Record current scrollTop
-      currentScrollPosRef.current = containerRef.current.scrollTop
-
-      // We already record `currentScrollHeightRef.current` during manipulateScrollPos
-      // but for data like HTML messages, there is a delay (like loading image)
-      // In this case, we try to synchronize the scroll height here again:
-      if (
-        currentScrollHeightRef.current !== containerRef.current.scrollHeight
-      ) {
-        currentScrollHeightRef.current = containerRef.current.scrollHeight
-      }
+      // The scroll position is not recorded here: `ScrollPort` measures the
+      // rows themselves whenever the list changes (see `scroll-anchor.ts`).
 
       if (model.onContainerScroll) {
         model.onContainerScroll(model.mode.dataSourceId, containerRef.current)
       }
     }
-  }, [model.mode.dataSourceId, containerRef.current, model.isScrolling])
+  }, [
+    model.mode.dataSourceId,
+    containerRef.current,
+    model.isScrolling,
+    updateLatestDataFloater,
+  ])
 
   useEffect(() => {
     // console.log('containerChangeEvent', model.containerChangeEvent)
-    const manipulateScrollPos = () => {
-      if (containerRef.current) {
-        const newHeight = containerRef.current.scrollHeight
-
-        const heightChange = newHeight - currentScrollHeightRef.current
-        const resultPos = currentScrollPosRef.current + heightChange
-
-        // The `heightChange` can be negative (in case of removal of element)
-        // When that happen, we force the pos to be 0.
-        const newPos = resultPos < 0 ? 0 : resultPos
-
-        currentScrollPosRef.current = newPos
-
-        containerRef.current.scrollTo({
-          top: newPos,
-        })
-
-        currentScrollHeightRef.current = newHeight
-      }
-    }
-
+    // The position itself is held by `ScrollPort` on every commit (before
+    // paint), whatever the event; the event only has to be consumed.
     switch (model.containerChangeEvent._tag) {
       case 'NoChange':
         return
-      case 'ElementModifyInPlace': {
-        // no scroll pos manipulation but record new scroll pos and height
-        if (containerRef.current) {
-          currentScrollHeightRef.current = containerRef.current.scrollHeight
-          currentScrollPosRef.current = containerRef.current.scrollTop
-        }
-        dispatch(props)({
-          _tag: 'SetContainerChangeEvent',
-          value: { _tag: 'NoChange' },
-        })
-        return
-      }
-      case 'ElementModifyOnBottom': {
-        // no scroll pos manipulation but record new scroll pos and height
-        if (containerRef.current) {
-          currentScrollHeightRef.current = containerRef.current.scrollHeight
-          currentScrollPosRef.current = containerRef.current.scrollTop
-        }
-        dispatch(props)({
-          _tag: 'SetContainerChangeEvent',
-          value: { _tag: 'NoChange' },
-        })
-        return
-      }
-      case 'ElementModifyOnTop': {
-        manipulateScrollPos()
-        dispatch(props)({
-          _tag: 'SetContainerChangeEvent',
-          value: { _tag: 'NoChange' },
-        })
-        return
-      }
+      case 'ElementModifyInPlace':
+      case 'ElementModifyOnBottom':
+      case 'ElementModifyOnTop':
       case 'ForceManipulateScrollPos': {
-        manipulateScrollPos()
         dispatch(props)({
           _tag: 'SetContainerChangeEvent',
           value: { _tag: 'NoChange' },
@@ -235,14 +176,17 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
   return (
     <div className={cn(`relative flex h-full w-full flex-col`)}>
       {config.ui.loadingView &&
-      (model.mode.initialData._tag === 'RemotePending' ||
+      (model.mode.initial._tag === 'Loading' ||
         model.invisWhileScrolling === true)
         ? config.ui.loadingView()
         : null}
       {/* <div className='fixed z-[1000] bg-black p-[30px] text-white'>
         {JSON.stringify(model.savedScrollPos)}
       </div> */}
-      <div
+      <ScrollPort
+        containerRef={containerRef}
+        itemRefs={config.logic.refs.itemRefs}
+        dataSourceId={model.mode.dataSourceId}
         onScroll={containerRefOnScrollHandler}
         onScrollEnd={() => {
           dispatch(props)({
@@ -253,10 +197,11 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
               : undefined,
           })
         }}
-        ref={containerRef}
         className={cn(
           `relative flex flex-1 pb-[52px] lg:pb-0`,
           config.ui.disableScrolling ? '' : 'overflow-y-auto',
+          // The list anchors itself in every browser (see `scroll-anchor.ts`)
+          '[overflow-anchor:none]',
           config.ui.scrollbarClass,
           'flex-col',
           model.invisWhileScrolling ? 'opacity-0' : 'opacity-100',
@@ -265,8 +210,7 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
         {/* Note: debugging purpose */}
         {/* <div className='fixed bottom-0 bg-white border-black text-black'>
           <div>prev index: {JSON.stringify(model.mode.prevIndex)}</div>
-          <div>prev isMax: {JSON.stringify(model.mode.prevIsMax)}</div>
-          <div>allowRetryPrev: {JSON.stringify(model.mode.allowRetryPrev)}</div>
+          <div>prev: {JSON.stringify(model.mode.prev)}</div>
         </div> */}
 
         {/* Debugging purpose */}
@@ -277,9 +221,13 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
           model.mode.overallData.value.length > 0 &&
           config.ui.titleView()}
 
+        {model.mode.initial._tag === 'Failed'
+          ? initialFailedView(props, model.mode.initial.error)
+          : null}
+
         {view(props)}
-        {/* <div className='fixed top-0'>{model.mode.initialData._tag}</div> */}
-      </div>
+        {/* <div className='fixed top-0'>{model.mode.initial._tag}</div> */}
+      </ScrollPort>
 
       {scrollToLatestCustomUi(props, showLatestDataFloater)}
     </div>
@@ -343,25 +291,43 @@ const prevLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
     </div>
   )
 
+  const failedView = (error: HttpErrorString) => {
+    const param = {
+      parent: props.parent,
+      error,
+      retry: () => dispatch(props)({ _tag: 'GetMorePrevData' }),
+    }
+    return config.ui.prevFailedView
+      ? config.ui.prevFailedView(param)
+      : defaultFailedView(param, `Couldn't load older items.`)
+  }
+
   return (
     <div
       key={'prevLoadMoreView'}
+      data-link-pagin-edge='prev'
       className='flex w-full items-center justify-center'
     >
-      {model.mode.prevIsMax
-        ? isMaxView()
-        : exec(() => {
-            if (model.mode.initialData._tag === 'RemoteSuccess') {
-              switch (model.mode.prevData._tag) {
-                case 'RemotePending':
-                  return loadingView()
-                case 'RemoteSuccess':
-                  return successView()
-                default:
-                  return successView()
-              }
-            }
-          })}
+      {exec(() => {
+        const prev = model.mode.prev
+        if (prev._tag === 'Exhausted') {
+          return isMaxView()
+        } else if (model.mode.initial._tag === 'Loaded') {
+          switch (prev._tag) {
+            case 'Loading':
+              return loadingView()
+            // A visible retry, not the in-view trigger: a failing endpoint
+            // would otherwise be called again every time the trigger shows.
+            case 'Failed':
+              return failedView(prev.error)
+            case 'Idle':
+            case 'Loaded':
+              return successView()
+          }
+        } else {
+          return null
+        }
+      })}
     </div>
   )
 }
@@ -388,12 +354,13 @@ const nextLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
   return (
     <div
       key={'nextLoadMoreView'}
+      data-link-pagin-edge='next'
       className='flex w-full items-center justify-center'
     >
-      {mode.nextIsMax
+      {mode.next._tag === 'Exhausted'
         ? isMaxView()
         : (() => {
-            if (model.mode.initialData._tag === 'RemoteSuccess') {
+            if (model.mode.initial._tag === 'Loaded') {
               const successView = () => (
                 <div className='relative flex h-0 w-full items-center justify-center'>
                   <div
@@ -413,16 +380,25 @@ const nextLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
                 </div>
               )
 
-              switch (mode.nextData._tag) {
-                case 'RemotePending':
+              const next = mode.next
+              switch (next._tag) {
+                case 'Loading':
                   return loadingView()
-                case 'RemoteSuccess':
+                case 'Loaded':
                   return successView()
-                case 'RemoteInitial':
+                case 'Idle':
                   return successView()
-                case 'RemoteFailure':
+                case 'Failed': {
                   // return <div>error: {JSON.stringify(mode.nextData)}</div>
-                  return <div></div>
+                  const param = {
+                    parent: props.parent,
+                    error: next.error,
+                    retry: () => dispatch(props)({ _tag: 'GetMoreNextData' }),
+                  }
+                  return config.ui.nextFailedView
+                    ? config.ui.nextFailedView(param)
+                    : defaultFailedView(param, `Couldn't load newer items.`)
+                }
               }
             }
           })()}
@@ -523,6 +499,46 @@ const scrollToLatestCustomUi = <Item, Parent, ParentMsg, ItemMsg, Route>(
     return null
   }
 }
+
+const initialFailedView = <Item, Parent, ParentMsg, ItemMsg, Route>(
+  props: Props<Item, Parent, ParentMsg, ItemMsg, Route>,
+  error: HttpErrorString,
+) => {
+  const { config } = props
+  const param = {
+    parent: props.parent,
+    error,
+    // `GetInitialData`, not `RefreshInitialData`: nothing is on show, so the
+    // retry is a fresh load and still owes the initial scroll.
+    retry: () => dispatch(props)({ _tag: 'GetInitialData' }),
+  }
+  return config.ui.initialFailedView
+    ? config.ui.initialFailedView(param)
+    : defaultFailedView(param, `Couldn't load.`, 'flex-1')
+}
+
+const defaultFailedView = <Parent,>(
+  param: FailedViewParam<Parent>,
+  message: string,
+  // `flex-1` for the first page: fill the empty list, centred
+  className = '',
+) => (
+  <div
+    className={cn(
+      'flex w-full flex-col items-center justify-center gap-[8px] p-[16px] text-center text-sm text-gray-500',
+      className,
+    )}
+  >
+    <span>{message}</span>
+    <button
+      type='button'
+      className='cursor-pointer rounded-md border border-gray-300 px-[12px] py-[4px] text-gray-700'
+      onClick={param.retry}
+    >
+      Retry
+    </button>
+  </div>
+)
 
 const defaultPrevLoadingIndicator = () => {
   const showPrevLoadHeight = 'h-[72px]'

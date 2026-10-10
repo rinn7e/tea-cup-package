@@ -35,7 +35,6 @@ import {
 } from '@rinn7e/tea-cup-prelude/type/size'
 import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import { type SortedUniqueArray } from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
-import * as A from 'fp-ts/lib/Array'
 import type * as E from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
 import { type Option } from 'fp-ts/lib/Option'
@@ -51,19 +50,12 @@ import { type Cmd } from 'tea-cup-fp'
 
 // Mutable variables
 export type Refs = {
-  // Use ref since this get updated on every scroll and we don't we want to re-render
-  // `currentScrollPos` is not used for rendering anyway, but mainly for
-  // saving scroll model when adding new data.
-  currentScrollPosRef: { current: number }
-  currentScrollHeightRef: { current: number }
   // container ref
   containerRef: { current: HTMLDivElement | null }
   itemRefs: { current: { [Key: string]: HTMLDivElement | null } }
 }
 
 export const mkRefs = (): Refs => ({
-  currentScrollPosRef: { current: 0 },
-  currentScrollHeightRef: { current: 0 },
   containerRef: { current: null },
   itemRefs: { current: {} },
 })
@@ -105,6 +97,48 @@ export type ContainerChangeEvent =
   | { _tag: 'ForceManipulateScrollPos' }
   | { _tag: 'NoChange' }
 
+/**
+ * Where a load stands. Loaded items live in `Mode.overallData`, so a phase only
+ * carries what belongs to it: the error of a failed load.
+ *
+ * - `Idle`: nothing asked for yet.
+ * - `Loading`: a request is in flight; no second one starts.
+ * - `Loaded`: the last request succeeded.
+ * - `Failed`: the last request failed; the view shows a retry, and a new
+ *   request may start.
+ */
+export type Load =
+  | { _tag: 'Idle' }
+  | { _tag: 'Loading' }
+  | { _tag: 'Loaded' }
+  | { _tag: 'Failed'; error: HttpErrorString }
+
+/**
+ * A load at one end of the list (older or newer pages). `Exhausted` means the
+ * last page came back with nothing new, so there is nothing more to load.
+ */
+export type Edge = Load | { _tag: 'Exhausted' }
+
+export const LoadEq: EqClass.Eq<Load> = {
+  equals: (first, second) => {
+    if (first._tag === 'Failed' && second._tag === 'Failed') {
+      return HttpErrorStringEq.equals(first.error, second.error)
+    } else {
+      return first._tag === second._tag
+    }
+  },
+}
+
+export const EdgeEq: EqClass.Eq<Edge> = {
+  equals: (first, second) => {
+    if (first._tag === 'Exhausted' || second._tag === 'Exhausted') {
+      return first._tag === second._tag
+    } else {
+      return LoadEq.equals(first, second)
+    }
+  },
+}
+
 export type InitialHandler<Item> = () => {
   cache: CacheHandler<Item>
   endpoint: InitialEndpointHandler<Item>
@@ -120,15 +154,13 @@ export type Mode<Item> = {
     endpoint: EndpointHandler<Item>
   }
   overallData: SortedUniqueArray<Item>
-  prevData: RD.RemoteData<HttpErrorString, Item[]>
+  // Loading older pages
+  prev: Edge
   prevSize: Size
-  prevIsMax: boolean
-  // When true, on load more prev, it will call the same index instead of increasing
-  // the index.
-  allowRetryPrev: boolean
 
   initialHandler: InitialHandler<Item>
-  initialData: RD.RemoteData<HttpErrorString, Item[]>
+  // Loading the first page (cache, then API)
+  initial: Load
 
   // Identify current selected item using uniqueKeyField
   // Scroll to this value on initial load
@@ -138,9 +170,9 @@ export type Mode<Item> = {
     cache: () => Promise<CacheData.Type<Item[]>>
     endpoint: EndpointHandler<Item>
   }
-  nextData: RD.RemoteData<HttpErrorString, Item[]>
+  // Loading newer pages
+  next: Edge
   nextSize: Size
-  nextIsMax: boolean
 
   // Current data's animation related
   // In some use case of link pagin (message list), we play animation
@@ -159,17 +191,14 @@ export function mkModeEq<Item>(itemEq: EqClass.Eq<Item>) {
     dataSourceId: S.Eq,
     prevHandler: { equals: () => true },
     overallData: SUA.getEq(itemEq),
-    prevData: RD.getEq(HttpErrorStringEq, A.getEq(itemEq)),
+    prev: EdgeEq,
     prevSize: SizeEq,
-    prevIsMax: B.Eq,
-    allowRetryPrev: B.Eq,
     initialHandler: { equals: () => true },
-    initialData: RD.getEq(HttpErrorStringEq, A.getEq(itemEq)),
+    initial: LoadEq,
     selectedKey: NullableEq(S.Eq),
     nextHandler: { equals: () => true },
-    nextData: RD.getEq(HttpErrorStringEq, A.getEq(itemEq)),
+    next: EdgeEq,
     nextSize: SizeEq,
-    nextIsMax: B.Eq,
     retriggerCurrentData: S.Eq,
     animationEnd: B.Eq,
   })
@@ -185,17 +214,15 @@ export function defaultMode<Item>(): Mode<Item> {
       }
     },
     overallData: SUA.empty(),
-    prevData: RD.initial,
+    prev: { _tag: 'Idle' },
     prevSize: size(defaultPageSize),
-    prevIsMax: false,
     // isScrollToCurrentDone: false,
-    allowRetryPrev: false,
 
     initialHandler: () => ({
       cache: async () => CacheData.fromRD(RD.initial),
       endpoint: () => TE.right({ dataF: () => [], nextIsMax: true }),
     }),
-    initialData: RD.initial,
+    initial: { _tag: 'Idle' },
     selectedKey: null,
     retriggerCurrentData: 'done',
     animationEnd: false,
@@ -206,9 +233,8 @@ export function defaultMode<Item>(): Mode<Item> {
         endpoint: () => TE.right([]),
       }
     },
-    nextData: RD.initial,
+    next: { _tag: 'Idle' },
     nextSize: size(defaultPageSize),
-    nextIsMax: false,
   }
 }
 
@@ -294,6 +320,17 @@ export type UiConfig<Item, Parent> = {
   nextLoadingIndicatorView?: () => JSX.Element | null
   prevIsMaxCustomView?: (parent: Parent) => JSX.Element | null
   nextIsMaxCustomView?: (parent: Parent) => JSX.Element | null
+  // Shown when a load failed; `retry` starts the load again.
+  // Defaults to a short message with a "Retry" button.
+  initialFailedView?: (param: FailedViewParam<Parent>) => JSX.Element | null
+  prevFailedView?: (param: FailedViewParam<Parent>) => JSX.Element | null
+  nextFailedView?: (param: FailedViewParam<Parent>) => JSX.Element | null
+}
+
+export type FailedViewParam<Parent> = {
+  parent: Parent
+  error: HttpErrorString
+  retry: () => void
 }
 
 export type Config<Item, Parent, ItemMsg> = {
@@ -332,6 +369,9 @@ export function mkUiConfigEq<Item, Parent>(_eqA: EqClass.Eq<Item>) {
     nextLoadingIndicatorView: { equals: () => true },
     prevIsMaxCustomView: { equals: () => true },
     nextIsMaxCustomView: { equals: () => true },
+    initialFailedView: { equals: () => true },
+    prevFailedView: { equals: () => true },
+    nextFailedView: { equals: () => true },
   })
 }
 
@@ -541,10 +581,9 @@ export type Msg<Item, ItemMsg, Route> =
       compareId: (item: Item, id: string) => boolean
     }
   | {
-      _tag: 'SetPrevData'
+      _tag: 'SetPrev'
       dataSourceId: string
-      value: RD.RemoteData<HttpErrorString, Item[]>
-      isFirstLoad: boolean
+      value: Edge
     }
   | {
       _tag: 'AddToPrevOverallData'
@@ -552,14 +591,9 @@ export type Msg<Item, ItemMsg, Route> =
       value: Item[]
     }
   | {
-      _tag: 'SetPrevIsMax'
+      _tag: 'SetNext'
       dataSourceId: string
-      value: boolean
-    }
-  | {
-      _tag: 'SetNextData'
-      dataSourceId: string
-      value: RD.RemoteData<HttpErrorString, Item[]>
+      value: Edge
     }
   | {
       _tag: 'AddToNextOverallData'
@@ -567,14 +601,11 @@ export type Msg<Item, ItemMsg, Route> =
       value: Item[]
     }
   | {
-      _tag: 'SetNextIsMax'
-      dataSourceId: string
-      value: boolean
-    }
-  | {
+      // Right: replace the items and mark the first page loaded.
+      // Left: mark the first page failed.
       _tag: 'SetInitialData'
       dataSourceId: string
-      value: RD.RemoteData<HttpErrorString, Item[]>
+      value: E.Either<HttpErrorString, Item[]>
     }
   | {
       _tag: 'SetReTriggerCurrentData'
