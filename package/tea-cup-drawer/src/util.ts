@@ -592,6 +592,11 @@ export const decideDrag = (
 
   if (press.isNoDragTarget) {
     return keep(false)
+  } else if (press.isContentScrolling && !isVertical(config.direction)) {
+    // A side drawer whose content was still scrolling or bouncing: the touch
+    // is the scroller's (iOS cancels the pointer once it moves), as in
+    // native apps
+    return prevent
   } else if (isJustOpened) {
     // Allow scrolling when animating: just opened, or just expanded to its
     // last snap point (its content may be scrollable)

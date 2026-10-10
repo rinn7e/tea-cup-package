@@ -191,6 +191,10 @@ export type Press = {
   // The press started inside a scroller (up to the drawer) that takes the
   // gesture (`scrollerTakesGesture`), so it scrolls instead of dragging
   scrollerTakesGesture: boolean
+  // A scroller in the drawer was still moving at the press (momentum or a
+  // bounce past its edge: it scrolled within `scrollLockTimeout`). iOS hands
+  // such a touch to the scroller, so it never drags a left or right drawer.
+  isContentScrolling: boolean
 }
 
 export const PressEq: EqClass.Eq<Press> = EqClass.struct<Press>({
@@ -203,6 +207,7 @@ export const PressEq: EqClass.Eq<Press> = EqClass.struct<Press>({
   viewport: N.Eq,
   isNoDragTarget: B.Eq,
   scrollerTakesGesture: B.Eq,
+  isContentScrolling: B.Eq,
 })
 
 // Last known pointer position, used to release a drag on `pointercancel` /

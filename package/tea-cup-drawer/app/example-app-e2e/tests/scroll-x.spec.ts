@@ -76,7 +76,37 @@ test.describe('Sideways content in a right drawer', () => {
   }) => {
     await openDrawer(page, 'scrollX')
     await scrollTo(page, 'scroll-x-area', 150)
+    // Settled: a swipe right after a scroll is the content's
+    await page.waitForTimeout(200)
     // On the title, above the table
+    await drag(page, await pointIn(page, 'scrollX', 40), { dx: 250, dy: 0 })
+    await expectClosed(page, 'scrollX')
+  })
+
+  test('a swipe while the content is still scrolling leaves the drawer', async ({
+    page,
+  }) => {
+    await openDrawer(page, 'scrollX')
+    // Scroll every frame, as momentum or iOS's bounce past an edge does
+    await page.locator('[data-test="scroll-x-area"]').evaluate((el) => {
+      const w = window as unknown as { stopScrolling?: () => void }
+      let left = 0
+      const id = setInterval(() => {
+        left = left === 0 ? 30 : 0
+        el.scrollTo({ left })
+      }, 16)
+      w.stopScrolling = () => clearInterval(id)
+    })
+    await page.waitForTimeout(100)
+    // On the title, not the table: iOS would hand this touch to the moving
+    // scroller, so the drawer doesn't start a drag
+    await drag(page, await pointIn(page, 'scrollX', 40), { dx: 250, dy: 0 })
+    await expectOpen(page, 'scrollX')
+    // Once it settles, the same swipe closes it
+    await page.evaluate(() =>
+      (window as unknown as { stopScrolling: () => void }).stopScrolling(),
+    )
+    await page.waitForTimeout(300)
     await drag(page, await pointIn(page, 'scrollX', 40), { dx: 250, dy: 0 })
     await expectClosed(page, 'scrollX')
   })

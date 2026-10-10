@@ -25,6 +25,7 @@ SOFTWARE.
 MIT License. */
 import { cn } from '@rinn7e/tea-cup-prelude'
 import * as O from 'fp-ts/lib/Option'
+import { pipe } from 'fp-ts/lib/function'
 import { type CSSProperties, type JSX, type PointerEvent } from 'react'
 import { type Dispatcher } from 'tea-cup-fp'
 
@@ -106,6 +107,10 @@ const isInGestureScroller = (
   return found
 }
 
+// When a scroller in each drawer's content last scrolled (`Event.timeStamp`):
+// a list in momentum or bouncing past its edge fires `scroll` every frame
+const lastContentScrollAt = new WeakMap<HTMLElement, number>()
+
 const measurePress = <Item,>(
   model: Model<Item>,
   e: PointerEvent<HTMLElement>,
@@ -149,6 +154,10 @@ const measurePress = <Item,>(
         content,
         config.direction,
       ),
+      isContentScrolling: pipe(
+        O.fromNullable(lastContentScrollAt.get(content)),
+        O.exists((at) => e.timeStamp - at < config.scrollLockTimeout),
+      ),
     })
   }
 }
@@ -180,6 +189,36 @@ const preventScrollWhileDragging = (
   }
 }
 
+// Records when a scroller in the content scrolled (`scroll` doesn't bubble:
+// captured on the drawer), for `isContentScrolling`
+const trackContentScroll = (
+  element: HTMLElement | null,
+): (() => void) | undefined => {
+  if (element === null) {
+    return undefined
+  } else {
+    const onScroll = (e: Event) => {
+      lastContentScrollAt.set(element, e.timeStamp)
+    }
+    element.addEventListener('scroll', onScroll, {
+      capture: true,
+      passive: true,
+    })
+    return () =>
+      element.removeEventListener('scroll', onScroll, { capture: true })
+  }
+}
+
+// The content's ref: both listeners, attached once per element
+const contentRef = (element: HTMLElement | null): (() => void) | undefined => {
+  const stopPreventing = preventScrollWhileDragging(element)
+  const stopTracking = trackContentScroll(element)
+  return () => {
+    stopPreventing?.()
+    stopTracking?.()
+  }
+}
+
 export const contentAttrs = <Item,>(
   model: Model<Item>,
   dispatch: Dispatcher<Msg<Item>>,
@@ -201,7 +240,7 @@ export const contentAttrs = <Item,>(
   'data-drawer-direction': model.config.direction,
   'data-state': model.animate._tag,
   'data-snap-points': hasSnapPoints(model.snap) ? 'true' : 'false',
-  ref: preventScrollWhileDragging,
+  ref: contentRef,
   style: {
     '--drawer-translate': translateCss(model),
     '--drawer-duration': `${model.config.durationMs}ms`,

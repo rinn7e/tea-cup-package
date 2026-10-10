@@ -79,6 +79,7 @@ const press = (overrides: Partial<Press> = {}): Press => ({
   viewport: 1000,
   isNoDragTarget: false,
   scrollerTakesGesture: false,
+  isContentScrolling: false,
   ...overrides,
 })
 

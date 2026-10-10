@@ -71,6 +71,7 @@ const press = (overrides: Partial<Press> = {}): Press => ({
   viewport: 1000,
   isNoDragTarget: false,
   scrollerTakesGesture: false,
+  isContentScrolling: false,
   ...overrides,
 })
 
@@ -241,6 +242,23 @@ describe('decideDrag', () => {
     expect(
       decideDrag(right, press(), { ...args, hasSelection: true }).allow,
     ).toBe(false)
+  })
+
+  it('leaves a touch on still-scrolling content to it in side drawers', () => {
+    // Momentum or iOS's bounce past an edge: iOS gives the touch to the
+    // scroller and cancels the pointer, so a side drawer never starts a drag
+    const right = { ...config, direction: 'right' } satisfies Config
+    const left = { ...config, direction: 'left' } satisfies Config
+    expect(
+      decideDrag(right, press({ isContentScrolling: true }), args),
+    ).toEqual({ allow: false, lastDragPreventedAt: O.some(1000) })
+    expect(
+      decideDrag(left, press({ isContentScrolling: true }), args).allow,
+    ).toBe(false)
+    // Top and bottom drawers keep their rules
+    expect(
+      decideDrag(config, press({ isContentScrolling: true }), args).allow,
+    ).toBe(true)
   })
 
   it('leaves selected text alone', () => {

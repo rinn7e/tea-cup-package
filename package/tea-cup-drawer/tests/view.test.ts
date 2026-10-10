@@ -140,6 +140,7 @@ describe('contentAttrs — click after a drag', () => {
         viewport: 100,
         isNoDragTarget: false,
         scrollerTakesGesture: false,
+        isContentScrolling: false,
       },
       distance: 40,
       last: { x: 0, y: 40 },
@@ -217,8 +218,11 @@ describe('contentAttrs — no native scroll during a drag', () => {
   // The content element, with what the ref attached to it
   const element = (state: string) => {
     const listeners: { listener: TouchMoveListener; options: unknown }[] = []
+    // The other listeners, by type
+    const others: { type: string; listener: unknown; options: unknown }[] = []
     return {
       listeners,
+      others,
       dataset: { state },
       addEventListener: (
         type: string,
@@ -228,13 +232,18 @@ describe('contentAttrs — no native scroll during a drag', () => {
         if (type === 'touchmove') {
           listeners.push({ listener, options })
         } else {
-          // Not the one under test
+          others.push({ type, listener, options })
         }
       },
       removeEventListener: (type: string, listener: TouchMoveListener) => {
         const i = listeners.findIndex((l) => l.listener === listener)
+        const j = others.findIndex(
+          (l) => l.type === type && l.listener === listener,
+        )
         if (type === 'touchmove' && i >= 0) {
           listeners.splice(i, 1)
+        } else if (j >= 0) {
+          others.splice(j, 1)
         } else {
           // Not attached
         }
@@ -283,6 +292,20 @@ describe('contentAttrs — no native scroll during a drag', () => {
     const { el, cleanup } = attach('Dragging')
     cleanup?.()
     expect(el.listeners).toHaveLength(0)
+  })
+
+  it('records the content’s scrolls with a passive capturing listener', () => {
+    // `scroll` doesn't bubble: captured on the drawer, for `isContentScrolling`
+    const { el, cleanup } = attach('Visible')
+    expect(el.others).toEqual([
+      {
+        type: 'scroll',
+        listener: expect.any(Function),
+        options: { capture: true, passive: true },
+      },
+    ])
+    cleanup?.()
+    expect(el.others).toHaveLength(0)
   })
 
   it('keeps the same ref across renders, so it is attached once', () => {
