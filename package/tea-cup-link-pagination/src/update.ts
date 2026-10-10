@@ -55,6 +55,7 @@ import {
   type Msg,
   type ShouldRestoreScrollStateArg,
 } from './type'
+import { setContainerChangeEvent } from './util'
 
 // -------------------------------------------
 // Init
@@ -69,13 +70,14 @@ export function init<Item, ItemMsg, Route>(
   const model = {
     mode,
     containerChangeEvent: { _tag: 'NoChange' },
+    scrollSnapshot: null,
     onContainerScroll,
     shouldRestoreScrollState,
 
     invisWhileScrolling: false,
     isScrolling: false,
     savedScrollPos: null,
-    initialScrollDone: false,
+    initialScroll: { _tag: 'Pending' },
   } satisfies Model<Item>
 
   return getInitialDataHandler(networkStatus)<Item, ItemMsg, Route>(model)
@@ -355,10 +357,7 @@ export const update =
       }
       case 'SetContainerChangeEvent':
         return [
-          {
-            ...model,
-            containerChangeEvent: msg.value,
-          },
+          setContainerChangeEvent(config.refs, msg.value)(model),
           Cmd.none(),
           null,
         ]
@@ -366,8 +365,17 @@ export const update =
         return [mapFuncHandler(config, model, { ...msg }), Cmd.none(), null]
       }
       case 'ReplaceFunc': {
-        const [newModel, routeUpdater] = replaceFuncHandler(model, { ...msg })
-        return [newModel, Cmd.none(), routeUpdater]
+        const [newModel, routeUpdater] = replaceFuncHandler(model, {
+          func: msg.func,
+        })
+        return [
+          setContainerChangeEvent(
+            config.refs,
+            msg.containerChangeEvent ?? model.containerChangeEvent,
+          )(newModel),
+          Cmd.none(),
+          routeUpdater,
+        ]
       }
       case 'SetIsScrolling': {
         return [
@@ -465,9 +473,10 @@ export const update =
       // ----------------------------------------------------
       case 'SetState':
         return [
-          {
-            ...msg.value,
-          },
+          setContainerChangeEvent(
+            config.refs,
+            msg.value.containerChangeEvent,
+          )({ ...msg.value, scrollSnapshot: model.scrollSnapshot }),
           Cmd.none(),
           msg.routeUpdater ? msg.routeUpdater : null,
         ]
@@ -548,7 +557,10 @@ export const update =
               currentItem,
             )
             return [
-              {
+              setContainerChangeEvent(
+                config.refs,
+                containerChangeEvent,
+              )({
                 ...model,
                 mode: {
                   ...model.mode,
@@ -557,8 +569,7 @@ export const update =
                     SUA.updateAtOrKeep(i.value, childModel),
                   ),
                 },
-                containerChangeEvent,
-              },
+              }),
               childCmd.map((subMsg) => ({
                 _tag: 'ChildMsg',
                 childId: msg.childId,

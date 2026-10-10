@@ -28,7 +28,14 @@ import {
 } from '@rinn7e/tea-cup-prelude'
 import * as A from 'fp-ts/lib/Array'
 import { pipe } from 'fp-ts/lib/function'
-import { type JSX, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  type JSX,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 
 import { IconAdd } from './sub-component/add-icon'
 import { loadingIcon } from './sub-component/loading-icon'
@@ -67,7 +74,6 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
   const { model, config } = props
 
   const containerRef = config.logic.refs.containerRef
-  const currentScrollHeightRef = config.logic.refs.currentScrollHeightRef
   const currentScrollPosRef = config.logic.refs.currentScrollPosRef
 
   // -------------------------------------------
@@ -80,6 +86,9 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
   // -------------------------------------------
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The container's height as of the last scroll, media load or change of
+  // ours, so a media load can tell how much it grew.
+  const knownHeightRef = useRef(0)
 
   // make time floaters disappear after 2 seconds of no scrolling
   useEffect(() => {
@@ -123,12 +132,35 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
     model.mode.nextIsMax,
   ])
 
+  // Keep the reading position when an image or a video above the view gets its
+  // size late (it fires no scroll event). Browsers with scroll anchoring (not
+  // WebKit) already keep the position themselves.
   useEffect(() => {
-    // Set current height
-    if (!model.invisWhileScrolling && containerRef.current) {
-      currentScrollHeightRef.current = containerRef.current.scrollHeight
+    const container = containerRef.current
+    if (!container) return
+    knownHeightRef.current = container.scrollHeight
+    const nativeAnchoring = CSS.supports('overflow-anchor', 'auto')
+    const onMediaLoad = (e: Event) => {
+      const media = e.target as HTMLElement
+      const growth = container.scrollHeight - knownHeightRef.current
+      // It grows downwards from its top, so everything below it moves.
+      const startsAboveView =
+        media.getBoundingClientRect().top <
+        container.getBoundingClientRect().top
+      if (!nativeAnchoring && startsAboveView) {
+        container.scrollTop += growth
+        currentScrollPosRef.current = container.scrollTop
+      }
+      knownHeightRef.current = container.scrollHeight
     }
-  }, [containerRef.current, model.invisWhileScrolling])
+    // `load` and `loadedmetadata` don't bubble, so listen in the capture phase.
+    container.addEventListener('load', onMediaLoad, true)
+    container.addEventListener('loadedmetadata', onMediaLoad, true)
+    return () => {
+      container.removeEventListener('load', onMediaLoad, true)
+      container.removeEventListener('loadedmetadata', onMediaLoad, true)
+    }
+  }, [containerRef.current])
 
   // Note: Since `containerRefOnScrollHandler` is used with `onScroll`, instead of addEventListener,
   // throttle doesn't work.
@@ -137,21 +169,9 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
       if (!model.isScrolling)
         dispatch(props)({ _tag: 'SetIsScrolling', value: true })
 
-      // Note: A more performant approach might be to record
-      // the scrollTop and scrollHeight at the moment that we know an element
-      // will be added/removed instead of on scroll.
-
       // Record current scrollTop
       currentScrollPosRef.current = containerRef.current.scrollTop
-
-      // We already record `currentScrollHeightRef.current` during manipulateScrollPos
-      // but for data like HTML messages, there is a delay (like loading image)
-      // In this case, we try to synchronize the scroll height here again:
-      if (
-        currentScrollHeightRef.current !== containerRef.current.scrollHeight
-      ) {
-        currentScrollHeightRef.current = containerRef.current.scrollHeight
-      }
+      knownHeightRef.current = containerRef.current.scrollHeight
 
       if (model.onContainerScroll) {
         model.onContainerScroll(model.mode.dataSourceId, containerRef.current)
@@ -159,73 +179,29 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
     }
   }, [model.mode.dataSourceId, containerRef.current, model.isScrolling])
 
-  useEffect(() => {
-    // console.log('containerChangeEvent', model.containerChangeEvent)
-    const manipulateScrollPos = () => {
-      if (containerRef.current) {
-        const newHeight = containerRef.current.scrollHeight
-
-        const heightChange = newHeight - currentScrollHeightRef.current
-        const resultPos = currentScrollPosRef.current + heightChange
-
-        // The `heightChange` can be negative (in case of removal of element)
-        // When that happen, we force the pos to be 0.
-        const newPos = resultPos < 0 ? 0 : resultPos
-
-        currentScrollPosRef.current = newPos
-
-        containerRef.current.scrollTo({
-          top: newPos,
-        })
-
-        currentScrollHeightRef.current = newHeight
+  // Apply a change of ours before the browser paints it. A change on top keeps
+  // the scroll position: it moves by the height the change added or removed,
+  // measured against the snapshot `update` took before the change.
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    if (model.containerChangeEvent._tag === 'NoChange') return
+    if (container) {
+      const snapshot = model.scrollSnapshot
+      if (snapshot) {
+        // The height can shrink (rows removed); the position stops at 0.
+        const newPos = Math.max(
+          0,
+          snapshot.scrollTop + container.scrollHeight - snapshot.scrollHeight,
+        )
+        container.scrollTo({ top: newPos })
       }
+      currentScrollPosRef.current = container.scrollTop
+      knownHeightRef.current = container.scrollHeight
     }
-
-    switch (model.containerChangeEvent._tag) {
-      case 'NoChange':
-        return
-      case 'ElementModifyInPlace': {
-        // no scroll pos manipulation but record new scroll pos and height
-        if (containerRef.current) {
-          currentScrollHeightRef.current = containerRef.current.scrollHeight
-          currentScrollPosRef.current = containerRef.current.scrollTop
-        }
-        dispatch(props)({
-          _tag: 'SetContainerChangeEvent',
-          value: { _tag: 'NoChange' },
-        })
-        return
-      }
-      case 'ElementModifyOnBottom': {
-        // no scroll pos manipulation but record new scroll pos and height
-        if (containerRef.current) {
-          currentScrollHeightRef.current = containerRef.current.scrollHeight
-          currentScrollPosRef.current = containerRef.current.scrollTop
-        }
-        dispatch(props)({
-          _tag: 'SetContainerChangeEvent',
-          value: { _tag: 'NoChange' },
-        })
-        return
-      }
-      case 'ElementModifyOnTop': {
-        manipulateScrollPos()
-        dispatch(props)({
-          _tag: 'SetContainerChangeEvent',
-          value: { _tag: 'NoChange' },
-        })
-        return
-      }
-      case 'ForceManipulateScrollPos': {
-        manipulateScrollPos()
-        dispatch(props)({
-          _tag: 'SetContainerChangeEvent',
-          value: { _tag: 'NoChange' },
-        })
-        return
-      }
-    }
+    dispatch(props)({
+      _tag: 'SetContainerChangeEvent',
+      value: { _tag: 'NoChange' },
+    })
   }, [model.containerChangeEvent])
 
   // -------------------------------------------

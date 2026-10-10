@@ -55,7 +55,6 @@ export type Refs = {
   // `currentScrollPos` is not used for rendering anyway, but mainly for
   // saving scroll model when adding new data.
   currentScrollPosRef: { current: number }
-  currentScrollHeightRef: { current: number }
   // container ref
   containerRef: { current: HTMLDivElement | null }
   itemRefs: { current: { [Key: string]: HTMLDivElement | null } }
@@ -63,7 +62,6 @@ export type Refs = {
 
 export const mkRefs = (): Refs => ({
   currentScrollPosRef: { current: 0 },
-  currentScrollHeightRef: { current: 0 },
   containerRef: { current: null },
   itemRefs: { current: {} },
 })
@@ -361,10 +359,17 @@ export type ShouldRestoreScrollStateArg = {
   restore: (dataSourceId: string, container: HTMLDivElement) => void
 }
 
+// The container's scroll position and height.
+export type ScrollSnapshot = { scrollTop: number; scrollHeight: number }
+
 export type Model<Item> = {
   mode: Mode<Item>
 
   containerChangeEvent: ContainerChangeEvent
+  // The container as it was right before the change that `containerChangeEvent`
+  // describes was rendered, taken by `update` while the old rows are still on
+  // screen. The view keeps the scroll position with it.
+  scrollSnapshot: ScrollSnapshot | null
 
   // scroll model handlers
   onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => void
@@ -376,29 +381,48 @@ export type Model<Item> = {
   isScrolling: boolean
   savedScrollPos: number | null
   /**
-   * Tracks whether the one-time initial scroll for the current mount has
-   * been performed.
+   * Tracks the one-time initial scroll for the current mount.
    *
-   * Reset to `false` only when a list is (re-)mounted, via `GetInitialData`
-   * / `init()`. It is set to `true` by whichever of the cache or API load
-   * first resolves the scroll target, and is left untouched by
-   * `RefreshInitialData` so that an in-place refresh of an already-mounted
-   * list never re-triggers a scroll.
+   * Reset to `Pending` only when a list is (re-)mounted, via `GetInitialData`
+   * / `init()`. It is left untouched by `RefreshInitialData` so that an
+   * in-place refresh of an already-mounted list never re-triggers a scroll.
    */
-  initialScrollDone: boolean
+  initialScroll: InitialScroll
+}
+
+export type InitialScroll =
+  // Not scrolled yet: the next load that resolves the target scrolls.
+  | { _tag: 'Pending' }
+  // Scrolled to the target `key` among the cached rows. The API load may
+  // still move the target or change the rows around it.
+  | { _tag: 'FromCache'; key: string }
+  // Scrolled for good.
+  | { _tag: 'Done' }
+
+export const InitialScrollEq: EqClass.Eq<InitialScroll> = {
+  equals: (a, b) =>
+    a._tag === 'FromCache' && b._tag === 'FromCache'
+      ? a.key === b.key
+      : a._tag === b._tag,
 }
 
 export function ModelEq<Item>(itemEq: EqClass.Eq<Item>) {
   return EqClass.struct<Model<Item>>({
     mode: mkModeEq(itemEq),
     containerChangeEvent: EqClass.struct({ _tag: S.Eq }),
+    scrollSnapshot: NullableEq(
+      EqClass.struct<ScrollSnapshot>({
+        scrollTop: EqClass.eqNumber,
+        scrollHeight: EqClass.eqNumber,
+      }),
+    ),
     onContainerScroll: { equals: () => true },
     shouldRestoreScrollState: { equals: () => true },
 
     invisWhileScrolling: B.Eq,
     isScrolling: B.Eq,
     savedScrollPos: NullableEq(EqClass.eqNumber),
-    initialScrollDone: B.Eq,
+    initialScroll: InitialScrollEq,
   })
 }
 

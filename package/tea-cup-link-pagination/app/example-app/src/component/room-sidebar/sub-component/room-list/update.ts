@@ -216,7 +216,6 @@ const updateRoomSuccessHandler = (
       )(overallData.value.map((r) => (r.id === room.id ? room : r))),
       null,
     ],
-    containerChangeEvent: { _tag: 'ElementModifyInPlace' },
   })
 
   return [{ ...model, linkPagin: newLinkPagin }, Cmd.none()]

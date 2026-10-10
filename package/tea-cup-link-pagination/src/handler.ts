@@ -46,6 +46,7 @@ import {
   type ContainerChangeEvent,
   type EndpointHandler,
   type InitialEndpointResponse,
+  type InitialScroll,
   type LogicConfig,
   type Mode,
   type Model,
@@ -61,13 +62,14 @@ import {
   replaceFuncActionHandler,
   replaceFuncActionHandlerAsync,
   revertPrevIsMax,
+  setContainerChangeEvent,
 } from './util'
 
 /**
  * Loads the initial page of data for a freshly mounted list.
  *
  * Backs the `GetInitialData` message and is invoked internally by `init()`.
- * It always resets `initialScrollDone` to `false` and blanks `initialData`
+ * It always resets `initialScroll` to `Pending` and blanks `initialData`
  * to `RD.pending`, since a new mount has no committed scroll position and
  * nothing meaningful to show while the load is in flight.
  *
@@ -85,7 +87,7 @@ export const getInitialDataHandler =
     const currentDataSourceId = model.mode.dataSourceId
     const newModel = {
       ...model,
-      initialScrollDone: false,
+      initialScroll: { _tag: 'Pending' },
       mode: {
         ...model.mode,
         initialData: RD.pending,
@@ -110,7 +112,7 @@ export const getInitialDataHandler =
  *   is re-fetched in the background.
  * - If no data is loaded yet, `initialData` is set to `RD.pending`, same as
  *   a fresh load.
- * - `initialScrollDone` is never modified. The one-time initial scroll for
+ * - `initialScroll` is never modified. The one-time initial scroll for
  *   this mount was already resolved (or intentionally was not owed), and a
  *   background refresh must not re-trigger it.
  *
@@ -152,17 +154,19 @@ export const refreshInitialDataHandler =
  * response may reassign or clear `selectedKey`
  * (`InitialEndpointResponse.selectedKey`) — for example, when the previously
  * selected item is no longer available and the view falls back to the
- * newest unread item. Until the API leg has responded, `selectedKey` should
- * be treated as provisional: the cache leg may scroll only to a target the
- * API leg cannot later override (i.e. when `selectedKey` is `null`, meaning
- * the view opens at the newest page). Otherwise the cache leg could scroll
- * to a position the API leg immediately scrolls away from.
+ * newest unread item. So while a list opens at a target (`selectedKey`):
  *
- * Note: this deliberately does not set `invisWhileScrolling` while the
- * cache leg defers scrolling to the API leg. `invisWhileScrolling` is
- * cleared only by `ScrollToCurrentDone`, which is dispatched as part of a
- * scroll; setting it here without a corresponding scroll on this leg would
- * leave the list hidden indefinitely instead of simply skipping the scroll.
+ * - If the cached rows contain the target, the cache leg shows them and
+ *   scrolls to it right away (`initialScroll` is `FromCache`). The API
+ *   almost always confirms it; the API leg scrolls again only if it moved
+ *   the target or the rows changed.
+ * - If they don't, the cache leg doesn't show them: the list would show at
+ *   a place the open won't stay at, and loading the page next to it. The
+ *   loader stays until the API leg, which scrolls. The API request still
+ *   gets the cached rows (to drop stale ones).
+ *
+ * Without a target (the newest page), the cache leg shows its rows and
+ * scrolls, and the API leg doesn't scroll again.
  */
 export const getInitialDataFromCacheResponseHandler = <
   Item,
@@ -177,33 +181,42 @@ export const getInitialDataFromCacheResponseHandler = <
   m: Model<Item>,
 ): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
   if (m.mode.dataSourceId === dataSourceId) {
-    const hasCacheData =
-      cache._tag === 'RemoteSuccess' && cache.value.length !== 0
-    const newModel = hasCacheData
+    const cacheItems = cache._tag === 'RemoteSuccess' ? cache.value : []
+    const selectedKey = m.mode.selectedKey
+    const isOpening = m.initialScroll._tag === 'Pending'
+    const targetIsCached =
+      selectedKey === null ||
+      cacheItems.some((item) => config.uniqueKeyField(item) === selectedKey)
+    const showCache = cacheItems.length !== 0 && (!isOpening || targetIsCached)
+    const newModel = showCache
       ? pipe({
           ...m,
           mode: {
             ...m.mode,
-            initialData: RD.success(cache.value),
+            initialData: RD.success(cacheItems),
             overallData: pipe(
-              cache.value,
+              cacheItems,
               SUA.fromArray(config.eqWithKey, config.ord),
             ),
           },
         } satisfies Model<Item>)
       : m
 
-    // Fast path: the cache leg may scroll only to a target the API leg cannot overturn
-    // (no selectedKey: opening at newest page / end of list)
-    const shouldScroll =
-      !newModel.initialScrollDone &&
-      hasCacheData &&
-      newModel.mode.selectedKey === null
+    const shouldScroll = isOpening && showCache
+    const initialScroll: InitialScroll = !shouldScroll
+      ? newModel.initialScroll
+      : selectedKey === null
+        ? { _tag: 'Done' }
+        : { _tag: 'FromCache', key: selectedKey }
 
     return pipe(
       [
-        shouldScroll ? { ...newModel, initialScrollDone: true } : newModel,
-        getInitialDataFromApiCmd(networkStatus, newModel),
+        { ...newModel, initialScroll },
+        getInitialDataFromApiCmd(
+          networkStatus,
+          newModel,
+          showCache ? newModel.mode.overallData.value : cacheItems,
+        ),
       ] satisfies [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>],
       shouldScroll
         ? updateAndCmd(scrollToCurrentHandler(config, { isGraceful: false }))
@@ -211,6 +224,17 @@ export const getInitialDataFromCacheResponseHandler = <
     )
   } else return [m, Cmd.none()]
 }
+
+// Whether two lists hold the same items, in the same order.
+const sameKeys = <Item, Parent, ItemMsg>(
+  config: LogicConfig<Item, Parent, ItemMsg>,
+  a: Item[],
+  b: Item[],
+): boolean =>
+  a.length === b.length &&
+  a.every(
+    (item, i) => config.uniqueKeyField(item) === config.uniqueKeyField(b[i]),
+  )
 
 // Handle api resposne
 export const getInitialDataFromApiResponseHandler = <
@@ -231,10 +255,9 @@ export const getInitialDataFromApiResponseHandler = <
     const newModel = (() => {
       if (result._tag === 'Left') {
         return cacheExist
-          ? { ...m, initialScrollDone: true }
+          ? m
           : ({
               ...m,
-              initialScrollDone: true,
               mode: { ...m.mode, initialData: RD.failure(result.left) },
             } satisfies Model<Item>)
       }
@@ -245,7 +268,6 @@ export const getInitialDataFromApiResponseHandler = <
         const newOverallData = result.right.dataF(m.mode.overallData.value)
         return pipe({
           ...m,
-          initialScrollDone: true,
           mode: {
             ...m.mode,
             initialData: RD.success(newOverallData),
@@ -266,16 +288,38 @@ export const getInitialDataFromApiResponseHandler = <
     // Scroll here unless the cache leg already did. This is the leg that
     // resolves the final target, since the API response may have reassigned
     // or cleared `selectedKey` after the cache leg ran — so it is the last
-    // opportunity to scroll for this mount. Once `initialScrollDone` is
-    // `true`, it is also what prevents a later refresh (via
-    // `refreshInitialDataHandler`) from moving the view again.
-    const shouldScroll = !m.initialScrollDone
+    // opportunity to scroll for this mount. After a scroll to the cached
+    // rows, scroll again (hidden while it runs) only if the API moved the
+    // target; if it only changed the rows, scroll without hiding, which moves
+    // the view only if the target left it. Once `initialScroll` is `Done`, it
+    // is also what prevents a later refresh (via `refreshInitialDataHandler`)
+    // from moving the view again.
+    const scroll = ((): ScrollToCurrentParam | null => {
+      switch (m.initialScroll._tag) {
+        case 'Pending':
+          return { isGraceful: false }
+        case 'FromCache':
+          if (newModel.mode.selectedKey !== m.initialScroll.key) {
+            return { isGraceful: false }
+          } else if (
+            !sameKeys(
+              config,
+              newModel.mode.overallData.value,
+              m.mode.overallData.value,
+            )
+          ) {
+            return { isGraceful: true }
+          } else {
+            return null
+          }
+        case 'Done':
+          return null
+      }
+    })()
 
     return pipe(
-      newModel,
-      shouldScroll
-        ? scrollToCurrentHandler(config, { isGraceful: false })
-        : (m) => [m, Cmd.none()],
+      { ...newModel, initialScroll: { _tag: 'Done' } } satisfies Model<Item>,
+      scroll ? scrollToCurrentHandler(config, scroll) : (m) => [m, Cmd.none()],
     )
   } else return [m, Cmd.none()]
 }
@@ -347,12 +391,14 @@ export const setModeAndAddUpdateDataHandler = <Item, Parent, ItemMsg, Route>(
   )
   return pipe(
     [
-      {
-        ...resultState,
+      setContainerChangeEvent(
+        config.refs,
         containerChangeEvent,
+      )({
+        ...resultState,
         onContainerScroll: msg.onContainerScroll,
         shouldRestoreScrollState: msg.shouldRestoreScrollState,
-      },
+      }),
       Cmd.none(),
     ] satisfies [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>],
     // `shouldReload` here means a whole new `mode` is being installed — again
@@ -442,7 +488,6 @@ export const forceScrollToHandler = <Item, ItemMsg, Route>(
           const container = refs.containerRef.current
           container.scrollTo({ top: newTop })
           refs.currentScrollPosRef.current = newTop
-          refs.currentScrollHeightRef.current = container.scrollHeight
         }
       },
       () =>
@@ -461,19 +506,9 @@ export const replaceFuncHandler = <Item, Route>(
     func: (
       items: SortedUniqueArray<Item>,
     ) => [SortedUniqueArray<Item>, AppRouteUpdater<Route>]
-    containerChangeEvent?: ContainerChangeEvent
   },
-): [Model<Item>, AppRouteUpdater<Route>] => {
-  const [newModel, routeUpdater] = replaceFuncActionHandler(model, msg.func)
-  return [
-    {
-      ...newModel,
-      containerChangeEvent:
-        msg.containerChangeEvent ?? model.containerChangeEvent,
-    },
-    routeUpdater,
-  ]
-}
+): [Model<Item>, AppRouteUpdater<Route>] =>
+  replaceFuncActionHandler(model, msg.func)
 
 export const mapFuncHandler = <Item, Parent, ItemMsg>(
   config: LogicConfig<Item, Parent, ItemMsg>,
@@ -487,11 +522,10 @@ export const mapFuncHandler = <Item, Parent, ItemMsg>(
     SUA.map(config.eqWithKey, config.ord)(msg.func)(as),
     null,
   ])
-  return {
-    ...newModel,
-    containerChangeEvent:
-      msg.containerChangeEvent ?? model.containerChangeEvent,
-  }
+  return setContainerChangeEvent(
+    config.refs,
+    msg.containerChangeEvent ?? model.containerChangeEvent,
+  )(newModel)
 }
 
 export const addOrUpdateDataHandler = <Item, Parent, ItemMsg>(
@@ -549,10 +583,10 @@ export const addOrUpdateDataHandler = <Item, Parent, ItemMsg>(
     //   containerChangeEvent,
     // )
 
-    return revertPrevIsMax({
-      ...resultState,
+    return setContainerChangeEvent(
+      config.refs,
       containerChangeEvent,
-    })
+    )(revertPrevIsMax(resultState))
   } else return model
 }
 
@@ -580,11 +614,16 @@ export const getInitialDataFromCacheCmd = <Item, ItemMsg, Route>(
           cache: r.value,
         } satisfies Msg<Item, ItemMsg, Route>
       else {
+        // A cache that can't be read is no cache: the API request still runs.
         console.warn(
           'Error from func: getInitialDataFromCacheCmd: ' +
             errorToString(r.err),
         )
-        return { _tag: 'NoOp' }
+        return {
+          _tag: 'GetInitialDataFromCacheResponse',
+          dataSourceId,
+          cache: RD.failure(mkHttpError(errorToString(r.err))),
+        } satisfies Msg<Item, ItemMsg, Route>
       }
     },
   )
@@ -593,12 +632,10 @@ export const getInitialDataFromCacheCmd = <Item, ItemMsg, Route>(
 export const getInitialDataFromApiCmd = <Item, ItemMsg, Route>(
   networkStatus: boolean,
   model: Model<Item>,
+  // The cached rows, shown or not, so the endpoint can drop stale ones.
+  cacheData: Item[],
 ): Cmd<Msg<Item, ItemMsg, Route>> => {
   const { endpoint } = model.mode.initialHandler()
-
-  // We can access cache via current overallData since it is
-  // populated with the cache value anyway.
-  const cacheData = model.mode.overallData.value
 
   return attemptTE(endpoint(networkStatus, cacheData), (r) => {
     switch (r.tag) {
@@ -609,11 +646,16 @@ export const getInitialDataFromApiCmd = <Item, ItemMsg, Route>(
           result: E.right(r.value),
         } satisfies Msg<Item, ItemMsg, Route>
       case 'Err': {
+        // The endpoint threw instead of returning its error: report it the
+        // same way, so the list doesn't stay loading.
         console.warn(
-          'Error from func: getInitialDataFromCacheCmd: ' +
-            errorToString(r.err),
+          'Error from func: getInitialDataFromApiCmd: ' + errorToString(r.err),
         )
-        return { _tag: 'NoOp' }
+        return {
+          _tag: 'GetInitialDataFromApiResponse',
+          dataSourceId: model.mode.dataSourceId,
+          result: E.left(mkHttpError(errorToString(r.err))),
+        } satisfies Msg<Item, ItemMsg, Route>
       }
     }
   })
@@ -739,7 +781,6 @@ export const checkVisibleAndScrollToCurrent = <
 
   const containerRef = logicConfig.refs.containerRef
   const itemRefs = logicConfig.refs.itemRefs
-  const currentScrollHeightRef = logicConfig.refs.currentScrollHeightRef
   const currentScrollPosRef = logicConfig.refs.currentScrollPosRef
 
   const isVisible = (domElement: Element): Promise<boolean> => {
@@ -826,13 +867,12 @@ export const checkVisibleAndScrollToCurrent = <
         if (customScrollToCurrent) customScrollToCurrent()
         else await scrollToCurrent()
 
-        // Record scroll pos and height
+        // Record scroll pos
         // Note: we have to use `setTimeout` since the `containerRef.current.scrollTop`
         // is smaller than the actual scrollTop for some reason.
         setTimeout(() => {
           if (containerRef.current) {
             currentScrollPosRef.current = containerRef.current.scrollTop
-            currentScrollHeightRef.current = containerRef.current.scrollHeight
 
             // Record the new scroll state into scroll_state map
             if (model.onContainerScroll)
@@ -870,17 +910,18 @@ export const addToPrevOverallDataHandler = <Item, Parent, ItemMsg>(
     model.mode.overallData.value,
   )
 
-  return {
+  return setContainerChangeEvent(
+    config.refs,
+    uniqueIncomingData.length > 0 && config.isReversed
+      ? { _tag: 'ElementModifyOnTop' }
+      : { _tag: 'NoChange' },
+  )({
     ...model,
     mode: {
       ...model.mode,
       overallData,
     },
-    containerChangeEvent:
-      uniqueIncomingData.length > 0 && config.isReversed
-        ? ({ _tag: 'ElementModifyOnTop' } as ContainerChangeEvent)
-        : ({ _tag: 'NoChange' } as ContainerChangeEvent),
-  } satisfies Model<Item>
+  })
 }
 
 export const addToNextOverallDataHandler = <Item, Parent, ItemMsg>(
@@ -910,17 +951,18 @@ export const addToNextOverallDataHandler = <Item, Parent, ItemMsg>(
     model.mode.overallData.value,
   )
 
-  return {
+  return setContainerChangeEvent(
+    config.refs,
+    uniqueIncomingData.length > 0 && !config.isReversed
+      ? { _tag: 'ElementModifyOnTop' }
+      : { _tag: 'NoChange' },
+  )({
     ...model,
     mode: {
       ...model.mode,
       overallData,
     },
-    containerChangeEvent:
-      uniqueIncomingData.length > 0 && !config.isReversed
-        ? ({ _tag: 'ElementModifyOnTop' } as ContainerChangeEvent)
-        : ({ _tag: 'NoChange' } as ContainerChangeEvent),
-  } satisfies Model<Item>
+  })
 }
 
 export const getMorePrevDataHandler = <Item, ItemMsg, Route>(
@@ -1204,9 +1246,14 @@ export const getMorePrevDataFromCacheCmd = <Item, ItemMsg, Route>(
           endpoint,
           cache: r.value,
         } satisfies Msg<Item, ItemMsg, Route>
-      else {
-        return { _tag: 'NoOp' }
-      }
+      // A cache that can't be read is no cache: the API request still runs.
+      else
+        return {
+          _tag: 'GetMorePrevDataFromCacheResponse',
+          dataSourceId,
+          endpoint,
+          cache: RD.failure(mkHttpError(errorToString(r.err))),
+        } satisfies Msg<Item, ItemMsg, Route>
     },
   )
 }
@@ -1262,9 +1309,14 @@ export const getMoreNextDataFromCacheCmd = <Item, ItemMsg, Route>(
           endpoint,
           cache: r.value,
         } satisfies Msg<Item, ItemMsg, Route>
-      else {
-        return { _tag: 'NoOp' }
-      }
+      // A cache that can't be read is no cache: the API request still runs.
+      else
+        return {
+          _tag: 'GetMoreNextDataFromCacheResponse',
+          dataSourceId,
+          endpoint,
+          cache: RD.failure(mkHttpError(errorToString(r.err))),
+        } satisfies Msg<Item, ItemMsg, Route>
     },
   )
 }

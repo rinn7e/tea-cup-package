@@ -313,7 +313,6 @@ const markRoomAsReadResponseGlobalEventHandler = (
         )(overallData.value.map((r) => (r.id === room.id ? room : r))),
         null,
       ],
-      containerChangeEvent: { _tag: 'ElementModifyInPlace' },
     },
   )
 
@@ -458,7 +457,6 @@ const simulateIncomingChatOtherRoomResponseGlobalEventHandler = (
         ),
         null,
       ],
-      containerChangeEvent: { _tag: 'ElementModifyInPlace' },
     },
   )
 

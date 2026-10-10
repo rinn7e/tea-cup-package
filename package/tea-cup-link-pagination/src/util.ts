@@ -36,6 +36,7 @@ import {
   type LogicConfig,
   type Mode,
   type Model,
+  type Refs,
 } from './type'
 
 // -------------------------------------------
@@ -371,3 +372,33 @@ export const getSelectedItem = <Item, Parent, ItemMsg>(
 
   return selectedItem
 }
+
+// The changes after which the view keeps the scroll position.
+const keepsScrollPos = (event: ContainerChangeEvent): boolean =>
+  event._tag === 'ElementModifyOnTop' ||
+  event._tag === 'ForceManipulateScrollPos'
+
+// Set the change the view applies on its next render. For a change that keeps
+// the scroll position, also take the container's snapshot: the model is updated
+// before the change is rendered, so the container still shows the old rows,
+// with everything that grew since included. A snapshot the model already has
+// (taken for an earlier change, not rendered yet) is kept: the container hasn't
+// changed since.
+export const setContainerChangeEvent =
+  (refs: Refs, event: ContainerChangeEvent) =>
+  <Item>(model: Model<Item>): Model<Item> => {
+    const container = refs.containerRef.current
+    return {
+      ...model,
+      containerChangeEvent: event,
+      scrollSnapshot: !keepsScrollPos(event)
+        ? null
+        : (model.scrollSnapshot ??
+          (container
+            ? {
+                scrollTop: container.scrollTop,
+                scrollHeight: container.scrollHeight,
+              }
+            : null)),
+    }
+  }
