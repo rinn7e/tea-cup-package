@@ -28,7 +28,7 @@ import * as Ord from 'fp-ts/lib/Ord'
 import * as TE from 'fp-ts/lib/TaskEither'
 import { pipe } from 'fp-ts/lib/function'
 import * as N from 'fp-ts/lib/number'
-import { Cmd } from 'tea-cup-fp'
+import { Cmd, Sub } from 'tea-cup-fp'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -62,6 +62,7 @@ const config: LogicConfig<Item, null, null> = {
   uniqueKeyField: (item) => item.id,
   visibleStrategy: { _tag: 'FullInView' },
   update: (_parent, _msg, item) => [item, Cmd.none(), { _tag: 'NoChange' }],
+  subscriptions: () => Sub.none(),
 }
 
 const items = (...ts: number[]): Item[] =>

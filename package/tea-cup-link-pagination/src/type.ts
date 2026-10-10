@@ -43,7 +43,7 @@ import * as TE from 'fp-ts/lib/TaskEither'
 import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
 import { type JSX } from 'react'
-import { type Cmd } from 'tea-cup-fp'
+import { type Cmd, type Sub } from 'tea-cup-fp'
 
 // Type
 // ----------------------------------------------
@@ -279,6 +279,9 @@ export type LogicConfig<Item, Parent, ItemMsg> = {
     msg: ItemMsg,
     model: Item,
   ) => [Item, Cmd<ItemMsg>, ContainerChangeEvent]
+  // The item's own subscriptions (e.g. its drawer). Their messages reach the
+  // item through `ChildMsg`, like the ones `update` handles.
+  subscriptions: (model: Item) => Sub<ItemMsg>
 }
 
 export type WithPrevAndNext<Item> = {
@@ -352,6 +355,7 @@ export function mkLogicConfigEq<Item, Parent, ItemMsg>(
     visibleStrategy: VisibleStrategyEq,
 
     update: { equals: () => true },
+    subscriptions: { equals: () => true },
   })
 }
 
