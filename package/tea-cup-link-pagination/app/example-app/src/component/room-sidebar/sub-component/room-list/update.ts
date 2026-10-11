@@ -1,4 +1,3 @@
-import * as RD from '@devexperts/remote-data-ts'
 import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 import { updateAndCmd } from '@rinn7e/tea-cup-prelude'
 import { mkHttpError } from '@rinn7e/tea-cup-prelude/type/http-error'
@@ -26,10 +25,8 @@ export const mkRoomListLinkPaginationMode = (
   return {
     dataSourceId: 'sidebar-rooms',
     overallData: SUA.empty(),
-    prevData: RD.initial,
+    prev: { _tag: 'Idle' },
     prevSize: size(15),
-    prevIsMax: false,
-    allowRetryPrev: false,
 
     initialHandler: () => ({
       cache: async () => Api.getCachedRooms(),
@@ -44,10 +41,8 @@ export const mkRoomListLinkPaginationMode = (
           TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
         ),
     }),
-    initialData: RD.initial,
+    initial: { _tag: 'NotStarted' },
     selectedKey: activeRoomId,
-    retriggerCurrentData: 'done',
-    animationEnd: false,
 
     // prevHandler: loads older / more items below (bottom of list when non-reversed)
     prevHandler: (overallData) => (pageSize) => ({
@@ -88,9 +83,8 @@ export const mkRoomListLinkPaginationMode = (
         )
       },
     }),
-    nextData: RD.initial,
+    next: { _tag: 'Exhausted' },
     nextSize: size(15),
-    nextIsMax: true,
   }
 }
 
@@ -208,15 +202,11 @@ const updateRoomSuccessHandler = (
   room: Api.Room,
   model: Model,
 ): [Model, Cmd<Msg>] => {
-  const [newLinkPagin] = LinkPagination.replaceFuncHandler(model.linkPagin, {
-    func: (overallData) => [
-      SUA.fromArray(
-        Api.RoomEq,
-        Api.RoomOrd,
-      )(overallData.value.map((r) => (r.id === room.id ? room : r))),
-      null,
-    ],
-  })
+  const newLinkPagin = LinkPagination.updateByKey(
+    logicConfig,
+    room.id,
+    () => room,
+  )(model.linkPagin)
 
   return [{ ...model, linkPagin: newLinkPagin }, Cmd.none()]
 }

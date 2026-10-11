@@ -21,9 +21,7 @@ export const logicConfig: LinkPagination.LogicConfig<
   RoomItemMsg
 > = {
   refs: LinkPagination.mkRefs(),
-  mode: LinkPagination.defaultMode<Api.Room>(),
   isReversed: false, // Sidebar room list is top-to-bottom
-  eqWithKey: Api.RoomEq,
   ord: Api.RoomOrd,
   uniqueKeyField: (r: Api.Room) => r.id,
   visibleStrategy: { _tag: 'HalfInView' },

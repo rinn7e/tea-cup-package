@@ -109,7 +109,7 @@ describe('opening at a target', () => {
     const others = [item('older', 1), item('other', 2)]
     const afterCache = cacheStep(openingModel('target'), others)
     expect(scrolledHidden(afterCache)).toBe(false)
-    expect(afterCache.mode.initialData._tag).toBe('RemotePending')
+    expect(afterCache.mode.initial._tag).toBe('Loading')
     expect(afterCache.mode.overallData.value.length).toBe(0)
     expect(afterCache.initialScroll._tag).toBe('Pending')
 
@@ -171,7 +171,7 @@ describe('the open scrolls once', () => {
     )
     const [refreshed] = refreshInitialDataHandler(true)(opened())
     expect(refreshed.initialScroll._tag).toBe('Done')
-    expect(refreshed.mode.initialData._tag).toBe('RemoteSuccess')
+    expect(refreshed.mode.initial._tag).toBe('Loaded')
   })
 
   it('ignores responses for another list', () => {

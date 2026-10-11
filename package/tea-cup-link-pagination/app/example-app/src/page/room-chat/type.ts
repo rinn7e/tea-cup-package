@@ -3,6 +3,7 @@ import { ModelEq as LinkPaginModelEq } from '@rinn7e/tea-cup-link-pagination'
 import { NullableEq, UndefinableEq } from '@rinn7e/tea-cup-prelude'
 import * as A from 'fp-ts/lib/Array'
 import * as EqClass from 'fp-ts/lib/Eq'
+import { type IORef } from 'fp-ts/lib/IORef'
 import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
 
@@ -32,7 +33,7 @@ export const ParentContextEq: EqClass.Eq<ParentContext> = EqClass.struct({
 export type Model = {
   readonly roomId: string
   readonly linkPagin: LinkPagination.Model<Chat>
-  readonly scrollStateMap: LinkPagination.ScrollStateMap
+  readonly scrollStateRef: IORef<LinkPagination.ScrollStateMap>
   readonly highlightedChatId: string | null
   readonly inputDraft: string
   readonly searchQuery: string
@@ -43,7 +44,7 @@ export type Model = {
 export const ModelEq: EqClass.Eq<Model> = EqClass.struct({
   roomId: S.Eq,
   linkPagin: LinkPaginModelEq(ChatEq),
-  scrollStateMap: { equals: () => true },
+  scrollStateRef: { equals: () => true },
   highlightedChatId: NullableEq(S.Eq),
   inputDraft: S.Eq,
   searchQuery: S.Eq,

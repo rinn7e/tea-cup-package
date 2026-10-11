@@ -19,9 +19,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-import * as RD from '@devexperts/remote-data-ts'
 import { type AppRouteUpdater } from '@rinn7e/tea-cup-prelude/type/app-route-updater'
 import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
+import { type IO } from 'fp-ts/lib/IO'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
@@ -55,7 +55,7 @@ import {
   type Msg,
   type ShouldRestoreScrollStateArg,
 } from './type'
-import { setContainerChangeEvent } from './util'
+import { setContainerChangeEvent, setOrKeepContainerChangeEvent } from './util'
 
 // -------------------------------------------
 // Init
@@ -64,19 +64,17 @@ import { setContainerChangeEvent } from './util'
 export function init<Item, ItemMsg, Route>(
   networkStatus: boolean,
   mode: Mode<Item>,
-  onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => void,
+  onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => IO<void>,
   shouldRestoreScrollState?: ShouldRestoreScrollStateArg,
 ): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] {
   const model = {
     mode,
-    containerChangeEvent: { _tag: 'NoChange' },
-    scrollSnapshot: null,
+    pendingChange: { _tag: 'None' },
     onContainerScroll,
     shouldRestoreScrollState,
 
     invisWhileScrolling: false,
     isScrolling: false,
-    savedScrollPos: null,
     initialScroll: { _tag: 'Pending' },
   } satisfies Model<Item>
 
@@ -168,6 +166,7 @@ export const update =
       //   break
       // }
 
+      // TODO: broken (works on a stale model), see `ReplaceFuncAsync` in `type.ts`
       case 'ReplaceFuncAsync': {
         return [model, replaceFuncAsyncCmd(model, { ...msg }), null]
       }
@@ -181,20 +180,6 @@ export const update =
           null,
         ]
       }
-      case 'SetPrevData':
-        if (msg.dataSourceId === model.mode.dataSourceId)
-          return [
-            {
-              ...model,
-              mode: {
-                ...model.mode,
-                prevData: msg.value,
-              },
-            },
-            Cmd.none(),
-            null,
-          ]
-        else return [model, Cmd.none(), null]
       // Add `msg.value` to `PrevOverallData`, overwrite if it already exists.
       case 'AddToPrevOverallData': {
         if (msg.dataSourceId === model.mode.dataSourceId) {
@@ -205,82 +190,6 @@ export const update =
           ]
         } else return [model, Cmd.none(), null]
       }
-      case 'SetPrevIsMax':
-        if (msg.dataSourceId === model.mode.dataSourceId)
-          return [
-            {
-              ...model,
-              mode: {
-                ...model.mode,
-                prevIsMax: msg.value,
-              },
-            },
-            Cmd.none(),
-            null,
-          ]
-        else return [model, Cmd.none(), null]
-
-      case 'SetInitialData': {
-        if (msg.dataSourceId === model.mode.dataSourceId)
-          if (msg.value._tag === 'RemoteSuccess') {
-            // const initialNextOverallData = msg.value.value.next
-            // const initialCurrentData = msg.value.value.current
-            // const initialPrevOverallData = msg.value.value.prev
-            const initialData = msg.value.value
-
-            const overallData = pipe(
-              initialData,
-              SUA.fromArray(config.eqWithKey, config.ord),
-            )
-
-            return [
-              {
-                ...model,
-                mode: {
-                  ...model.mode,
-                  initialData: RD.success(initialData),
-                  // prevData: prevRD,
-                  // nextData: nextRD,
-                  overallData,
-                },
-
-                // command:
-                //   msg.command._tag === 'Some'
-                //     ? msg.command.value
-                //     : { _tag: 'NoChange' },
-              },
-              Cmd.none(),
-              null,
-            ]
-          } else
-            return [
-              {
-                ...model,
-                mode: {
-                  ...model.mode,
-                  initialData: msg.value,
-                },
-              },
-              Cmd.none(),
-              null,
-            ]
-        else return [model, Cmd.none(), null]
-      }
-
-      case 'SetNextData':
-        if (msg.dataSourceId === model.mode.dataSourceId)
-          return [
-            {
-              ...model,
-              mode: {
-                ...model.mode,
-                nextData: msg.value,
-              },
-            },
-            Cmd.none(),
-            null,
-          ]
-        else return [model, Cmd.none(), null]
       case 'AddToNextOverallData': {
         if (msg.dataSourceId === model.mode.dataSourceId) {
           return [
@@ -290,50 +199,6 @@ export const update =
           ]
         } else return [model, Cmd.none(), null]
       }
-
-      case 'SetNextIsMax':
-        if (msg.dataSourceId === model.mode.dataSourceId)
-          return [
-            {
-              ...model,
-              mode: {
-                ...model.mode,
-                nextIsMax: msg.value,
-              },
-            },
-            Cmd.none(),
-            null,
-          ]
-        else return [model, Cmd.none(), null]
-
-      case 'SetReTriggerCurrentData':
-        if (msg.dataSourceId === model.mode.dataSourceId)
-          return [
-            {
-              ...model,
-              mode: {
-                ...model.mode,
-                retriggerCurrentData: msg.value,
-              },
-            },
-            Cmd.none(),
-            null,
-          ]
-        else return [model, Cmd.none(), null]
-      case 'SetAnimationEnd':
-        if (msg.dataSourceId === model.mode.dataSourceId)
-          return [
-            {
-              ...model,
-              mode: {
-                ...model.mode,
-                animationEnd: msg.value,
-              },
-            },
-            Cmd.none(),
-            null,
-          ]
-        else return [model, Cmd.none(), null]
 
       case 'SetModeAndAddUpdateData': {
         const [m, cmd] = setModeAndAddUpdateDataHandler<
@@ -365,27 +230,16 @@ export const update =
         return [mapFuncHandler(config, model, { ...msg }), Cmd.none(), null]
       }
       case 'ReplaceFunc': {
-        const [newModel, routeUpdater] = replaceFuncHandler(model, {
-          func: msg.func,
+        const [newModel, routeUpdater] = replaceFuncHandler(config, model, {
+          ...msg,
         })
-        return [
-          setContainerChangeEvent(
-            config.refs,
-            msg.containerChangeEvent ?? model.containerChangeEvent,
-          )(newModel),
-          Cmd.none(),
-          routeUpdater,
-        ]
+        return [newModel, Cmd.none(), routeUpdater]
       }
       case 'SetIsScrolling': {
         return [
           {
             ...model,
             isScrolling: msg.value,
-            savedScrollPos:
-              msg.savedScrollPos !== undefined
-                ? msg.savedScrollPos
-                : model.savedScrollPos,
           },
           Cmd.none(),
           null,
@@ -473,10 +327,10 @@ export const update =
       // ----------------------------------------------------
       case 'SetState':
         return [
-          setContainerChangeEvent(
+          setOrKeepContainerChangeEvent(
             config.refs,
-            msg.value.containerChangeEvent,
-          )({ ...msg.value, scrollSnapshot: model.scrollSnapshot }),
+            msg.containerChangeEvent,
+          )({ ...msg.value, pendingChange: model.pendingChange }),
           Cmd.none(),
           msg.routeUpdater ? msg.routeUpdater : null,
         ]

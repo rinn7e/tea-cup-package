@@ -97,7 +97,7 @@ describe('a load that throws still reports back', () => {
       RD.failure('the cache cannot be read') as never,
       throwingModel(),
     )
-    expect(afterCache.mode.initialData._tag).toBe('RemotePending')
+    expect(afterCache.mode.initial._tag).toBe('Loading')
     const [apiMsg] = await run(apiCmd)
     expect(apiMsg._tag).toBe('GetInitialDataFromApiResponse')
   })
@@ -113,7 +113,7 @@ describe('a load that throws still reports back', () => {
       msg.result as never,
       throwingModel(),
     )
-    expect(afterApi.mode.initialData._tag).toBe('RemoteFailure')
+    expect(afterApi.mode.initial._tag).toBe('Failed')
   })
 
   it('an older or newer page cache read that throws answers as a failed cache', async () => {

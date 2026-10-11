@@ -35,9 +35,9 @@ import {
 } from '@rinn7e/tea-cup-prelude/type/size'
 import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import { type SortedUniqueArray } from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
-import * as A from 'fp-ts/lib/Array'
 import type * as E from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
+import { type IO } from 'fp-ts/lib/IO'
 import { type Option } from 'fp-ts/lib/Option'
 import type * as OrdClass from 'fp-ts/lib/Ord'
 import * as TE from 'fp-ts/lib/TaskEither'
@@ -51,17 +51,12 @@ import { type Cmd, type Sub } from 'tea-cup-fp'
 
 // Mutable variables
 export type Refs = {
-  // Use ref since this get updated on every scroll and we don't we want to re-render
-  // `currentScrollPos` is not used for rendering anyway, but mainly for
-  // saving scroll model when adding new data.
-  currentScrollPosRef: { current: number }
   // container ref
   containerRef: { current: HTMLDivElement | null }
   itemRefs: { current: { [Key: string]: HTMLDivElement | null } }
 }
 
 export const mkRefs = (): Refs => ({
-  currentScrollPosRef: { current: 0 },
   containerRef: { current: null },
   itemRefs: { current: {} },
 })
@@ -108,6 +103,48 @@ export type InitialHandler<Item> = () => {
   endpoint: InitialEndpointHandler<Item>
 }
 
+// The loading state of the first page. Its items are in `overallData`.
+export type Initial =
+  // Not asked for yet (a model made before `init`)
+  | { _tag: 'NotStarted' }
+  | { _tag: 'Loading' }
+  // The cached rows are shown, and the API is still deciding: its answer
+  // replaces them. The ends don't load yet, from rows about to be replaced.
+  | { _tag: 'Cached' }
+  | { _tag: 'Failed'; error: HttpErrorString }
+  // The API answered (or failed with the cached rows shown)
+  | { _tag: 'Loaded' }
+
+export const InitialEq: EqClass.Eq<Initial> = {
+  equals: (a, b) => {
+    if (a._tag === 'Failed' && b._tag === 'Failed') {
+      return HttpErrorStringEq.equals(a.error, b.error)
+    } else {
+      return a._tag === b._tag
+    }
+  },
+}
+
+// The loading state of one end of the list (older or newer items).
+export type Edge =
+  // Can load more
+  | { _tag: 'Idle' }
+  | { _tag: 'Loading' }
+  // The last load failed; a load can retry it
+  | { _tag: 'Failed'; error: HttpErrorString }
+  // Nothing more on this end
+  | { _tag: 'Exhausted' }
+
+export const EdgeEq: EqClass.Eq<Edge> = {
+  equals: (a, b) => {
+    if (a._tag === 'Failed' && b._tag === 'Failed') {
+      return HttpErrorStringEq.equals(a.error, b.error)
+    } else {
+      return a._tag === b._tag
+    }
+  },
+}
+
 export type Mode<Item> = {
   // A unique key used to identify the data source of the component.
   // Mainly used as debugging at the moment.
@@ -118,15 +155,11 @@ export type Mode<Item> = {
     endpoint: EndpointHandler<Item>
   }
   overallData: SortedUniqueArray<Item>
-  prevData: RD.RemoteData<HttpErrorString, Item[]>
+  prev: Edge
   prevSize: Size
-  prevIsMax: boolean
-  // When true, on load more prev, it will call the same index instead of increasing
-  // the index.
-  allowRetryPrev: boolean
 
   initialHandler: InitialHandler<Item>
-  initialData: RD.RemoteData<HttpErrorString, Item[]>
+  initial: Initial
 
   // Identify current selected item using uniqueKeyField
   // Scroll to this value on initial load
@@ -136,20 +169,8 @@ export type Mode<Item> = {
     cache: () => Promise<CacheData.Type<Item[]>>
     endpoint: EndpointHandler<Item>
   }
-  nextData: RD.RemoteData<HttpErrorString, Item[]>
+  next: Edge
   nextSize: Size
-  nextIsMax: boolean
-
-  // Current data's animation related
-  // In some use case of link pagin (message list), we play animation
-  // for current data in link mode. These fields track those info.
-
-  // 'done' signify that current data's animation can be play.
-  // We have this delay to let the scrolling finish first
-  retriggerCurrentData: 'start' | 'done'
-
-  // We track animation end to avoid replaying it on component re-render
-  animationEnd: boolean
 }
 
 export function mkModeEq<Item>(itemEq: EqClass.Eq<Item>) {
@@ -157,19 +178,14 @@ export function mkModeEq<Item>(itemEq: EqClass.Eq<Item>) {
     dataSourceId: S.Eq,
     prevHandler: { equals: () => true },
     overallData: SUA.getEq(itemEq),
-    prevData: RD.getEq(HttpErrorStringEq, A.getEq(itemEq)),
+    prev: EdgeEq,
     prevSize: SizeEq,
-    prevIsMax: B.Eq,
-    allowRetryPrev: B.Eq,
     initialHandler: { equals: () => true },
-    initialData: RD.getEq(HttpErrorStringEq, A.getEq(itemEq)),
+    initial: InitialEq,
     selectedKey: NullableEq(S.Eq),
     nextHandler: { equals: () => true },
-    nextData: RD.getEq(HttpErrorStringEq, A.getEq(itemEq)),
+    next: EdgeEq,
     nextSize: SizeEq,
-    nextIsMax: B.Eq,
-    retriggerCurrentData: S.Eq,
-    animationEnd: B.Eq,
   })
 }
 
@@ -183,20 +199,16 @@ export function defaultMode<Item>(): Mode<Item> {
       }
     },
     overallData: SUA.empty(),
-    prevData: RD.initial,
+    prev: { _tag: 'Idle' },
     prevSize: size(defaultPageSize),
-    prevIsMax: false,
     // isScrollToCurrentDone: false,
-    allowRetryPrev: false,
 
     initialHandler: () => ({
       cache: async () => CacheData.fromRD(RD.initial),
       endpoint: () => TE.right({ dataF: () => [], nextIsMax: true }),
     }),
-    initialData: RD.initial,
+    initial: { _tag: 'NotStarted' },
     selectedKey: null,
-    retriggerCurrentData: 'done',
-    animationEnd: false,
 
     nextHandler: () => () => {
       return {
@@ -204,9 +216,8 @@ export function defaultMode<Item>(): Mode<Item> {
         endpoint: () => TE.right([]),
       }
     },
-    nextData: RD.initial,
+    next: { _tag: 'Idle' },
     nextSize: size(defaultPageSize),
-    nextIsMax: false,
   }
 }
 
@@ -225,8 +236,6 @@ export type CustomUiParam<Item, Parent> = {
   withPrevNextItem: WithPrevAndNext<Item>
   parent: Parent
   selectedItem: Option<Item>
-  retriggerCurrentData: 'start' | 'done'
-  animationEnd: boolean
   dataSourceId: string
   allItems: Item[]
 }
@@ -235,14 +244,12 @@ export const defaultDataSourceIdAttribute = 'data-link-pagin-datasource-id'
 
 export type LogicConfig<Item, Parent, ItemMsg> = {
   refs: Refs
-  mode: Mode<Item>
   dataSourceIdAttribute?: string
 
   isReversed: boolean
-  // eq instance that compare key only (should be the same as `uniqueKeyField`)
-  // TODO: probably derived this from `uniqueKeyField`, instead of passing it twice
-  eqWithKey: EqClass.Eq<Item>
   ord: OrdClass.Ord<Item>
+  // The item's identity. Items with the same key are the same item
+  // (`keyEq` in `util.ts`).
   uniqueKeyField: (item: Item) => string
   visibleStrategy: VisibleStrategy
 
@@ -295,6 +302,9 @@ export type UiConfig<Item, Parent> = {
   nextLoadingIndicatorView?: () => JSX.Element | null
   prevIsMaxCustomView?: (parent: Parent) => JSX.Element | null
   nextIsMaxCustomView?: (parent: Parent) => JSX.Element | null
+  // Shown when loading an end failed; `retry` loads it again
+  prevFailedCustomView?: (parent: Parent, retry: () => void) => JSX.Element
+  nextFailedCustomView?: (parent: Parent, retry: () => void) => JSX.Element
 }
 
 export type Config<Item, Parent, ItemMsg> = {
@@ -303,14 +313,12 @@ export type Config<Item, Parent, ItemMsg> = {
 }
 
 export function mkLogicConfigEq<Item, Parent, ItemMsg>(
-  itemEq: EqClass.Eq<Item>,
+  _itemEq: EqClass.Eq<Item>,
 ) {
   return EqClass.struct<LogicConfig<Item, Parent, ItemMsg>>({
     refs: { equals: () => true },
-    mode: mkModeEq(itemEq),
     dataSourceIdAttribute: UndefinableEq(S.Eq),
     isReversed: B.Eq,
-    eqWithKey: { equals: () => true },
     ord: { equals: () => true },
     uniqueKeyField: { equals: () => true },
     visibleStrategy: VisibleStrategyEq,
@@ -334,6 +342,8 @@ export function mkUiConfigEq<Item, Parent>(_eqA: EqClass.Eq<Item>) {
     nextLoadingIndicatorView: { equals: () => true },
     prevIsMaxCustomView: { equals: () => true },
     nextIsMaxCustomView: { equals: () => true },
+    prevFailedCustomView: { equals: () => true },
+    nextFailedCustomView: { equals: () => true },
   })
 }
 
@@ -356,30 +366,55 @@ export type ShouldRestoreScrollStateArg = {
     | { _tag: 'NoOp' }
     | { _tag: 'ScrollState' }
     | { _tag: 'TargetKey'; key: string }
-  restore: (dataSourceId: string, container: HTMLDivElement) => void
+  restore: (dataSourceId: string, container: HTMLDivElement) => IO<void>
 }
 
 // The container's scroll position and height.
 export type ScrollSnapshot = { scrollTop: number; scrollHeight: number }
 
+export const ScrollSnapshotEq = EqClass.struct<ScrollSnapshot>({
+  scrollTop: EqClass.eqNumber,
+  scrollHeight: EqClass.eqNumber,
+})
+
+// The last change to the rows that the view still has to apply. Callers say
+// where their change lands (`ContainerChangeEvent`, through
+// `setContainerChangeEvent`); this is what the view does with it.
+export type PendingChange =
+  | { _tag: 'None' }
+  // A change on top (`ElementModifyOnTop`, `ForceManipulateScrollPos`): the
+  // view keeps the scroll position, measured against `before`, the container
+  // as it was right before the change was rendered. It is taken by `update`
+  // while the old rows are still on screen (`null` when the list wasn't
+  // mounted).
+  | { _tag: 'KeepPosition'; before: ScrollSnapshot | null }
+  // A change below or in place (`ElementModifyOnBottom`,
+  // `ElementModifyInPlace`): the view only records the new position.
+  | { _tag: 'RecordPosition' }
+
+export const PendingChangeEq: EqClass.Eq<PendingChange> = {
+  equals: (a, b) => {
+    if (a._tag === 'KeepPosition' && b._tag === 'KeepPosition') {
+      return NullableEq(ScrollSnapshotEq).equals(a.before, b.before)
+    } else {
+      return a._tag === b._tag
+    }
+  },
+}
+
 export type Model<Item> = {
   mode: Mode<Item>
 
-  containerChangeEvent: ContainerChangeEvent
-  // The container as it was right before the change that `containerChangeEvent`
-  // describes was rendered, taken by `update` while the old rows are still on
-  // screen. The view keeps the scroll position with it.
-  scrollSnapshot: ScrollSnapshot | null
+  pendingChange: PendingChange
 
   // scroll model handlers
-  onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => void
+  onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => IO<void>
   shouldRestoreScrollState?: ShouldRestoreScrollStateArg
 
   // Turn the ui invisible while scrolling msg is going on
   // Useful on initial load of link mode.
   invisWhileScrolling: boolean
   isScrolling: boolean
-  savedScrollPos: number | null
   /**
    * Tracks the one-time initial scroll for the current mount.
    *
@@ -409,19 +444,12 @@ export const InitialScrollEq: EqClass.Eq<InitialScroll> = {
 export function ModelEq<Item>(itemEq: EqClass.Eq<Item>) {
   return EqClass.struct<Model<Item>>({
     mode: mkModeEq(itemEq),
-    containerChangeEvent: EqClass.struct({ _tag: S.Eq }),
-    scrollSnapshot: NullableEq(
-      EqClass.struct<ScrollSnapshot>({
-        scrollTop: EqClass.eqNumber,
-        scrollHeight: EqClass.eqNumber,
-      }),
-    ),
+    pendingChange: PendingChangeEq,
     onContainerScroll: { equals: () => true },
     shouldRestoreScrollState: { equals: () => true },
 
     invisWhileScrolling: B.Eq,
     isScrolling: B.Eq,
-    savedScrollPos: NullableEq(EqClass.eqNumber),
     initialScroll: InitialScrollEq,
   })
 }
@@ -430,7 +458,6 @@ export type ScrollToCurrentParam = {
   isGraceful: boolean
   // ^ whether or not 'ScrollToCurrent' is trigger by initial api load
   // or graceful switch (no api load)
-  isSearching?: boolean
 }
 
 // -------------------------------------------
@@ -476,13 +503,15 @@ export type Msg<Item, ItemMsg, Route> =
       _tag: 'SetState'
       value: Model<Item>
       routeUpdater?: AppRouteUpdater<Route>
+      // Where the change lands; without it, the pending change is kept
+      containerChangeEvent?: ContainerChangeEvent
     }
   | {
       _tag: 'SetModeAndAddUpdateData'
       mode: Mode<Item>
       data: Item | null // new data to be added right after changing the mode (mainly used by SSE)
       shouldReload?: true
-      onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => void
+      onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => IO<void>
       shouldRestoreScrollState?: ShouldRestoreScrollStateArg
     }
   | {
@@ -518,6 +547,15 @@ export type Msg<Item, ItemMsg, Route> =
   //   result: E.Either<string, Item[]>
   //   invokeTime: Date
   // }
+  // TODO: broken, and nothing sends it. `replaceFuncAsyncCmd` runs `func` on
+  // the items of the model as it was when this message arrived, then sends
+  // `SetState` with a whole model built from that old one. So everything that
+  // changed while the promise ran is lost: pages loaded meanwhile, the ends'
+  // and first page's states, items updated by SSE, `initialScroll`, the
+  // scrolling flags (only `pendingChange` is taken from the current model). Do
+  // the async work in the owner's Cmd and send `ReplaceFunc` with the result
+  // instead, which runs on the current items, or fix this to apply its result
+  // to the current model.
   | {
       _tag: 'ReplaceFuncAsync'
       // TODO: setGlobalMsg is a hack to be able to call navigate in this function
@@ -530,7 +568,6 @@ export type Msg<Item, ItemMsg, Route> =
   | {
       _tag: 'SetIsScrolling'
       value: boolean
-      savedScrollPos?: number
     }
   // Triggered when the prev/next trigger buttons enter the viewport or are clicked
   | { _tag: 'GetMorePrevData' }
@@ -569,50 +606,14 @@ export type Msg<Item, ItemMsg, Route> =
       compareId: (item: Item, id: string) => boolean
     }
   | {
-      _tag: 'SetPrevData'
-      dataSourceId: string
-      value: RD.RemoteData<HttpErrorString, Item[]>
-      isFirstLoad: boolean
-    }
-  | {
       _tag: 'AddToPrevOverallData'
       dataSourceId: string
       value: Item[]
     }
   | {
-      _tag: 'SetPrevIsMax'
-      dataSourceId: string
-      value: boolean
-    }
-  | {
-      _tag: 'SetNextData'
-      dataSourceId: string
-      value: RD.RemoteData<HttpErrorString, Item[]>
-    }
-  | {
       _tag: 'AddToNextOverallData'
       dataSourceId: string
       value: Item[]
-    }
-  | {
-      _tag: 'SetNextIsMax'
-      dataSourceId: string
-      value: boolean
-    }
-  | {
-      _tag: 'SetInitialData'
-      dataSourceId: string
-      value: RD.RemoteData<HttpErrorString, Item[]>
-    }
-  | {
-      _tag: 'SetReTriggerCurrentData'
-      dataSourceId: string
-      value: 'start' | 'done'
-    }
-  | {
-      _tag: 'SetAnimationEnd'
-      dataSourceId: string
-      value: boolean
     }
   | {
       _tag: 'SetNewSelectedKey'
@@ -673,35 +674,3 @@ export const prevButtonId = (dataSourceId: string): string =>
   `link-pagin-prev-btn-${dataSourceId}`
 export const nextButtonId = (dataSourceId: string): string =>
   `link-pagin-next-btn-${dataSourceId}`
-
-// -------------------------------------------
-// Scroll State Map & Helper
-// -------------------------------------------
-
-export type ScrollStateMap = Map<string, number>
-
-export const mkScrollStateMap = (): ScrollStateMap => new Map()
-
-export const storeScrollState =
-  (map: ScrollStateMap) =>
-  (dataSourceId: string, el: HTMLDivElement): void => {
-    map.set(dataSourceId, el.scrollTop)
-  }
-
-export const restoreScrollState =
-  (map: ScrollStateMap) =>
-  (dataSourceId: string, el: HTMLDivElement): void => {
-    const pos = map.get(dataSourceId)
-    if (pos !== undefined) {
-      el.scrollTo({ top: pos })
-    }
-  }
-
-export const mkShouldRestoreScrollState = (
-  dataSourceId: string,
-  map: ScrollStateMap,
-): ShouldRestoreScrollStateArg => ({
-  checkShouldRestore: () =>
-    map.has(dataSourceId) ? { _tag: 'ScrollState' } : { _tag: 'NoOp' },
-  restore: restoreScrollState(map),
-})

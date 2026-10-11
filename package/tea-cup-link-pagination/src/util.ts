@@ -33,10 +33,13 @@ import { pipe } from 'fp-ts/lib/function'
 
 import {
   type ContainerChangeEvent,
+  type Edge,
   type LogicConfig,
   type Mode,
   type Model,
+  type PendingChange,
   type Refs,
+  type ScrollSnapshot,
 } from './type'
 
 // -------------------------------------------
@@ -47,6 +50,11 @@ export const isItemEqual =
   <Item, Parent, ItemMsg>(config: LogicConfig<Item, Parent, ItemMsg>) =>
   (a1: Item, a2: Item): boolean =>
     config.uniqueKeyField(a1) === config.uniqueKeyField(a2)
+
+// The `Eq` that compares items by key (`uniqueKeyField`).
+export const keyEq = <Item, Parent, ItemMsg>(
+  config: LogicConfig<Item, Parent, ItemMsg>,
+): EqClass.Eq<Item> => ({ equals: isItemEqual(config) })
 
 // Remove duplicated items. The array must be sorted first.
 export const removeDup =
@@ -108,59 +116,6 @@ export const concatFrontOverwriteDup = <Item, Parent, ItemMsg>(
   return incomingData.concat(uniqueCurrentData)
 }
 
-export const getNewCurrentData =
-  <Item, Parent, ItemMsg>(
-    config: LogicConfig<Item, Parent, ItemMsg>,
-    oldCurrentData: Item,
-    oldCurrentDataIndex: number | null,
-  ) =>
-  (allData: Item[]): [Item[], Item] => {
-    const currentIndex = allData.findIndex((item) =>
-      isItemEqual(config)(item, oldCurrentData),
-    )
-    if (currentIndex >= 0) {
-      const current = allData[currentIndex]
-      return [allData, current]
-    }
-    // Sometimes `oldCurrentData` no longer exists, so we use
-    // `oldCurrentDataIndex` if it is available.
-    else if (oldCurrentDataIndex !== null && oldCurrentDataIndex >= 0) {
-      const current = allData[oldCurrentDataIndex]
-      return [allData, current]
-    }
-    // In last resort, pick the first item
-    // (happen when the link id get deleted/replaced.)
-    else {
-      console.warn('getNewCurrentData: cannot find current data index.')
-      return [allData, allData[0]]
-    }
-  }
-
-// The same as `getNewCurrentData` but return O.none if current data is not found
-export const getNewCurrentDataO =
-  <Item, Parent, ItemMsg>(
-    config: LogicConfig<Item, Parent, ItemMsg>,
-    oldCurrentData: Item,
-    oldCurrentDataIndex: number | null,
-  ) =>
-  (allData: Item[]): [Item[], Option<Item>] => {
-    const currentIndex = allData.findIndex((item) =>
-      isItemEqual(config)(item, oldCurrentData),
-    )
-    if (currentIndex >= 0) {
-      const current = allData[currentIndex]
-      return [allData, O.some(current)]
-    }
-    // Sometimes `oldCurrentData` no longer exists, so we use
-    // `oldCurrentDataIndex` if it is available.
-    else if (oldCurrentDataIndex) {
-      const current = allData[oldCurrentDataIndex]
-      return [allData, O.some(current)]
-    } else {
-      return [allData, O.none]
-    }
-  }
-
 export const modeToArray = <Item>(mode: Mode<Item>): Item[] => {
   return mode.overallData.value
 }
@@ -177,21 +132,19 @@ export const removeElFromArray = <Item, Parent, ItemMsg>(
   )
 }
 
-// Revert prevIsMax to false if prevIsMax is true.
-// Mainly used to revert prevIsMax on syncing new bundle.
-// (Since new bundle has few Data, prevIsMax is reached right away.
-// When there are more old Data from syncing, we have to reset prevIsMax)
-export const revertPrevIsMax = <Item>(model: Model<Item>): Model<Item> => {
-  if (model.mode.prevIsMax) {
-    return {
-      ...model,
-      mode: {
-        ...model.mode,
-        prevIsMax: false,
-      },
-    }
-  } else return model
-}
+// Let an end that had nothing more load again. A load in flight or a failure
+// is kept.
+export const reopenEdge = (edge: Edge): Edge =>
+  edge._tag === 'Exhausted' ? { _tag: 'Idle' } : edge
+
+// Reopen the older end.
+// Mainly used on syncing a new bundle.
+// (Since a new bundle has few items, the older end is exhausted right away.
+// When there are more old items from syncing, we have to reopen it)
+export const reopenPrev = <Item>(model: Model<Item>): Model<Item> => ({
+  ...model,
+  mode: { ...model.mode, prev: reopenEdge(model.mode.prev) },
+})
 
 /**
  * If the previousId is provided, in case it is found in the arr
@@ -211,24 +164,24 @@ export const upsertWithPrevious = <Item, Parent, ItemMsg>(
     if (idx >= 0) {
       // console.log('[MSG_STATE][upsert] replacing existing item at index', idx)
       return SUA.mapWithIndex<Item>(
-        config.eqWithKey,
+        keyEq(config),
         config.ord,
       )((i, x) => (i === idx ? item : x))(arr)
     } else {
       // console.log(
       //   '[MSG_STATE][upsert] previousId not found, appending new item',
       // )
-      return SUA.concat(config.eqWithKey, config.ord)([item])(arr)
+      return SUA.concat(keyEq(config), config.ord)([item])(arr)
     }
   } else {
     const idx = SUA.findIndex<Item>((x) => key(x) === key(item))(arr)
     // console.log('[MSG_STATE][upsert] key(item):', key(item), 'idx:', idx)
     return idx >= 0
       ? SUA.mapWithIndex<Item>(
-          config.eqWithKey,
+          keyEq(config),
           config.ord,
         )((i, x) => (i === idx ? item : x))(arr)
-      : SUA.concat(config.eqWithKey, config.ord)([item])(arr)
+      : SUA.concat(keyEq(config), config.ord)([item])(arr)
   }
 }
 
@@ -373,32 +326,72 @@ export const getSelectedItem = <Item, Parent, ItemMsg>(
   return selectedItem
 }
 
-// The changes after which the view keeps the scroll position.
-const keepsScrollPos = (event: ContainerChangeEvent): boolean =>
-  event._tag === 'ElementModifyOnTop' ||
-  event._tag === 'ForceManipulateScrollPos'
+// The container's snapshot, or the one the model already has: one taken for
+// an earlier change, not rendered yet, is kept, since the container hasn't
+// changed since.
+const snapshotBefore = <Item>(
+  refs: Refs,
+  model: Model<Item>,
+): ScrollSnapshot | null => {
+  const container = refs.containerRef.current
+  const pending =
+    model.pendingChange._tag === 'KeepPosition'
+      ? model.pendingChange.before
+      : null
+  return (
+    pending ??
+    (container
+      ? {
+          scrollTop: container.scrollTop,
+          scrollHeight: container.scrollHeight,
+        }
+      : null)
+  )
+}
 
 // Set the change the view applies on its next render. For a change that keeps
 // the scroll position, also take the container's snapshot: the model is updated
 // before the change is rendered, so the container still shows the old rows,
-// with everything that grew since included. A snapshot the model already has
-// (taken for an earlier change, not rendered yet) is kept: the container hasn't
-// changed since.
+// with everything that grew since included.
 export const setContainerChangeEvent =
   (refs: Refs, event: ContainerChangeEvent) =>
   <Item>(model: Model<Item>): Model<Item> => {
-    const container = refs.containerRef.current
-    return {
-      ...model,
-      containerChangeEvent: event,
-      scrollSnapshot: !keepsScrollPos(event)
-        ? null
-        : (model.scrollSnapshot ??
-          (container
-            ? {
-                scrollTop: container.scrollTop,
-                scrollHeight: container.scrollHeight,
-              }
-            : null)),
-    }
+    const pendingChange = ((): PendingChange => {
+      switch (event._tag) {
+        case 'NoChange':
+          return { _tag: 'None' }
+        case 'ElementModifyOnTop':
+        case 'ForceManipulateScrollPos':
+          return { _tag: 'KeepPosition', before: snapshotBefore(refs, model) }
+        case 'ElementModifyOnBottom':
+        case 'ElementModifyInPlace':
+          return { _tag: 'RecordPosition' }
+      }
+    })()
+    return { ...model, pendingChange }
   }
+
+// Keep the pending change, for a change that doesn't say where it lands. A
+// change on top without a snapshot (the list wasn't mounted) takes one now.
+export const keepPendingChange =
+  (refs: Refs) =>
+  <Item>(model: Model<Item>): Model<Item> =>
+    model.pendingChange._tag === 'KeepPosition' &&
+    model.pendingChange.before === null
+      ? {
+          ...model,
+          pendingChange: {
+            _tag: 'KeepPosition',
+            before: snapshotBefore(refs, model),
+          },
+        }
+      : model
+
+// Set the change the view applies on its next render, or keep the pending one
+// when `event` isn't given.
+export const setOrKeepContainerChangeEvent =
+  (refs: Refs, event: ContainerChangeEvent | undefined) =>
+  <Item>(model: Model<Item>): Model<Item> =>
+    event
+      ? setContainerChangeEvent(refs, event)(model)
+      : keepPendingChange(refs)(model)

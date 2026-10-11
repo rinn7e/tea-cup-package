@@ -1,6 +1,5 @@
 import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 import { attemptTE } from '@rinn7e/tea-cup-prelude'
-import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import * as TeaRouter from '@rinn7e/tea-cup-router'
 import * as TE from 'fp-ts/lib/TaskEither'
 import { Cmd, type Result, Sub } from 'tea-cup-fp'
@@ -14,6 +13,7 @@ import {
 import * as DebugPanel from './component/debug-panel'
 import * as RoomDetailModal from './component/room-detail-modal'
 import * as RoomSidebar from './component/room-sidebar'
+import { logicConfig as roomListLogicConfig } from './component/room-sidebar/sub-component/room-list/util'
 import { routerConfig, teaRouterMsgHandler } from './handler/route-handler'
 import * as RoomChatPage from './page/room-chat'
 import * as RoomDraftPage from './page/room-draft'
@@ -303,18 +303,11 @@ const markRoomAsReadResponseGlobalEventHandler = (
 
   const room = result.value
   const currentPageModel = TeaRouter.getPageModel(model.router)
-  const [updatedLinkPagin] = LinkPagination.replaceFuncHandler(
-    currentPageModel.roomSidebar.roomList.linkPagin,
-    {
-      func: (overallData) => [
-        SUA.fromArray(
-          Api.RoomEq,
-          Api.RoomOrd,
-        )(overallData.value.map((r) => (r.id === room.id ? room : r))),
-        null,
-      ],
-    },
-  )
+  const updatedLinkPagin = LinkPagination.updateByKey(
+    roomListLogicConfig,
+    room.id,
+    () => room,
+  )(currentPageModel.roomSidebar.roomList.linkPagin)
 
   const updatedRoomSidebar = {
     ...currentPageModel.roomSidebar,
@@ -443,22 +436,11 @@ const simulateIncomingChatOtherRoomResponseGlobalEventHandler = (
 
   const { chat: incomingChat, room: updatedRoom } = result.value
   const currentPageModel = TeaRouter.getPageModel(model.router)
-  const [updatedLinkPagin] = LinkPagination.replaceFuncHandler(
-    currentPageModel.roomSidebar.roomList.linkPagin,
-    {
-      func: (overallData) => [
-        SUA.fromArray(
-          Api.RoomEq,
-          Api.RoomOrd,
-        )(
-          overallData.value.map((r) =>
-            r.id === updatedRoom.id ? updatedRoom : r,
-          ),
-        ),
-        null,
-      ],
-    },
-  )
+  const updatedLinkPagin = LinkPagination.updateByKey(
+    roomListLogicConfig,
+    updatedRoom.id,
+    () => updatedRoom,
+  )(currentPageModel.roomSidebar.roomList.linkPagin)
 
   const updatedRoomSidebar = {
     ...currentPageModel.roomSidebar,

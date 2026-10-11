@@ -39,11 +39,13 @@ import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import { type SortedUniqueArray } from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import * as A from 'fp-ts/lib/Array'
 import * as E from 'fp-ts/lib/Either'
+import { type IO } from 'fp-ts/lib/IO'
 import { identity, pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
 import {
   type ContainerChangeEvent,
+  type Edge,
   type EndpointHandler,
   type InitialEndpointResponse,
   type InitialScroll,
@@ -58,19 +60,22 @@ import {
 import {
   addOrUpdateData,
   isItemEqual,
+  keyEq,
   removeElFromArray,
+  reopenEdge,
+  reopenPrev,
   replaceFuncActionHandler,
   replaceFuncActionHandlerAsync,
-  revertPrevIsMax,
   setContainerChangeEvent,
+  setOrKeepContainerChangeEvent,
 } from './util'
 
 /**
  * Loads the initial page of data for a freshly mounted list.
  *
  * Backs the `GetInitialData` message and is invoked internally by `init()`.
- * It always resets `initialScroll` to `Pending` and blanks `initialData`
- * to `RD.pending`, since a new mount has no committed scroll position and
+ * It always resets `initialScroll` to `Pending` and sets `initial` to
+ * `Loading`, since a new mount has no committed scroll position and
  * nothing meaningful to show while the load is in flight.
  *
  * Do not dispatch `GetInitialData` for a list that is already mounted and
@@ -90,7 +95,7 @@ export const getInitialDataHandler =
       initialScroll: { _tag: 'Pending' },
       mode: {
         ...model.mode,
-        initialData: RD.pending,
+        initial: { _tag: 'Loading' },
       },
     } satisfies Model<Item>
     return [
@@ -107,10 +112,10 @@ export const getInitialDataHandler =
  * open list — for example in response to a real-time push event — while the
  * user keeps looking at it:
  *
- * - If data is already loaded (`overallData` is non-empty), `initialData`
+ * - If data is already loaded (`overallData` is non-empty), `initial`
  *   is left untouched so the list stays visible; only the underlying data
  *   is re-fetched in the background.
- * - If no data is loaded yet, `initialData` is set to `RD.pending`, same as
+ * - If no data is loaded yet, `initial` is set to `Loading`, same as
  *   a fresh load.
  * - `initialScroll` is never modified. The one-time initial scroll for
  *   this mount was already resolved (or intentionally was not owed), and a
@@ -130,7 +135,7 @@ export const refreshInitialDataHandler =
       ...model,
       mode: {
         ...model.mode,
-        initialData: hasData ? model.mode.initialData : RD.pending,
+        initial: hasData ? model.mode.initial : { _tag: 'Loading' },
       },
     } satisfies Model<Item>
     return [
@@ -193,10 +198,10 @@ export const getInitialDataFromCacheResponseHandler = <
           ...m,
           mode: {
             ...m.mode,
-            initialData: RD.success(cacheItems),
+            initial: { _tag: 'Cached' },
             overallData: pipe(
               cacheItems,
-              SUA.fromArray(config.eqWithKey, config.ord),
+              SUA.fromArray(keyEq(config), config.ord),
             ),
           },
         } satisfies Model<Item>)
@@ -254,11 +259,18 @@ export const getInitialDataFromApiResponseHandler = <
 
     const newModel = (() => {
       if (result._tag === 'Left') {
+        // With rows shown, they stay: the cached ones are what there is
         return cacheExist
-          ? m
+          ? ({
+              ...m,
+              mode: { ...m.mode, initial: { _tag: 'Loaded' } },
+            } satisfies Model<Item>)
           : ({
               ...m,
-              mode: { ...m.mode, initialData: RD.failure(result.left) },
+              mode: {
+                ...m.mode,
+                initial: { _tag: 'Failed', error: result.left },
+              },
             } satisfies Model<Item>)
       }
       if (result._tag === 'Right') {
@@ -270,15 +282,19 @@ export const getInitialDataFromApiResponseHandler = <
           ...m,
           mode: {
             ...m.mode,
-            initialData: RD.success(newOverallData),
-            nextIsMax: result.right.nextIsMax,
+            initial: { _tag: 'Loaded' },
+            // A load in flight or a failure of the newer end is kept: this
+            // response only says whether there is anything newer
+            next: result.right.nextIsMax
+              ? { _tag: 'Exhausted' }
+              : reopenEdge(m.mode.next),
             selectedKey:
               result.right.selectedKey === undefined
                 ? m.mode.selectedKey
                 : result.right.selectedKey,
             overallData: pipe(
               newOverallData,
-              SUA.fromArray(config.eqWithKey, config.ord),
+              SUA.fromArray(keyEq(config), config.ord),
             ),
           },
         } satisfies Model<Item>)
@@ -375,7 +391,7 @@ export const setModeAndAddUpdateDataHandler = <Item, Parent, ItemMsg, Route>(
     mode: Mode<Item>
     data: Item | null // new data to be added right after changing the mode (mainly used by SSE)
     shouldReload?: true
-    onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => void
+    onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => IO<void>
     shouldRestoreScrollState?: ShouldRestoreScrollStateArg
   },
 ): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
@@ -425,7 +441,6 @@ export const scrollToNewestHandler = <Item, ItemMsg, Route>(
       if (refs.containerRef.current) {
         const container = refs.containerRef.current
         const targetScroll = isReversed ? container.scrollHeight : 0
-        refs.currentScrollPosRef.current = targetScroll
         container.scroll({ top: targetScroll, behavior: 'smooth' })
       }
     }),
@@ -487,7 +502,6 @@ export const forceScrollToHandler = <Item, ItemMsg, Route>(
           const newTop = msg.top
           const container = refs.containerRef.current
           container.scrollTo({ top: newTop })
-          refs.currentScrollPosRef.current = newTop
         }
       },
       () =>
@@ -500,16 +514,31 @@ export const forceScrollToHandler = <Item, ItemMsg, Route>(
   ]
 }
 
-export const replaceFuncHandler = <Item, Route>(
+// Run `msg.func` against all the items; it may also change the route. Sets
+// the change the rows go through (`msg.containerChangeEvent`), or keeps the
+// pending one.
+export const replaceFuncHandler = <Item, Parent, ItemMsg, Route>(
+  config: LogicConfig<Item, Parent, ItemMsg>,
   model: Model<Item>,
   msg: {
     func: (
       items: SortedUniqueArray<Item>,
     ) => [SortedUniqueArray<Item>, AppRouteUpdater<Route>]
+    containerChangeEvent?: ContainerChangeEvent
   },
-): [Model<Item>, AppRouteUpdater<Route>] =>
-  replaceFuncActionHandler(model, msg.func)
+): [Model<Item>, AppRouteUpdater<Route>] => {
+  const [newModel, routeUpdater] = replaceFuncActionHandler(model, msg.func)
+  return [
+    setOrKeepContainerChangeEvent(
+      config.refs,
+      msg.containerChangeEvent,
+    )(newModel),
+    routeUpdater,
+  ]
+}
 
+// `replaceFuncHandler` for a change of each item, which doesn't change the
+// route.
 export const mapFuncHandler = <Item, Parent, ItemMsg>(
   config: LogicConfig<Item, Parent, ItemMsg>,
   model: Model<Item>,
@@ -518,14 +547,11 @@ export const mapFuncHandler = <Item, Parent, ItemMsg>(
     containerChangeEvent?: ContainerChangeEvent
   },
 ): Model<Item> => {
-  const [newModel, _r] = replaceFuncActionHandler(model, (as) => [
-    SUA.map(config.eqWithKey, config.ord)(msg.func)(as),
-    null,
-  ])
-  return setContainerChangeEvent(
-    config.refs,
-    msg.containerChangeEvent ?? model.containerChangeEvent,
-  )(newModel)
+  const [newModel] = replaceFuncHandler(config, model, {
+    func: (as) => [SUA.map(keyEq(config), config.ord)(msg.func)(as), null],
+    containerChangeEvent: msg.containerChangeEvent,
+  })
+  return newModel
 }
 
 export const addOrUpdateDataHandler = <Item, Parent, ItemMsg>(
@@ -586,7 +612,7 @@ export const addOrUpdateDataHandler = <Item, Parent, ItemMsg>(
     return setContainerChangeEvent(
       config.refs,
       containerChangeEvent,
-    )(revertPrevIsMax(resultState))
+    )(reopenPrev(resultState))
   } else return model
 }
 
@@ -661,6 +687,8 @@ export const getInitialDataFromApiCmd = <Item, ItemMsg, Route>(
   })
 }
 
+// TODO: broken (`SetState` replaces the model with one built from `model`, as
+// it was when `ReplaceFuncAsync` arrived), see `ReplaceFuncAsync` in `type.ts`
 export const replaceFuncAsyncCmd = <Item, ItemMsg, Route>(
   model: Model<Item>,
   msg: {
@@ -679,12 +707,9 @@ export const replaceFuncAsyncCmd = <Item, ItemMsg, Route>(
       if (r.tag === 'Ok')
         return {
           _tag: 'SetState',
-          value: {
-            ...r.value[0],
-            containerChangeEvent:
-              msg.containerChangeEvent ?? model.containerChangeEvent,
-          },
+          value: r.value[0],
           routeUpdater: r.value[1],
+          containerChangeEvent: msg.containerChangeEvent,
         }
       else {
         console.warn(
@@ -704,10 +729,6 @@ export const scrollToCurrentHandler =
   (model: Model<Item>): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
     const containerRef = logicConfig.refs.containerRef
 
-    if (param.isSearching) {
-      return checkVisibleAndScrollToCurrent({ logicConfig, model, param })
-    }
-
     if (model.shouldRestoreScrollState && containerRef.current) {
       const containerRefCurrent = containerRef.current
       const { checkShouldRestore, restore } = model.shouldRestoreScrollState
@@ -720,7 +741,7 @@ export const scrollToCurrentHandler =
           model,
           param,
           customScrollToCurrent: () =>
-            restore(model.mode.dataSourceId, containerRefCurrent),
+            restore(model.mode.dataSourceId, containerRefCurrent)(),
         })
       } else if (shouldRestore._tag === 'TargetKey') {
         return checkVisibleAndScrollToCurrent({
@@ -781,7 +802,6 @@ export const checkVisibleAndScrollToCurrent = <
 
   const containerRef = logicConfig.refs.containerRef
   const itemRefs = logicConfig.refs.itemRefs
-  const currentScrollPosRef = logicConfig.refs.currentScrollPosRef
 
   const isVisible = (domElement: Element): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -822,22 +842,7 @@ export const checkVisibleAndScrollToCurrent = <
 
       const inView = await isVisible(refToScrollTo)
 
-      console.log('oldest', refToScrollTo.id)
       // Scroll to currentRef
-      console.log('inView', inView)
-
-      if (param.isSearching && containerRef.current) {
-        // TODO: debugging purpose
-        // const elementTop = refToScrollTo.offsetTop
-
-        // const offsetTop = elementTop - 95 // searchbar height
-
-        return requestAnimationFrame(() => {
-          if (!containerRef.current) return
-          containerRef.current.scrollTo()
-        })
-      }
-
       if (!inView && containerRef.current) {
         if (logicConfig.visibleStrategy._tag === 'HalfInView')
           refToScrollTo.scrollIntoView({
@@ -872,14 +877,12 @@ export const checkVisibleAndScrollToCurrent = <
         // is smaller than the actual scrollTop for some reason.
         setTimeout(() => {
           if (containerRef.current) {
-            currentScrollPosRef.current = containerRef.current.scrollTop
-
             // Record the new scroll state into scroll_state map
             if (model.onContainerScroll)
               model.onContainerScroll(
                 model.mode.dataSourceId,
                 containerRef.current,
-              )
+              )()
           }
         }, 500)
       },
@@ -901,7 +904,7 @@ export const addToPrevOverallDataHandler = <Item, Parent, ItemMsg>(
 ): Model<Item> => {
   const overallData = pipe(
     model.mode.overallData,
-    SUA.concat(config.eqWithKey, config.ord)(value),
+    SUA.concat(keyEq(config), config.ord)(value),
   )
 
   const uniqueIncomingData = filterUnique(
@@ -931,7 +934,7 @@ export const addToNextOverallDataHandler = <Item, Parent, ItemMsg>(
 ): Model<Item> => {
   const overallData = pipe(
     model.mode.overallData,
-    SUA.concat(config.eqWithKey, config.ord)(value),
+    SUA.concat(keyEq(config), config.ord)(value),
   )
 
   const currentDataI = pipe(
@@ -965,21 +968,25 @@ export const addToNextOverallDataHandler = <Item, Parent, ItemMsg>(
   })
 }
 
+// Whether a load of the end can start.
+const canLoad = (edge: Edge): boolean =>
+  edge._tag === 'Idle' || edge._tag === 'Failed'
+
 export const getMorePrevDataHandler = <Item, ItemMsg, Route>(
   networkStatus: boolean,
   model: Model<Item>,
 ): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
+  // An end that failed loads again: a retry
   if (
-    (model.mode.prevData._tag === 'RemoteSuccess' ||
-      model.mode.prevData._tag === 'RemoteInitial') &&
-    model.mode.initialData._tag === 'RemoteSuccess' &&
+    canLoad(model.mode.prev) &&
+    model.mode.initial._tag === 'Loaded' &&
     model.mode.overallData.value.length !== 0
   ) {
     const newModel = {
       ...model,
       mode: {
         ...model.mode,
-        prevData: RD.pending,
+        prev: { _tag: 'Loading' },
       },
     } satisfies Model<Item>
     const { cache, endpoint } = model.mode.prevHandler(
@@ -1055,7 +1062,11 @@ export const getMorePrevDataFromApiResponseHandler = <
           ...m,
           mode: {
             ...m.mode,
-            prevData: RD.failure(result.left),
+            // An end found exhausted meanwhile stays so
+            prev:
+              m.mode.prev._tag === 'Exhausted'
+                ? m.mode.prev
+                : { _tag: 'Failed', error: result.left },
           },
         },
         Cmd.none(),
@@ -1071,7 +1082,7 @@ export const getMorePrevDataFromApiResponseHandler = <
       const uniqueIncomingData = pipe(
         incomingData,
         A.filter(
-          (el) => !pipe(overallDataBeforeCache, A.elem(config.eqWithKey)(el)),
+          (el) => !pipe(overallDataBeforeCache, A.elem(keyEq(config))(el)),
         ),
       )
 
@@ -1082,8 +1093,12 @@ export const getMorePrevDataFromApiResponseHandler = <
           ...newModel,
           mode: {
             ...newModel.mode,
-            prevData: RD.success(incomingData),
-            prevIsMax: isMax || m.mode.prevIsMax,
+            // An end found exhausted meanwhile (the first page's API
+            // answer) stays so
+            prev:
+              isMax || m.mode.prev._tag === 'Exhausted'
+                ? { _tag: 'Exhausted' }
+                : { _tag: 'Idle' },
           },
         },
         Cmd.none(),
@@ -1096,17 +1111,17 @@ export const getMoreNextDataHandler = <Item, ItemMsg, Route>(
   networkStatus: boolean,
   model: Model<Item>,
 ): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
+  // An end that failed loads again: a retry
   if (
-    (model.mode.nextData._tag === 'RemoteSuccess' ||
-      model.mode.nextData._tag === 'RemoteInitial') &&
-    model.mode.initialData._tag === 'RemoteSuccess' &&
+    canLoad(model.mode.next) &&
+    model.mode.initial._tag === 'Loaded' &&
     model.mode.overallData.value.length !== 0
   ) {
     const newModel = {
       ...model,
       mode: {
         ...model.mode,
-        nextData: RD.pending,
+        next: { _tag: 'Loading' },
       },
     } satisfies Model<Item>
     const { cache, endpoint } = model.mode.nextHandler(
@@ -1182,7 +1197,11 @@ export const getMoreNextDataFromApiResponseHandler = <
           ...m,
           mode: {
             ...m.mode,
-            nextData: RD.failure(result.left),
+            // An end found exhausted meanwhile stays so
+            next:
+              m.mode.next._tag === 'Exhausted'
+                ? m.mode.next
+                : { _tag: 'Failed', error: result.left },
           },
         },
         Cmd.none(),
@@ -1205,7 +1224,7 @@ export const getMoreNextDataFromApiResponseHandler = <
       const uniqueIncomingData = pipe(
         incomingNext,
         A.filter(
-          (el) => !pipe(overallDataBeforeCache, A.elem(config.eqWithKey)(el)),
+          (el) => !pipe(overallDataBeforeCache, A.elem(keyEq(config))(el)),
         ),
       )
 
@@ -1216,8 +1235,12 @@ export const getMoreNextDataFromApiResponseHandler = <
           ...newModel,
           mode: {
             ...newModel.mode,
-            nextData: RD.success(incomingData),
-            nextIsMax: isMax || m.mode.nextIsMax,
+            // An end found exhausted meanwhile (the first page's API
+            // answer) stays so
+            next:
+              isMax || m.mode.next._tag === 'Exhausted'
+                ? { _tag: 'Exhausted' }
+                : { _tag: 'Idle' },
           },
         },
         Cmd.none(),

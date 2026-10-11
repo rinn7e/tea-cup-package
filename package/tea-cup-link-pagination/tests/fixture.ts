@@ -19,7 +19,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-import * as RD from '@devexperts/remote-data-ts'
 import * as E from 'fp-ts/lib/Either'
 import * as Ord from 'fp-ts/lib/Ord'
 import * as N from 'fp-ts/lib/number'
@@ -43,9 +42,7 @@ export const dataSourceId = 'test-list'
 export const mkConfig = (): LogicConfig<Item, null, never> =>
   ({
     refs: mkRefs(),
-    mode: defaultMode<Item>(),
     isReversed: true,
-    eqWithKey: { equals: (a: Item, b: Item) => a.id === b.id },
     ord: Ord.reverse(Ord.contramap((i: Item) => i.at)(N.Ord)),
     uniqueKeyField: (i: Item) => i.id,
     visibleStrategy: { _tag: 'HalfInView' },
@@ -64,13 +61,11 @@ export const openingModel = (selectedKey: string | null): Model<Item> => ({
     ...defaultMode<Item>(),
     dataSourceId,
     selectedKey,
-    initialData: RD.pending,
+    initial: { _tag: 'Loading' },
   },
-  containerChangeEvent: { _tag: 'NoChange' },
-  scrollSnapshot: null,
+  pendingChange: { _tag: 'None' },
   invisWhileScrolling: false,
   isScrolling: false,
-  savedScrollPos: null,
   initialScroll: { _tag: 'Pending' },
 })
 

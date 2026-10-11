@@ -74,7 +74,6 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
   const { model, config } = props
 
   const containerRef = config.logic.refs.containerRef
-  const currentScrollPosRef = config.logic.refs.currentScrollPosRef
 
   // -------------------------------------------
   // State that only affects the UI so we don't have to put into Model
@@ -104,11 +103,12 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
           model.mode.overallData.value[0],
         )
 
-        // If nextIsMax is true, there is no next data,
+        // If the next end is exhausted, there is no next data,
         // and we can pick the last data as the actual latest data
-        const lastDataNode = model.mode.nextIsMax
-          ? document.getElementById(lastDataId)
-          : null
+        const lastDataNode =
+          model.mode.next._tag === 'Exhausted'
+            ? document.getElementById(lastDataId)
+            : null
 
         if (!lastDataNode) return false
         return isInView(lastDataNode, { margin: -84 })
@@ -126,10 +126,9 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
   useEffect(() => {
     updateLatestDataFloater()
   }, [
-    currentScrollPosRef.current,
     model.isScrolling,
     model.mode.overallData.value.length,
-    model.mode.nextIsMax,
+    model.mode.next._tag,
   ])
 
   // Keep the reading position when an image or a video above the view gets its
@@ -149,7 +148,6 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
         container.getBoundingClientRect().top
       if (!nativeAnchoring && startsAboveView) {
         container.scrollTop += growth
-        currentScrollPosRef.current = container.scrollTop
       }
       knownHeightRef.current = container.scrollHeight
     }
@@ -169,12 +167,10 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
       if (!model.isScrolling)
         dispatch(props)({ _tag: 'SetIsScrolling', value: true })
 
-      // Record current scrollTop
-      currentScrollPosRef.current = containerRef.current.scrollTop
       knownHeightRef.current = containerRef.current.scrollHeight
 
       if (model.onContainerScroll) {
-        model.onContainerScroll(model.mode.dataSourceId, containerRef.current)
+        model.onContainerScroll(model.mode.dataSourceId, containerRef.current)()
       }
     }
   }, [model.mode.dataSourceId, containerRef.current, model.isScrolling])
@@ -184,9 +180,12 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
   // measured against the snapshot `update` took before the change.
   useLayoutEffect(() => {
     const container = containerRef.current
-    if (model.containerChangeEvent._tag === 'NoChange') return
+    if (model.pendingChange._tag === 'None') return
     if (container) {
-      const snapshot = model.scrollSnapshot
+      const snapshot =
+        model.pendingChange._tag === 'KeepPosition'
+          ? model.pendingChange.before
+          : null
       if (snapshot) {
         // The height can shrink (rows removed); the position stops at 0.
         const newPos = Math.max(
@@ -195,14 +194,13 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
         )
         container.scrollTo({ top: newPos })
       }
-      currentScrollPosRef.current = container.scrollTop
       knownHeightRef.current = container.scrollHeight
     }
     dispatch(props)({
       _tag: 'SetContainerChangeEvent',
       value: { _tag: 'NoChange' },
     })
-  }, [model.containerChangeEvent])
+  }, [model.pendingChange])
 
   // -------------------------------------------
   // View
@@ -211,23 +209,14 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
   return (
     <div className={cn(`relative flex h-full w-full flex-col`)}>
       {config.ui.loadingView &&
-      (model.mode.initialData._tag === 'RemotePending' ||
+      (model.mode.initial._tag === 'Loading' ||
         model.invisWhileScrolling === true)
         ? config.ui.loadingView()
         : null}
-      {/* <div className='fixed z-[1000] bg-black p-[30px] text-white'>
-        {JSON.stringify(model.savedScrollPos)}
-      </div> */}
       <div
         onScroll={containerRefOnScrollHandler}
         onScrollEnd={() => {
-          dispatch(props)({
-            _tag: 'SetIsScrolling',
-            value: false,
-            savedScrollPos: containerRef.current
-              ? containerRef.current.scrollTop
-              : undefined,
-          })
+          dispatch(props)({ _tag: 'SetIsScrolling', value: false })
         }}
         ref={containerRef}
         className={cn(
@@ -238,13 +227,6 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
           model.invisWhileScrolling ? 'opacity-0' : 'opacity-100',
         )}
       >
-        {/* Note: debugging purpose */}
-        {/* <div className='fixed bottom-0 bg-white border-black text-black'>
-          <div>prev index: {JSON.stringify(model.mode.prevIndex)}</div>
-          <div>prev isMax: {JSON.stringify(model.mode.prevIsMax)}</div>
-          <div>allowRetryPrev: {JSON.stringify(model.mode.allowRetryPrev)}</div>
-        </div> */}
-
         {/* Debugging purpose */}
         {/* <div className='fixed top-0 p-[10px] bg-white border-black text-black'>
           <div>height {model.currentScrollHeight}</div>
@@ -254,7 +236,6 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
           config.ui.titleView()}
 
         {view(props)}
-        {/* <div className='fixed top-0'>{model.mode.initialData._tag}</div> */}
       </div>
 
       {scrollToLatestCustomUi(props, showLatestDataFloater)}
@@ -298,7 +279,8 @@ const prevLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
     config.ui.prevLoadingIndicatorView
       ? config.ui.prevLoadingIndicatorView()
       : defaultPrevLoadingIndicator()
-  const successView = () => (
+  // The trigger that loads the end when it comes into view
+  const idleView = () => (
     <div
       className={`relative flex w-full items-center justify-center ${showPrevLoadHeight}`}
     >
@@ -319,25 +301,29 @@ const prevLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
     </div>
   )
 
+  const retry = () => dispatch(props)({ _tag: 'GetMorePrevData' })
+  const failedView = () =>
+    config.ui.prevFailedCustomView
+      ? config.ui.prevFailedCustomView(props.parent, retry)
+      : defaultFailedView(retry)
+
   return (
     <div
       key={'prevLoadMoreView'}
       className='flex w-full items-center justify-center'
     >
-      {model.mode.prevIsMax
-        ? isMaxView()
-        : exec(() => {
-            if (model.mode.initialData._tag === 'RemoteSuccess') {
-              switch (model.mode.prevData._tag) {
-                case 'RemotePending':
-                  return loadingView()
-                case 'RemoteSuccess':
-                  return successView()
-                default:
-                  return successView()
-              }
-            }
-          })}
+      {exec(() => {
+        switch (model.mode.prev._tag) {
+          case 'Exhausted':
+            return isMaxView()
+          case 'Loading':
+            return loadingView()
+          case 'Failed':
+            return failedView()
+          case 'Idle':
+            return model.mode.initial._tag === 'Loaded' ? idleView() : null
+        }
+      })}
     </div>
   )
 }
@@ -361,47 +347,48 @@ const nextLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
     config.ui.nextLoadingIndicatorView
       ? config.ui.nextLoadingIndicatorView()
       : defaultNextLoadingIndicator(spinnerClass)
+  const retry = () => dispatch(props)({ _tag: 'GetMoreNextData' })
+  const failedView = () =>
+    config.ui.nextFailedCustomView
+      ? config.ui.nextFailedCustomView(props.parent, retry)
+      : defaultFailedView(retry)
+  // The trigger that loads the end when it comes into view
+  const idleView = () => (
+    <div className='relative flex h-0 w-full items-center justify-center'>
+      <div
+        className={cn(
+          `pointer-events-none absolute size-[20px] cursor-pointer opacity-0`,
+          isReversed ? 'bottom-0' : 'top-0',
+        )}
+        onClick={() => {
+          dispatch(props)({ _tag: 'GetMoreNextData' })
+        }}
+      >
+        <IconAdd
+          className='text-gray-6-cf text-[20px]'
+          id={nextButtonId(model.mode.dataSourceId)}
+        />
+      </div>
+    </div>
+  )
+
   return (
     <div
       key={'nextLoadMoreView'}
       className='flex w-full items-center justify-center'
     >
-      {mode.nextIsMax
-        ? isMaxView()
-        : (() => {
-            if (model.mode.initialData._tag === 'RemoteSuccess') {
-              const successView = () => (
-                <div className='relative flex h-0 w-full items-center justify-center'>
-                  <div
-                    className={cn(
-                      `pointer-events-none absolute size-[20px] cursor-pointer opacity-0`,
-                      isReversed ? 'bottom-0' : 'top-0',
-                    )}
-                    onClick={() => {
-                      dispatch(props)({ _tag: 'GetMoreNextData' })
-                    }}
-                  >
-                    <IconAdd
-                      className='text-gray-6-cf text-[20px]'
-                      id={nextButtonId(model.mode.dataSourceId)}
-                    />
-                  </div>
-                </div>
-              )
-
-              switch (mode.nextData._tag) {
-                case 'RemotePending':
-                  return loadingView()
-                case 'RemoteSuccess':
-                  return successView()
-                case 'RemoteInitial':
-                  return successView()
-                case 'RemoteFailure':
-                  // return <div>error: {JSON.stringify(mode.nextData)}</div>
-                  return <div></div>
-              }
-            }
-          })()}
+      {exec(() => {
+        switch (mode.next._tag) {
+          case 'Exhausted':
+            return isMaxView()
+          case 'Loading':
+            return loadingView()
+          case 'Failed':
+            return failedView()
+          case 'Idle':
+            return model.mode.initial._tag === 'Loaded' ? idleView() : null
+        }
+      })}
     </div>
   )
 }
@@ -449,8 +436,6 @@ const view = <Item, Parent, ParentMsg, ItemMsg, Route>(
             withPrevNextItem,
             parent: props.parent,
             selectedItem: getSelectedItem(config.logic, model),
-            retriggerCurrentData: mode.retriggerCurrentData,
-            animationEnd: mode.animationEnd,
             dataSourceId: mode.dataSourceId,
             // Note: BundleShort comoonent needs access to all items
             // Re-consider why this.
@@ -526,3 +511,18 @@ const defaultNextLoadingIndicator = (spinnerClass: string) => {
     </div>
   )
 }
+
+// A failed load of an end, with a button that loads it again. It isn't
+// retried on its own: offline, it would fail again right away.
+const defaultFailedView = (retry: () => void) => (
+  <div className='text-gray-7-cf flex h-[72px] w-full items-center justify-center gap-[8px] text-center'>
+    <span>Couldn't load more.</span>
+    <button
+      type='button'
+      className='text-blue-5-cf font-medium active:opacity-30'
+      onClick={retry}
+    >
+      Retry
+    </button>
+  </div>
+)

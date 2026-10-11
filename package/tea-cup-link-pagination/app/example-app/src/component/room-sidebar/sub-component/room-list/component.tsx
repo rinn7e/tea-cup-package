@@ -1,3 +1,4 @@
+import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 import { LinkPaginationMemo } from '@rinn7e/tea-cup-link-pagination/component'
 import { type JSX, memo } from 'react'
 
@@ -24,7 +25,7 @@ const RoomListInner = (props: Props<any>): JSX.Element => {
       data-component='RoomListComponent'
       className='flex flex-1 flex-col overflow-hidden'
     >
-      {model.linkPagin.mode.initialData._tag === 'RemoteSuccess' &&
+      {LinkPagination.isInitialShown(model.linkPagin) &&
       paginOverallLength === 0
         ? noRoomView()
         : null}

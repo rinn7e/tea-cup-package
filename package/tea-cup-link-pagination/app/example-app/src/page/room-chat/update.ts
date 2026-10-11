@@ -1,4 +1,3 @@
-import * as RD from '@devexperts/remote-data-ts'
 import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 import { attemptTE } from '@rinn7e/tea-cup-prelude'
 import { type AppRouteUpdater } from '@rinn7e/tea-cup-prelude/type/app-route-updater'
@@ -29,10 +28,8 @@ export const mkLinkPaginationMode = (
   return {
     dataSourceId: roomId,
     overallData: SUA.empty(),
-    prevData: RD.initial,
+    prev: { _tag: 'Idle' },
     prevSize: size(15),
-    prevIsMax: false,
-    allowRetryPrev: false,
 
     initialHandler: () => ({
       cache: async () => Api.getCachedChats(roomId),
@@ -48,10 +45,8 @@ export const mkLinkPaginationMode = (
           TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
         ),
     }),
-    initialData: RD.initial,
+    initial: { _tag: 'NotStarted' },
     selectedKey: targetChatId ? targetChatId.replace('-repoint', '') : null,
-    retriggerCurrentData: 'done',
-    animationEnd: false,
 
     prevHandler: (overallData) => (pageSize) => ({
       cache: async () => Api.getCachedChats(roomId),
@@ -90,9 +85,8 @@ export const mkLinkPaginationMode = (
         )
       },
     }),
-    nextData: RD.initial,
+    next: { _tag: 'Idle' },
     nextSize: size(15),
-    nextIsMax: false,
   }
 }
 
@@ -103,7 +97,7 @@ export const customScrollToNewestHandler = (
   Cmd<LinkPagination.Msg<Api.Chat, ChatItemMsg, AppRoute>>,
   AppRouteUpdater<AppRoute>,
 ] => {
-  if (model.mode.nextIsMax) {
+  if (LinkPagination.isAtNewest(model)) {
     const [m, c] = LinkPagination.scrollToNewestHandler<
       Api.Chat,
       ChatItemMsg,
@@ -140,7 +134,7 @@ export const init = (
     latencyMs,
     networkOnline,
   )
-  const scrollStateMap = LinkPagination.mkScrollStateMap()
+  const scrollStateRef = LinkPagination.newScrollStateRef()
   const [linkPagin, linkPaginCmd] = LinkPagination.init<
     Api.Chat,
     ChatItemMsg,
@@ -148,14 +142,14 @@ export const init = (
   >(
     networkOnline,
     initialMode,
-    LinkPagination.storeScrollState(scrollStateMap),
-    LinkPagination.mkShouldRestoreScrollState(roomId, scrollStateMap),
+    LinkPagination.storeScrollState(scrollStateRef),
+    LinkPagination.mkShouldRestoreScrollState(roomId, scrollStateRef),
   )
 
   const model: Model = {
     roomId,
     linkPagin,
-    scrollStateMap,
+    scrollStateRef,
     highlightedChatId: targetChatId,
     inputDraft: '',
     searchQuery: '',
@@ -204,11 +198,11 @@ export const reInit = (
         data: null,
         shouldReload: true,
         onContainerScroll: LinkPagination.storeScrollState(
-          oldModel.scrollStateMap,
+          oldModel.scrollStateRef,
         ),
         shouldRestoreScrollState: LinkPagination.mkShouldRestoreScrollState(
           roomId,
-          oldModel.scrollStateMap,
+          oldModel.scrollStateRef,
         ),
       },
       oldModel.linkPagin,
@@ -225,33 +219,21 @@ export const reInit = (
     ]
   }
 
-  // Restore scroll position using LinkPagination.forceScrollToHandler (CF Pattern)
-  const [updatedLinkPagin, linkPaginCmd] =
-    oldModel.linkPagin.savedScrollPos !== null
-      ? LinkPagination.forceScrollToHandler<Api.Chat, ChatItemMsg, AppRoute>(
-          logicConfig.refs,
-          oldModel.linkPagin,
-          {
-            top: oldModel.linkPagin.savedScrollPos,
-          },
-        )
-      : [
-          oldModel.linkPagin,
-          Cmd.none<LinkPagination.Msg<Api.Chat, ChatItemMsg, AppRoute>>(),
-        ]
+  // Restore the reading position, and reopen both ends
+  const [updatedLinkPagin, linkPaginCmd] = LinkPagination.restoreSavedScroll<
+    Api.Chat,
+    ParentContext,
+    ChatItemMsg,
+    AppRoute
+  >(logicConfig, oldModel.scrollStateRef, { resetEdges: true })(
+    oldModel.linkPagin,
+  )
 
   return [
     {
       ...oldModel,
       roomId,
-      linkPagin: {
-        ...updatedLinkPagin,
-        mode: {
-          ...updatedLinkPagin.mode,
-          nextIsMax: false,
-          prevIsMax: false,
-        },
-      },
+      linkPagin: updatedLinkPagin,
     },
     linkPaginCmd.map((subMsg): Msg => ({ _tag: 'LinkPaginMsg', subMsg })),
   ]

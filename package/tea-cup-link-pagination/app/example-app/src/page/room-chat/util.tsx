@@ -1,7 +1,5 @@
 import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 import { cn } from '@rinn7e/tea-cup-prelude'
-import * as EqClass from 'fp-ts/lib/Eq'
-import * as S from 'fp-ts/lib/string'
 import { ArrowDown } from 'lucide-react'
 import { Cmd, Sub } from 'tea-cup-fp'
 
@@ -25,10 +23,8 @@ export const logicConfig: LinkPagination.LogicConfig<
   ChatItemMsg
 > = {
   refs: LinkPagination.mkRefs(),
-  mode: LinkPagination.defaultMode<Chat>(),
   dataSourceIdAttribute: 'data-datasource-id',
   isReversed: true, // Chat mode: older chats at top, newer at bottom
-  eqWithKey: EqClass.struct({ id: S.Eq }),
   ord: ChatOrd,
   uniqueKeyField: (c: Chat) => c.id,
   visibleStrategy: { _tag: 'HalfInView' },
