@@ -326,20 +326,24 @@ export const restoreSavedScroll =
     option: { resetEdges: boolean },
   ) =>
   (model: Model<Item>): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
+    // A change the list had pending while it was away has a snapshot of the
+    // container as it was then (or of another list's, sharing `refs`):
+    // drawing it would move the view away from the stored position.
+    const away: Model<Item> = { ...model, pendingChange: { _tag: 'None' } }
     const reset: Model<Item> = option.resetEdges
       ? {
-          ...model,
+          ...away,
           mode: {
-            ...model.mode,
-            prev: reopenEdge(model.mode.prev),
-            next: reopenEdge(model.mode.next),
+            ...away.mode,
+            prev: reopenEdge(away.mode.prev),
+            next: reopenEdge(away.mode.next),
           },
         }
-      : model
+      : away
     const dataSourceId = model.mode.dataSourceId
     if (RM.member(S.Eq)(dataSourceId)(scrollStateRef.read())) {
       return [
-        { ...reset, invisWhileScrolling: true },
+        { ...reset, visibility: { _tag: 'HiddenForRestore' } },
         cmdFromPromise(
           async () => {
             // After the list is rendered again
@@ -350,9 +354,8 @@ export const restoreSavedScroll =
             }
           },
           (): Msg<Item, ItemMsg, Route> => ({
-            _tag: 'SetInvisWhileScrolling',
+            _tag: 'RestoreDone',
             dataSourceId,
-            value: false,
           }),
         ),
       ]
@@ -373,7 +376,7 @@ export const setSelectedKey =
 export const emptyModel = <Item>(mode: Mode<Item>): Model<Item> => ({
   mode,
   pendingChange: { _tag: 'None' },
-  invisWhileScrolling: false,
+  visibility: { _tag: 'Visible' },
   isScrolling: false,
   initialScroll: { _tag: 'Pending' },
 })

@@ -138,7 +138,15 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
     const container = containerRef.current
     if (!container) return
     knownHeightRef.current = container.scrollHeight
-    const nativeAnchoring = CSS.supports('overflow-anchor', 'auto')
+    // Read on this container: WebKit has no such property, and a stylesheet
+    // can turn anchoring off (`overflow-anchor: none`); either way the browser
+    // won't keep the position, so we do.
+    const nativeAnchoring =
+      (
+        getComputedStyle(container) as CSSStyleDeclaration & {
+          overflowAnchor?: string
+        }
+      ).overflowAnchor === 'auto'
     const onMediaLoad = (e: Event) => {
       const media = e.target as HTMLElement
       const growth = container.scrollHeight - knownHeightRef.current
@@ -197,10 +205,26 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
       knownHeightRef.current = container.scrollHeight
     }
     dispatch(props)({
-      _tag: 'SetContainerChangeEvent',
-      value: { _tag: 'NoChange' },
+      _tag: 'PendingChangeApplied',
+      change: model.pendingChange,
     })
   }, [model.pendingChange])
+
+  // A render can change the content without a pending change (a message that
+  // expands): measure a later media load's growth from the height after it.
+  useLayoutEffect(() => {
+    if (containerRef.current)
+      knownHeightRef.current = containerRef.current.scrollHeight
+  })
+
+  // Only while the open's scroll to the cached target may still be redone.
+  const readerScrolled = () => {
+    if (
+      model.initialScroll._tag === 'FromCache' &&
+      model.visibility._tag === 'Visible'
+    )
+      dispatch(props)({ _tag: 'ReaderScrolled' })
+  }
 
   // -------------------------------------------
   // View
@@ -210,11 +234,14 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
     <div className={cn(`relative flex h-full w-full flex-col`)}>
       {config.ui.loadingView &&
       (model.mode.initial._tag === 'Loading' ||
-        model.invisWhileScrolling === true)
+        model.visibility._tag !== 'Visible')
         ? config.ui.loadingView()
         : null}
       <div
         onScroll={containerRefOnScrollHandler}
+        onWheel={readerScrolled}
+        onTouchMove={readerScrolled}
+        onKeyDown={readerScrolled}
         onScrollEnd={() => {
           dispatch(props)({ _tag: 'SetIsScrolling', value: false })
         }}
@@ -224,7 +251,7 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
           config.ui.disableScrolling ? '' : 'overflow-y-auto',
           config.ui.scrollbarClass,
           'flex-col',
-          model.invisWhileScrolling ? 'opacity-0' : 'opacity-100',
+          model.visibility._tag === 'Visible' ? 'opacity-100' : 'opacity-0',
         )}
       >
         {/* Debugging purpose */}

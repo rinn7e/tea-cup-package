@@ -64,7 +64,7 @@ export const openingModel = (selectedKey: string | null): Model<Item> => ({
     initial: { _tag: 'Loading' },
   },
   pendingChange: { _tag: 'None' },
-  invisWhileScrolling: false,
+  visibility: { _tag: 'Visible' },
   isScrolling: false,
   initialScroll: { _tag: 'Pending' },
 })
@@ -84,15 +84,16 @@ export const okResponse = (
   })
 
 // A scroll that hides the list while it runs (`scrollToCurrentHandler`).
-export const scrolledHidden = (m: Model<Item>) => m.invisWhileScrolling
+export const scrolledHidden = (m: Model<Item>) =>
+  m.visibility._tag === 'HiddenForScroll'
 
 // A scroll that doesn't hide the list only marks it as scrolling.
 export const scrolledGracefully = (m: Model<Item>) =>
-  !m.invisWhileScrolling && m.isScrolling
+  m.visibility._tag === 'Visible' && m.isScrolling
 
 // The scroll shows the list again and the scrolling ends before the next step.
 export const settled = (m: Model<Item>): Model<Item> => ({
   ...m,
-  invisWhileScrolling: false,
+  visibility: { _tag: 'Visible' },
   isScrolling: false,
 })

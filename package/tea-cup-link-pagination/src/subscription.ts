@@ -48,22 +48,23 @@ export const subscriptions = <Item, ItemMsg, Route, Parent>(
   logic: LogicConfig<Item, Parent, ItemMsg>,
 ): Sub<Msg<Item, ItemMsg, Route>> => {
   const dataSourceId = model.mode.dataSourceId
-  const loadMore: Sub<Msg<Item, ItemMsg, Route>>[] = model.invisWhileScrolling
-    ? []
-    : [
-        TeaObserver.watch(
-          prevButtonId(dataSourceId),
-          { threshold: 0 },
-          (inView): Msg<Item, ItemMsg, Route> =>
-            inView ? { _tag: 'GetMorePrevData' } : { _tag: 'NoOp' },
-        ),
-        TeaObserver.watch(
-          nextButtonId(dataSourceId),
-          { threshold: 0 },
-          (inView): Msg<Item, ItemMsg, Route> =>
-            inView ? { _tag: 'GetMoreNextData' } : { _tag: 'NoOp' },
-        ),
-      ]
+  const loadMore: Sub<Msg<Item, ItemMsg, Route>>[] =
+    model.visibility._tag !== 'Visible'
+      ? []
+      : [
+          TeaObserver.watch(
+            prevButtonId(dataSourceId),
+            { threshold: 0 },
+            (inView): Msg<Item, ItemMsg, Route> =>
+              inView ? { _tag: 'GetMorePrevData' } : { _tag: 'NoOp' },
+          ),
+          TeaObserver.watch(
+            nextButtonId(dataSourceId),
+            { threshold: 0 },
+            (inView): Msg<Item, ItemMsg, Route> =>
+              inView ? { _tag: 'GetMoreNextData' } : { _tag: 'NoOp' },
+          ),
+        ]
   const itemSubs = model.mode.overallData.value.map((item) =>
     logic.subscriptions(item).map(
       (subMsg): Msg<Item, ItemMsg, Route> => ({

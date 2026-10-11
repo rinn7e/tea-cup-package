@@ -21,7 +21,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as RD from '@devexperts/remote-data-ts'
 import {
-  attemptTE,
   cmdFromPromise,
   cmdSucceed,
   cmdSucceedWithMsg,
@@ -40,6 +39,7 @@ import { type SortedUniqueArray } from '@rinn7e/tea-cup-prelude/type/sorted-uniq
 import * as A from 'fp-ts/lib/Array'
 import * as E from 'fp-ts/lib/Either'
 import { type IO } from 'fp-ts/lib/IO'
+import type * as TE from 'fp-ts/lib/TaskEither'
 import { identity, pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
@@ -198,7 +198,14 @@ export const getInitialDataFromCacheResponseHandler = <
           ...m,
           mode: {
             ...m.mode,
-            initial: { _tag: 'Cached' },
+            // A list the API already answered stays `Loaded` through a
+            // refresh: its ends load from rows the API gave, and keeping it
+            // keeps the views at the ends (a trigger appearing and going
+            // away above a reversed list moves the view in WebKit).
+            initial:
+              m.mode.initial._tag === 'Loaded'
+                ? m.mode.initial
+                : { _tag: 'Cached' },
             overallData: pipe(
               cacheItems,
               SUA.fromArray(keyEq(config), config.ord),
@@ -310,7 +317,12 @@ export const getInitialDataFromApiResponseHandler = <
     // the view only if the target left it. Once `initialScroll` is `Done`, it
     // is also what prevents a later refresh (via `refreshInitialDataHandler`)
     // from moving the view again.
+    // A first load that failed with nothing to show hasn't opened the list:
+    // the open (and its scroll) is still owed to the load that brings rows.
+    const openFailed = newModel.mode.initial._tag === 'Failed'
+
     const scroll = ((): ScrollToCurrentParam | null => {
+      if (openFailed) return null
       switch (m.initialScroll._tag) {
         case 'Pending':
           return { isGraceful: false }
@@ -334,7 +346,10 @@ export const getInitialDataFromApiResponseHandler = <
     })()
 
     return pipe(
-      { ...newModel, initialScroll: { _tag: 'Done' } } satisfies Model<Item>,
+      {
+        ...newModel,
+        initialScroll: openFailed ? m.initialScroll : { _tag: 'Done' },
+      } satisfies Model<Item>,
       scroll ? scrollToCurrentHandler(config, scroll) : (m) => [m, Cmd.none()],
     )
   } else return [m, Cmd.none()]
@@ -399,7 +414,9 @@ export const setModeAndAddUpdateDataHandler = <Item, Parent, ItemMsg, Route>(
     {
       ...model,
       mode: { ...msg.mode },
-    },
+      // The rows are replaced: a change to the old ones has nothing to apply to
+      pendingChange: { _tag: 'None' },
+    } satisfies Model<Item>,
     (st) =>
       msg.data
         ? addOrUpdateData(config, msg.data, null)(st)
@@ -495,7 +512,7 @@ export const forceScrollToHandler = <Item, ItemMsg, Route>(
   msg: { top: number },
 ): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
   return [
-    { ...model, invisWhileScrolling: true },
+    { ...model, visibility: { _tag: 'HiddenForRestore' } },
     cmdSucceedWithMsg(
       () => {
         if (refs.containerRef.current) {
@@ -506,9 +523,8 @@ export const forceScrollToHandler = <Item, ItemMsg, Route>(
       },
       () =>
         ({
-          _tag: 'SetInvisWhileScrolling',
+          _tag: 'RestoreDone',
           dataSourceId: model.mode.dataSourceId,
-          value: false,
         }) satisfies Msg<Item, ItemMsg, Route>,
     ),
   ]
@@ -655,6 +671,24 @@ export const getInitialDataFromCacheCmd = <Item, ItemMsg, Route>(
   )
 }
 
+// Run an endpoint and send its result. A `Left` is the endpoint's own error and
+// is passed on as it is. An endpoint that throws instead (e.g. while saving its
+// response) is reported as a failed response too, so the list doesn't stay
+// loading.
+const runEndpoint = <Result, M>(
+  name: string,
+  endpoint: TE.TaskEither<HttpErrorString, Result>,
+  toMsg: (result: E.Either<HttpErrorString, Result>) => M,
+): Cmd<M> =>
+  cmdFromPromise(endpoint, (r) => {
+    if (r.tag === 'Ok') {
+      return toMsg(r.value)
+    } else {
+      console.warn(`Error from func: ${name}: ` + errorToString(r.err))
+      return toMsg(E.left(mkHttpError(errorToString(r.err))))
+    }
+  })
+
 export const getInitialDataFromApiCmd = <Item, ItemMsg, Route>(
   networkStatus: boolean,
   model: Model<Item>,
@@ -663,28 +697,16 @@ export const getInitialDataFromApiCmd = <Item, ItemMsg, Route>(
 ): Cmd<Msg<Item, ItemMsg, Route>> => {
   const { endpoint } = model.mode.initialHandler()
 
-  return attemptTE(endpoint(networkStatus, cacheData), (r) => {
-    switch (r.tag) {
-      case 'Ok':
-        return {
-          _tag: 'GetInitialDataFromApiResponse',
-          dataSourceId: model.mode.dataSourceId,
-          result: E.right(r.value),
-        } satisfies Msg<Item, ItemMsg, Route>
-      case 'Err': {
-        // The endpoint threw instead of returning its error: report it the
-        // same way, so the list doesn't stay loading.
-        console.warn(
-          'Error from func: getInitialDataFromApiCmd: ' + errorToString(r.err),
-        )
-        return {
-          _tag: 'GetInitialDataFromApiResponse',
-          dataSourceId: model.mode.dataSourceId,
-          result: E.left(mkHttpError(errorToString(r.err))),
-        } satisfies Msg<Item, ItemMsg, Route>
-      }
-    }
-  })
+  return runEndpoint(
+    'getInitialDataFromApiCmd',
+    endpoint(networkStatus, cacheData),
+    (result) =>
+      ({
+        _tag: 'GetInitialDataFromApiResponse',
+        dataSourceId: model.mode.dataSourceId,
+        result,
+      }) satisfies Msg<Item, ItemMsg, Route>,
+  )
 }
 
 // TODO: broken (`SetState` replaces the model with one built from `model`, as
@@ -860,8 +882,10 @@ export const checkVisibleAndScrollToCurrent = <
     {
       ...model,
       // If the scroll is from graceful msg, no need to turn invis
-      invisWhileScrolling:
-        param.isGraceful === false ? true : model.invisWhileScrolling,
+      visibility:
+        param.isGraceful === false
+          ? { _tag: 'HiddenForScroll', key: model.mode.selectedKey }
+          : model.visibility,
 
       // Set is scroll to true if it is not already in scrolling
       isScrolling: model.isScrolling === false ? true : model.isScrolling,
@@ -889,8 +913,8 @@ export const checkVisibleAndScrollToCurrent = <
 
       () => ({
         _tag: 'ScrollToCurrentDone',
-        param,
         dataSourceId: model.mode.dataSourceId,
+        selectedKey: model.mode.selectedKey,
       }),
       // () => ({ _tag: 'None' })
     ),
@@ -1291,25 +1315,17 @@ export const getMorePrevDataFromApiCmd = <Item, ItemMsg, Route>(
 ): Cmd<Msg<Item, ItemMsg, Route>> => {
   const cacheData = cacheRD._tag === 'RemoteSuccess' ? cacheRD.value : []
 
-  return attemptTE(endpoint(networkStatus, cacheData), (r) => {
-    switch (r.tag) {
-      case 'Ok':
-        return {
-          _tag: 'GetMorePrevDataFromApiResponse',
-          dataSourceId,
-          overallDataBeforeCache,
-          result: E.right(r.value),
-        } satisfies Msg<Item, ItemMsg, Route>
-      case 'Err': {
-        return {
-          _tag: 'GetMorePrevDataFromApiResponse',
-          dataSourceId,
-          overallDataBeforeCache,
-          result: E.left(mkHttpError(errorToString(r.err))),
-        } satisfies Msg<Item, ItemMsg, Route>
-      }
-    }
-  })
+  return runEndpoint(
+    'getMorePrevDataFromApiCmd',
+    endpoint(networkStatus, cacheData),
+    (result) =>
+      ({
+        _tag: 'GetMorePrevDataFromApiResponse',
+        dataSourceId,
+        overallDataBeforeCache,
+        result,
+      }) satisfies Msg<Item, ItemMsg, Route>,
+  )
 }
 
 export const getMoreNextDataFromCacheCmd = <Item, ItemMsg, Route>(
@@ -1354,23 +1370,15 @@ export const getMoreNextDataFromApiCmd = <Item, ItemMsg, Route>(
 ): Cmd<Msg<Item, ItemMsg, Route>> => {
   const cacheData = cacheRD._tag === 'RemoteSuccess' ? cacheRD.value : []
 
-  return attemptTE(endpoint(networkStatus, cacheData), (r) => {
-    switch (r.tag) {
-      case 'Ok':
-        return {
-          _tag: 'GetMoreNextDataFromApiResponse',
-          dataSourceId,
-          overallDataBeforeCache,
-          result: E.right(r.value),
-        } satisfies Msg<Item, ItemMsg, Route>
-      case 'Err': {
-        return {
-          _tag: 'GetMoreNextDataFromApiResponse',
-          dataSourceId,
-          overallDataBeforeCache,
-          result: E.left(mkHttpError(errorToString(r.err))),
-        } satisfies Msg<Item, ItemMsg, Route>
-      }
-    }
-  })
+  return runEndpoint(
+    'getMoreNextDataFromApiCmd',
+    endpoint(networkStatus, cacheData),
+    (result) =>
+      ({
+        _tag: 'GetMoreNextDataFromApiResponse',
+        dataSourceId,
+        overallDataBeforeCache,
+        result,
+      }) satisfies Msg<Item, ItemMsg, Route>,
+  )
 }

@@ -78,7 +78,7 @@ const model = (prev: Edge, next: Edge): Model<Item> => ({
     next,
   },
   pendingChange: { _tag: 'None' },
-  invisWhileScrolling: false,
+  visibility: { _tag: 'Visible' },
   isScrolling: false,
   initialScroll: { _tag: 'Done' },
 })
@@ -254,6 +254,23 @@ describe('a list opening from the cache', () => {
     )
     expect(answered.mode.initial).toEqual({ _tag: 'Loaded' })
     expect(getMoreNextDataHandler(true, answered)[0].mode.next).toEqual(loading)
+  })
+
+  // Before, every refresh went Loaded → Cached → Loaded, so the older end's
+  // trigger above a reversed list went away and came back, moving the view
+  // in WebKit.
+  it('a refresh of a loaded list stays Loaded, its ends ready to load', () => {
+    const [refreshed] = getInitialDataFromCacheResponseHandler(
+      true,
+      config,
+      dataSourceId,
+      RD.success(loaded),
+      model(idle, idle),
+    )
+    expect(refreshed.mode.initial).toEqual({ _tag: 'Loaded' })
+    expect(getMorePrevDataHandler(true, refreshed)[0].mode.prev).toEqual(
+      loading,
+    )
   })
 
   it('keeps the cached rows, loaded, when the API fails', () => {

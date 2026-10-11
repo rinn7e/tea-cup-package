@@ -31,6 +31,7 @@ import { type LogicConfig, type Model, defaultMode, mkRefs } from '../src/type'
 import { update } from '../src/update'
 import {
   keepPendingChange,
+  pendingChangeApplied,
   setContainerChangeEvent,
   setOrKeepContainerChangeEvent,
 } from '../src/util'
@@ -47,7 +48,7 @@ type Item = { id: string }
 const model = (): Model<Item> => ({
   mode: defaultMode<Item>(),
   pendingChange: { _tag: 'None' },
-  invisWhileScrolling: false,
+  visibility: { _tag: 'Visible' },
   isScrolling: false,
   initialScroll: { _tag: 'Done' },
 })
@@ -99,14 +100,40 @@ describe('setting a change', () => {
     }
   })
 
-  it('NoChange clears it, with its snapshot', () => {
+  // Before, any change replaced the pending one: an item's message moving
+  // nothing (a hover) right after older rows landed, before the view drew
+  // them, dropped their snapshot, and the view jumped by their height.
+  it('NoChange keeps a change not drawn yet', () => {
     const onTop = setContainerChangeEvent(refsAt(100, 1000), {
       _tag: 'ElementModifyOnTop',
     })(model())
-    const cleared = setContainerChangeEvent(refsAt(100, 1000), {
-      _tag: 'NoChange',
-    })(onTop)
-    expect(cleared.pendingChange).toEqual({ _tag: 'None' })
+    expect(
+      setContainerChangeEvent(refsAt(100, 1000), { _tag: 'NoChange' })(onTop),
+    ).toBe(onTop)
+  })
+
+  it('below or in place keeps a change on top not drawn yet', () => {
+    const onTop = setContainerChangeEvent(refsAt(100, 1000), {
+      _tag: 'ElementModifyOnTop',
+    })(model())
+    expect(
+      setContainerChangeEvent(refsAt(5, 50), { _tag: 'ElementModifyInPlace' })(
+        onTop,
+      ).pendingChange,
+    ).toEqual(onTop.pendingChange)
+  })
+
+  it('is cleared once the view drew it, but not a newer one', () => {
+    const recorded = setContainerChangeEvent(refsAt(100, 1000), {
+      _tag: 'ElementModifyInPlace',
+    })(model())
+    expect(
+      pendingChangeApplied(recorded.pendingChange)(recorded).pendingChange,
+    ).toEqual({ _tag: 'None' })
+    const onTop = setContainerChangeEvent(refsAt(100, 1000), {
+      _tag: 'ElementModifyOnTop',
+    })(recorded)
+    expect(pendingChangeApplied(recorded.pendingChange)(onTop)).toBe(onTop)
   })
 
   it('on top before the list is mounted has no snapshot', () => {
@@ -208,6 +235,13 @@ describe('older rows landing on top of a reversed list', () => {
       loaded,
       [item('older', 1)],
     )
-    expect(again.pendingChange).toEqual({ _tag: 'None' })
+    // Drawn by the view, then the same rows again: nothing to keep
+    expect(again.pendingChange).toEqual(loaded.pendingChange)
+    const drawn = pendingChangeApplied(loaded.pendingChange)(loaded)
+    expect(
+      addToPrevOverallDataHandler<ListItem, null, never>(config, drawn, [
+        item('older', 1),
+      ]).pendingChange,
+    ).toEqual({ _tag: 'None' })
   })
 })

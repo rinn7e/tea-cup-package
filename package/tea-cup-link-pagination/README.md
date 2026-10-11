@@ -85,7 +85,7 @@ everywhere (there is no separate key `Eq`).
   - `initial` (`Initial`): the first page: `NotStarted`, `Loading`, `Cached`
     (the cached rows are shown, the API is still deciding), `Failed` or
     `Loaded`. The ends load only once it is `Loaded`, not from cached rows
-    about to be replaced.
+    about to be replaced. A refresh of a loaded list stays `Loaded`.
   - `prev`, `next` (`Edge`): each end: `Idle` (can load more), `Loading`,
     `Failed` (shows "Couldn't load more." with a Retry, or
     `ui.prevFailedCustomView` / `nextFailedCustomView`) or `Exhausted`
@@ -93,11 +93,19 @@ everywhere (there is no separate key `Eq`).
   - `initialHandler`, `prevHandler`, `nextHandler`, `selectedKey` (the item to
     open at, `null` for the newest page) and `dataSourceId`.
 - **`initialScroll`**: the one scroll of an open: `Pending`, `FromCache { key }`
-  or `Done`.
+  or `Done`. A first load that fails with nothing to show leaves it `Pending`;
+  a reader who scrolls the cached rows (wheel, touch or key: `ReaderScrolled`)
+  ends it, so the API's answer doesn't pull them back.
+- **`visibility`** (`Visibility`): `Visible`, `HiddenForScroll { key }` (hidden
+  by the scroll to `key`, shown again by that scroll's `ScrollToCurrentDone`
+  only) or `HiddenForRestore` (while a stored position is set, shown again by
+  `RestoreDone`).
 - **`pendingChange`** (`PendingChange`): the change to the rows the view still
   has to apply: `None`, `KeepPosition { before }` (rows changed on top; the
   view keeps the position from the snapshot `before`, before paint) or
-  `RecordPosition`.
+  `RecordPosition`. Changes made before the view draws combine, the one that
+  keeps the position winning; the view clears a change once drawn
+  (`PendingChangeApplied`).
 
 ---
 

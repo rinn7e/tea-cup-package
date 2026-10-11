@@ -19,7 +19,15 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
+// A load whose cache read or endpoint THROWS must still report back: the
+// list's Cmds dispatch their response with the failure instead of `NoOp`, so
+// a list never stays loading. Before, a throwing cache read left the first
+// page loading forever (its API request is started by the cache response),
+// a throwing endpoint left it loading when no rows were shown, and a
+// throwing older or newer page cache left "Loading history..." up for good.
 import * as RD from '@devexperts/remote-data-ts'
+import { mkHttpError } from '@rinn7e/tea-cup-prelude/type/http-error'
+import * as E from 'fp-ts/lib/Either'
 import type * as TE from 'fp-ts/lib/TaskEither'
 import { describe, expect, it } from 'vitest'
 
@@ -34,37 +42,48 @@ import {
 import {
   type EndpointHandler,
   type InitialEndpointResponse,
+  type LogicConfig,
   type Model,
+  defaultMode,
+  mkRefs,
 } from '../src/type'
-import { type Item, dataSourceId, mkConfig, openingModel } from './fixture'
 
-// A load whose cache read or endpoint throws still reports back, so the list
-// never stays loading.
+type Item = { id: string }
+
+const dataSourceId = 'test-list'
 
 const throwingCache = async (): Promise<never> => {
-  throw new Error('the cache cannot be read')
+  throw new Error('database is locked')
 }
 
 const throwingEndpoint: TE.TaskEither<
   never,
   InitialEndpointResponse<Item>
 > = async () => {
-  throw new Error('saving the response failed')
+  throw new Error('saving to the cache failed')
 }
 
-const throwingModel = (): Model<Item> => {
-  const m = openingModel(null)
-  return {
-    ...m,
-    mode: {
-      ...m.mode,
-      initialHandler: () => ({
-        cache: throwingCache,
-        endpoint: () => throwingEndpoint,
-      }),
-    },
-  }
-}
+const model = (): Model<Item> => ({
+  mode: {
+    ...defaultMode<Item>(),
+    dataSourceId,
+    initial: { _tag: 'Loading' },
+    initialHandler: () => ({
+      cache: throwingCache,
+      endpoint: () => throwingEndpoint,
+    }),
+  },
+  pendingChange: { _tag: 'None' },
+  visibility: { _tag: 'Visible' },
+  isScrolling: false,
+  initialScroll: { _tag: 'Pending' },
+})
+
+const config = {
+  refs: mkRefs(),
+  isReversed: true,
+  uniqueKeyField: (item: Item) => item.id,
+} as unknown as LogicConfig<Item, unknown, never>
 
 type Dispatched = {
   _tag: string
@@ -83,37 +102,63 @@ const run = async (cmd: unknown): Promise<Dispatched[]> => {
 }
 
 describe('a load that throws still reports back', () => {
-  it('a first-page cache read that throws answers as a failed cache, and the API request still runs', async () => {
+  it('a first-page cache read that throws answers as a failed cache, so the API request still runs', async () => {
     const [msg] = await run(
-      getInitialDataFromCacheCmd(true, dataSourceId, throwingModel()),
+      getInitialDataFromCacheCmd(true, dataSourceId, model()),
     )
     expect(msg._tag).toBe('GetInitialDataFromCacheResponse')
     expect(msg.cache?._tag).toBe('RemoteFailure')
 
+    // ...which the cache leg takes as no cache: it shows nothing and starts
+    // the API request.
     const [afterCache, apiCmd] = getInitialDataFromCacheResponseHandler(
       true,
-      mkConfig(),
+      config,
       dataSourceId,
-      RD.failure('the cache cannot be read') as never,
-      throwingModel(),
+      RD.failure('database is locked') as never,
+      model(),
     )
     expect(afterCache.mode.initial._tag).toBe('Loading')
     const [apiMsg] = await run(apiCmd)
     expect(apiMsg._tag).toBe('GetInitialDataFromApiResponse')
   })
 
-  it('a first-page endpoint that throws answers as a failed API response, which ends the loading', async () => {
-    const [msg] = await run(getInitialDataFromApiCmd(true, throwingModel(), []))
+  it('a first-page endpoint that throws answers as a failed API response', async () => {
+    const [msg] = await run(getInitialDataFromApiCmd(true, model(), []))
     expect(msg._tag).toBe('GetInitialDataFromApiResponse')
     expect(msg.result?._tag).toBe('Left')
 
+    // ...which ends the loading: the first load failed, with nothing to show.
     const [afterApi] = getInitialDataFromApiResponseHandler(
-      mkConfig(),
+      config,
       dataSourceId,
       msg.result as never,
-      throwingModel(),
+      model(),
     )
     expect(afterApi.mode.initial._tag).toBe('Failed')
+    // ...without opening it: the load that brings rows still scrolls to the
+    // target. Before, the open was marked done, so a later refresh showed the
+    // rows anywhere.
+    expect(afterApi.initialScroll).toEqual({ _tag: 'Pending' })
+    expect(afterApi.visibility).toEqual({ _tag: 'Visible' })
+  })
+
+  // Before, an endpoint's own error was taken for a throw: logged as one, and
+  // its status replaced by 400.
+  it("an endpoint's own error reaches the list as it is", async () => {
+    const unavailable = mkHttpError('unavailable', 503)
+    const failing: Model<Item> = {
+      ...model(),
+      mode: {
+        ...model().mode,
+        initialHandler: () => ({
+          cache: throwingCache,
+          endpoint: () => async () => E.left(unavailable),
+        }),
+      },
+    }
+    const [msg] = await run(getInitialDataFromApiCmd(true, failing, []))
+    expect(msg.result).toEqual(E.left(unavailable))
   })
 
   it('an older or newer page cache read that throws answers as a failed cache', async () => {
@@ -127,7 +172,7 @@ describe('a load that throws still reports back', () => {
         dataSourceId,
         throwingCache,
         endpoint,
-        throwingModel(),
+        model(),
       ),
     )
     expect(prev._tag).toBe('GetMorePrevDataFromCacheResponse')
@@ -139,7 +184,7 @@ describe('a load that throws still reports back', () => {
         dataSourceId,
         throwingCache,
         endpoint,
-        throwingModel(),
+        model(),
       ),
     )
     expect(next._tag).toBe('GetMoreNextDataFromCacheResponse')

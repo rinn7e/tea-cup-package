@@ -38,6 +38,7 @@ import {
   type Mode,
   type Model,
   type PendingChange,
+  PendingChangeEq,
   type Refs,
   type ScrollSnapshot,
 } from './type'
@@ -353,23 +354,40 @@ const snapshotBefore = <Item>(
 // the scroll position, also take the container's snapshot: the model is updated
 // before the change is rendered, so the container still shows the old rows,
 // with everything that grew since included.
+//
+// Changes made before the view draws combine, the one that keeps the position
+// winning: a change that moves nothing or lands below doesn't drop an earlier
+// change on top (with its snapshot) that isn't drawn yet. Only the view, once
+// it drew a change, clears it (`pendingChangeApplied`).
 export const setContainerChangeEvent =
   (refs: Refs, event: ContainerChangeEvent) =>
   <Item>(model: Model<Item>): Model<Item> => {
     const pendingChange = ((): PendingChange => {
       switch (event._tag) {
         case 'NoChange':
-          return { _tag: 'None' }
+          return model.pendingChange
         case 'ElementModifyOnTop':
         case 'ForceManipulateScrollPos':
           return { _tag: 'KeepPosition', before: snapshotBefore(refs, model) }
         case 'ElementModifyOnBottom':
         case 'ElementModifyInPlace':
-          return { _tag: 'RecordPosition' }
+          return model.pendingChange._tag === 'KeepPosition'
+            ? model.pendingChange
+            : { _tag: 'RecordPosition' }
       }
     })()
-    return { ...model, pendingChange }
+    return pendingChange === model.pendingChange
+      ? model
+      : { ...model, pendingChange }
   }
+
+// The view drew `applied`: clear it, unless a newer change came since.
+export const pendingChangeApplied =
+  (applied: PendingChange) =>
+  <Item>(model: Model<Item>): Model<Item> =>
+    PendingChangeEq.equals(model.pendingChange, applied)
+      ? { ...model, pendingChange: { _tag: 'None' } }
+      : model
 
 // Keep the pending change, for a change that doesn't say where it lands. A
 // change on top without a snapshot (the list wasn't mounted) takes one now.

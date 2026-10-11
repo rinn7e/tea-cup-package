@@ -55,7 +55,11 @@ import {
   type Msg,
   type ShouldRestoreScrollStateArg,
 } from './type'
-import { setContainerChangeEvent, setOrKeepContainerChangeEvent } from './util'
+import {
+  pendingChangeApplied,
+  setContainerChangeEvent,
+  setOrKeepContainerChangeEvent,
+} from './util'
 
 // -------------------------------------------
 // Init
@@ -73,7 +77,7 @@ export function init<Item, ItemMsg, Route>(
     onContainerScroll,
     shouldRestoreScrollState,
 
-    invisWhileScrolling: false,
+    visibility: { _tag: 'Visible' },
     isScrolling: false,
     initialScroll: { _tag: 'Pending' },
   } satisfies Model<Item>
@@ -226,6 +230,18 @@ export const update =
           Cmd.none(),
           null,
         ]
+      case 'ReaderScrolled':
+        // The reader took over from the open's scroll to the cached target:
+        // the API's answer must not pull them back to it.
+        return [
+          model.initialScroll._tag === 'FromCache'
+            ? { ...model, initialScroll: { _tag: 'Done' } }
+            : model,
+          Cmd.none(),
+          null,
+        ]
+      case 'PendingChangeApplied':
+        return [pendingChangeApplied(msg.change)(model), Cmd.none(), null]
       case 'MapFunc': {
         return [mapFuncHandler(config, model, { ...msg }), Cmd.none(), null]
       }
@@ -360,13 +376,18 @@ export const update =
         >(networkStatus, config, msg.dataSourceId, msg.cache, model)
         return [m, cmd, null]
       }
-      case 'SetInvisWhileScrolling': {
+      case 'RestoreDone': {
         if (msg.dataSourceId === model.mode.dataSourceId) {
           return [
             {
               ...model,
-              invisWhileScrolling: msg.value,
-              isScrolling: msg.value ? model.isScrolling : false,
+              // Ends a restore's hiding, not a scroll's that started since:
+              // that scroll's end shows the list
+              visibility:
+                model.visibility._tag === 'HiddenForRestore'
+                  ? { _tag: 'Visible' }
+                  : model.visibility,
+              isScrolling: false,
             },
             Cmd.none(),
             null,
@@ -385,11 +406,18 @@ export const update =
       }
 
       case 'ScrollToCurrentDone': {
-        if (model.mode.dataSourceId === msg.dataSourceId)
+        // Only the scroll that hid the list shows it: not one that a newer
+        // hidden scroll replaced. A target changed without a new scroll
+        // (`setSelectedKey`) doesn't matter.
+        if (
+          model.mode.dataSourceId === msg.dataSourceId &&
+          model.visibility._tag === 'HiddenForScroll' &&
+          model.visibility.key === msg.selectedKey
+        )
           return [
             {
               ...model,
-              invisWhileScrolling: false,
+              visibility: { _tag: 'Visible' },
             },
             Cmd.none(),
             null,

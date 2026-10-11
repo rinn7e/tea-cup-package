@@ -402,6 +402,30 @@ export const PendingChangeEq: EqClass.Eq<PendingChange> = {
   },
 }
 
+// Whether the list is shown, or hidden (`opacity-0`, the loader on top) while
+// a scroll of ours puts it in place, and by which scroll: only the end of the
+// scroll that hid it shows it again. (A boolean couldn't say which, so a
+// scroll's end either showed the list during a newer scroll, or, ignored
+// because the target changed without a new scroll, left it hidden for good.)
+export type Visibility =
+  | { _tag: 'Visible' }
+  // Hidden by the scroll to `key` (`scrollToCurrentHandler`); its
+  // `ScrollToCurrentDone` shows the list
+  | { _tag: 'HiddenForScroll'; key: string | null }
+  // Hidden while a stored position is set (a restore, `ForceScrollTo`);
+  // `RestoreDone` shows the list
+  | { _tag: 'HiddenForRestore' }
+
+export const VisibilityEq: EqClass.Eq<Visibility> = {
+  equals: (a, b) => {
+    if (a._tag === 'HiddenForScroll' && b._tag === 'HiddenForScroll') {
+      return NullableEq(S.Eq).equals(a.key, b.key)
+    } else {
+      return a._tag === b._tag
+    }
+  },
+}
+
 export type Model<Item> = {
   mode: Mode<Item>
 
@@ -413,7 +437,7 @@ export type Model<Item> = {
 
   // Turn the ui invisible while scrolling msg is going on
   // Useful on initial load of link mode.
-  invisWhileScrolling: boolean
+  visibility: Visibility
   isScrolling: boolean
   /**
    * Tracks the one-time initial scroll for the current mount.
@@ -448,7 +472,7 @@ export function ModelEq<Item>(itemEq: EqClass.Eq<Item>) {
     onContainerScroll: { equals: () => true },
     shouldRestoreScrollState: { equals: () => true },
 
-    invisWhileScrolling: B.Eq,
+    visibility: VisibilityEq,
     isScrolling: B.Eq,
     initialScroll: InitialScrollEq,
   })
@@ -529,6 +553,10 @@ export type Msg<Item, ItemMsg, Route> =
       containerChangeEvent?: ContainerChangeEvent
     }
   | { _tag: 'SetContainerChangeEvent'; value: ContainerChangeEvent }
+  // Sent by the view once it drew `change` (see `pendingChangeApplied`)
+  | { _tag: 'PendingChangeApplied'; change: PendingChange }
+  // The reader scrolled (wheel, touch or key), as opposed to a scroll of ours
+  | { _tag: 'ReaderScrolled' }
   | {
       _tag: 'ScrollToNewest'
     }
@@ -656,12 +684,15 @@ export type Msg<Item, ItemMsg, Route> =
   | {
       _tag: 'ScrollToCurrentDone'
       dataSourceId: string
-      param: ScrollToCurrentParam
+      // The item it scrolled to: only the end of the scroll that hid the list
+      // shows it (see `Visibility`)
+      selectedKey: string | null
     }
+  // A stored position was set (a restore, `ForceScrollTo`): shows the list if
+  // the restore hid it (see `Visibility`)
   | {
-      _tag: 'SetInvisWhileScrolling'
+      _tag: 'RestoreDone'
       dataSourceId: string
-      value: boolean
     }
   | {
       _tag: 'ChildMsg'

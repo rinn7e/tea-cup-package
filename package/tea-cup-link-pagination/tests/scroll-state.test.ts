@@ -180,7 +180,7 @@ describe('restoring a list shown again', () => {
     const [after] = restoreSavedScroll(config, ref, { resetEdges: false })(
       model,
     )
-    expect(after.invisWhileScrolling).toBe(true)
+    expect(after.visibility).toEqual({ _tag: 'HiddenForRestore' })
     expect(after.mode.selectedKey).toBe('a')
   })
 
@@ -188,7 +188,21 @@ describe('restoring a list shown again', () => {
     const [after] = restoreSavedScroll(config, newScrollStateRef(), {
       resetEdges: false,
     })(model)
-    expect(after).toBe(model)
+    expect(after).toEqual(model)
+  })
+
+  it('drops a change pending while the list was away', () => {
+    // Its snapshot is of the container as it was then (or of another list)
+    const ref = newScrollStateRef()
+    ref.write(new Map([[dataSourceId, { key: 'a', top: 0 }]]))()
+    const [after] = restoreSavedScroll(config, ref, { resetEdges: false })({
+      ...model,
+      pendingChange: {
+        _tag: 'KeepPosition',
+        before: { scrollTop: 900, scrollHeight: 5000 },
+      },
+    })
+    expect(after.pendingChange).toEqual({ _tag: 'None' })
   })
 
   it('reopens the ends only when asked', () => {

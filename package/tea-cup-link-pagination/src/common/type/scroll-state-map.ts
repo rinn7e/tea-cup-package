@@ -118,6 +118,10 @@ export const restoreScrollState =
       }),
     )
 
+// Restores the stored position when the list's mode is replaced
+// (`SetModeAndAddUpdateData`'s `shouldRestoreScrollState`), for an owner that
+// switches data sources in one list. An owner that keeps each list and shows
+// it again restores it with `restoreSavedScroll` instead.
 export const mkShouldRestoreScrollState = (
   dataSourceId: string,
   ref: IORef<ScrollStateMap>,

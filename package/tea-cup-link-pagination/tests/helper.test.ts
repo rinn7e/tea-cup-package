@@ -84,7 +84,7 @@ const model = (all: Item[]): Model<Item> => ({
     overallData: SUA.unsafeFromArray(all),
   },
   pendingChange: { _tag: 'None' },
-  invisWhileScrolling: false,
+  visibility: { _tag: 'Visible' },
   isScrolling: false,
   initialScroll: { _tag: 'Done' },
 })
@@ -203,8 +203,9 @@ describe('changing items', () => {
       _tag: 'RecordPosition',
     })
     expect(
-      removeByKey(config, 'b', { _tag: 'NoChange' })(pending).pendingChange,
-    ).toEqual({ _tag: 'None' })
+      removeByKey(config, 'b', { _tag: 'ElementModifyOnTop' })(pending)
+        .pendingChange,
+    ).toEqual({ _tag: 'KeepPosition', before: null })
   })
 })
 
