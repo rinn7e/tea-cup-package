@@ -30,7 +30,7 @@ import * as S from 'fp-ts/lib/string'
 
 import {
   type ShouldRestoreScrollStateArg,
-  defaultDataSourceIdAttribute,
+  dataSourceIdAttribute,
 } from '../../type'
 
 // Where the user reads, per data source: the first item in view (`key`) and
@@ -62,7 +62,7 @@ export const readScrollAnchor =
     const box = container.getBoundingClientRect()
     const rows = Array.from(
       container.querySelectorAll<HTMLElement>(
-        `:scope .custom-ui-wrapper[${defaultDataSourceIdAttribute}="${CSS.escape(dataSourceId)}"]`,
+        `:scope .custom-ui-wrapper[${dataSourceIdAttribute}="${CSS.escape(dataSourceId)}"]`,
       ),
     )
     return pipe(
@@ -118,10 +118,10 @@ export const restoreScrollState =
       }),
     )
 
-// Restores the stored position when the list's mode is replaced
-// (`SetModeAndAddUpdateData`'s `shouldRestoreScrollState`), for an owner that
-// switches data sources in one list. An owner that keeps each list and shows
-// it again restores it with `restoreSavedScroll` instead.
+// Restores the stored position when a list is built again for a data source
+// (`init`'s `shouldRestoreScrollState`), for an owner that builds a new list
+// each time it shows one. An owner that keeps each list and shows it again
+// restores it with `restoreSavedScroll` instead.
 export const mkShouldRestoreScrollState = (
   dataSourceId: string,
   ref: IORef<ScrollStateMap>,

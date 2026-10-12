@@ -45,7 +45,6 @@ import {
   replaceFuncHandler,
   scrollToKeyHandler,
   scrollToNewestHandler,
-  setModeAndAddUpdateDataHandler,
   setNewSelectedKeyHandler,
 } from './handler'
 import {
@@ -204,17 +203,6 @@ export const update =
         } else return [model, Cmd.none(), null]
       }
 
-      case 'SetModeAndAddUpdateData': {
-        const [m, cmd] = setModeAndAddUpdateDataHandler<
-          Item,
-          Parent,
-          ItemMsg,
-          Route
-        >(networkStatus, config, model, {
-          ...msg,
-        })
-        return [m, cmd, null]
-      }
       case 'SetNewSelectedKey': {
         const [m, cmd] = setNewSelectedKeyHandler<Item, Parent, ItemMsg, Route>(
           networkStatus,

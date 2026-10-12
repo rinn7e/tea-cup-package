@@ -20,7 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as RD from '@devexperts/remote-data-ts'
-import { NullableEq, UndefinableEq } from '@rinn7e/tea-cup-prelude'
+import { NullableEq } from '@rinn7e/tea-cup-prelude'
 import { type AppRouteUpdater } from '@rinn7e/tea-cup-prelude/type/app-route-updater'
 import * as CacheData from '@rinn7e/tea-cup-prelude/type/cache-data'
 import {
@@ -98,6 +98,11 @@ export type ContainerChangeEvent =
   | { _tag: 'ForceManipulateScrollPos' }
   | { _tag: 'NoChange' }
 
+// How to load the first page. When the list opens at a target
+// (`Mode.selectedKey`), `cache` must return the cached page around the target
+// (it and the items before and after it), or nothing when the target isn't
+// cached, like `endpoint` does: the cache step shows the cached rows and
+// scrolls to the target in them.
 export type InitialHandler<Item> = () => {
   cache: CacheHandler<Item>
   endpoint: InitialEndpointHandler<Item>
@@ -240,11 +245,14 @@ export type CustomUiParam<Item, Parent> = {
   allItems: Item[]
 }
 
-export const defaultDataSourceIdAttribute = 'data-link-pagin-datasource-id'
+// The attribute each row carries with its list's `dataSourceId`: rows of
+// several lists can be in the page at once (another list's rows still
+// shown during a switch, a list in a row), and the reading position is kept
+// only from rows of its own list (`readScrollAnchor`)
+export const dataSourceIdAttribute = 'data-link-pagin-datasource-id'
 
 export type LogicConfig<Item, Parent, ItemMsg> = {
   refs: Refs
-  dataSourceIdAttribute?: string
 
   isReversed: boolean
   ord: OrdClass.Ord<Item>
@@ -317,7 +325,6 @@ export function mkLogicConfigEq<Item, Parent, ItemMsg>(
 ) {
   return EqClass.struct<LogicConfig<Item, Parent, ItemMsg>>({
     refs: { equals: () => true },
-    dataSourceIdAttribute: UndefinableEq(S.Eq),
     isReversed: B.Eq,
     ord: { equals: () => true },
     uniqueKeyField: { equals: () => true },
@@ -529,14 +536,6 @@ export type Msg<Item, ItemMsg, Route> =
       routeUpdater?: AppRouteUpdater<Route>
       // Where the change lands; without it, the pending change is kept
       containerChangeEvent?: ContainerChangeEvent
-    }
-  | {
-      _tag: 'SetModeAndAddUpdateData'
-      mode: Mode<Item>
-      data: Item | null // new data to be added right after changing the mode (mainly used by SSE)
-      shouldReload?: true
-      onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => IO<void>
-      shouldRestoreScrollState?: ShouldRestoreScrollStateArg
     }
   | {
       // Given a function, map it to each data (depends on mode)

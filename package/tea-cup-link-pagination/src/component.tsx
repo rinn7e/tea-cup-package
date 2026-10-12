@@ -45,7 +45,7 @@ import {
   type Props,
   PropsEq,
   type WithPrevAndNext,
-  defaultDataSourceIdAttribute,
+  dataSourceIdAttribute,
   nextButtonId,
   prevButtonId,
 } from './type'
@@ -426,8 +426,6 @@ const view = <Item, Parent, ParentMsg, ItemMsg, Route>(
   const { model, config } = props
   const mode = model.mode
   const itemRefs = config.logic.refs.itemRefs
-  const dataSourceIdAttributeFinal =
-    config.logic.dataSourceIdAttribute ?? defaultDataSourceIdAttribute
 
   const customUiWrapper = (data: Item, children: () => JSX.Element) => (
     <div
@@ -437,7 +435,7 @@ const view = <Item, Parent, ParentMsg, ItemMsg, Route>(
         itemRefs.current[config.logic.uniqueKeyField(data)] = el
       }}
       className='custom-ui-wrapper'
-      {...{ [dataSourceIdAttributeFinal]: mode.dataSourceId }}
+      {...{ [dataSourceIdAttribute]: mode.dataSourceId }}
     >
       {children()}
     </div>

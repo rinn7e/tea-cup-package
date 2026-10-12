@@ -25,6 +25,7 @@ SOFTWARE. */
 import * as RD from '@devexperts/remote-data-ts'
 import { msgCmd } from '@rinn7e/tea-cup-prelude'
 import * as CacheData from '@rinn7e/tea-cup-prelude/type/cache-data'
+import { mkHttpError } from '@rinn7e/tea-cup-prelude/type/http-error'
 import { size } from '@rinn7e/tea-cup-prelude/type/size'
 import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import * as E from 'fp-ts/lib/Either'
@@ -43,6 +44,7 @@ import {
   initialFromPrev,
   isAtNewest,
   isEmpty,
+  isInitialFailed,
   isInitialLoaded,
   items,
   last,
@@ -130,6 +132,16 @@ describe('reading items', () => {
         mode: { ...list.mode, initial: { _tag: 'Loading' } },
       }),
     ).toBe(false)
+    expect(isInitialFailed(list)).toBe(false)
+    expect(
+      isInitialFailed({
+        ...list,
+        mode: {
+          ...list.mode,
+          initial: { _tag: 'Failed', error: mkHttpError('unavailable') },
+        },
+      }),
+    ).toBe(true)
     expect(isAtNewest(list)).toBe(false)
     expect(
       isAtNewest({

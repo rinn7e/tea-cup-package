@@ -36,7 +36,7 @@ import { emptyModel, restoreSavedScroll, setSelectedKey } from '../src/helper'
 import {
   type Edge,
   type LogicConfig,
-  defaultDataSourceIdAttribute,
+  dataSourceIdAttribute,
   defaultMode,
   mkRefs,
 } from '../src/type'
@@ -82,7 +82,7 @@ const container = (
     clientHeight: 300,
     getBoundingClientRect: () => box(0, 300),
     querySelectorAll: (selector: string) =>
-      selector.includes(`${defaultDataSourceIdAttribute}="${dataSourceId}"`)
+      selector.includes(`${dataSourceIdAttribute}="${dataSourceId}"`)
         ? rowEls
         : [],
     querySelector: (selector: string) =>

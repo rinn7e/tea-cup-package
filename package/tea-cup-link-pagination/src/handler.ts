@@ -38,7 +38,6 @@ import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import { type SortedUniqueArray } from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import * as A from 'fp-ts/lib/Array'
 import * as E from 'fp-ts/lib/Either'
-import { type IO } from 'fp-ts/lib/IO'
 import type * as TE from 'fp-ts/lib/TaskEither'
 import { identity, pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
@@ -50,12 +49,10 @@ import {
   type InitialEndpointResponse,
   type InitialScroll,
   type LogicConfig,
-  type Mode,
   type Model,
   type Msg,
   type Refs,
   type ScrollToCurrentParam,
-  type ShouldRestoreScrollStateArg,
 } from './type'
 import {
   addOrUpdateData,
@@ -189,10 +186,10 @@ export const getInitialDataFromCacheResponseHandler = <
     const cacheItems = cache._tag === 'RemoteSuccess' ? cache.value : []
     const selectedKey = m.mode.selectedKey
     const isOpening = m.initialScroll._tag === 'Pending'
-    const targetIsCached =
-      selectedKey === null ||
-      cacheItems.some((item) => config.uniqueKeyField(item) === selectedKey)
-    const showCache = cacheItems.length !== 0 && (!isOpening || targetIsCached)
+    // An open at a target reads the cache around it (`InitialHandler`): its
+    // rows hold the target, or there are none. So cached rows can always be
+    // shown, and scrolled to.
+    const showCache = cacheItems.length !== 0
     const newModel = showCache
       ? pipe({
           ...m,
@@ -396,55 +393,6 @@ export const setNewSelectedKeyHandler = <Item, Parent, ItemMsg, Route>(
         : identity<[Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>]>,
     )
   } else return [model, Cmd.none()]
-}
-
-export const setModeAndAddUpdateDataHandler = <Item, Parent, ItemMsg, Route>(
-  networkStatus: boolean,
-  config: LogicConfig<Item, Parent, ItemMsg>,
-  model: Model<Item>,
-  msg: {
-    mode: Mode<Item>
-    data: Item | null // new data to be added right after changing the mode (mainly used by SSE)
-    shouldReload?: true
-    onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => IO<void>
-    shouldRestoreScrollState?: ShouldRestoreScrollStateArg
-  },
-): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
-  const [resultState, containerChangeEvent] = pipe(
-    {
-      ...model,
-      mode: { ...msg.mode },
-      // The rows are replaced: a change to the old ones has nothing to apply to
-      pendingChange: { _tag: 'None' },
-    } satisfies Model<Item>,
-    (st) =>
-      msg.data
-        ? addOrUpdateData(config, msg.data, null)(st)
-        : [st, { _tag: 'NoChange' } as ContainerChangeEvent],
-  )
-  return pipe(
-    [
-      setContainerChangeEvent(
-        config.refs,
-        containerChangeEvent,
-      )({
-        ...resultState,
-        onContainerScroll: msg.onContainerScroll,
-        shouldRestoreScrollState: msg.shouldRestoreScrollState,
-      }),
-      Cmd.none(),
-    ] satisfies [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>],
-    // `shouldReload` here means a whole new `mode` is being installed — again
-    // a genuine re-resolution of the target, not a refresh of the current
-    // one — so this intentionally calls `getInitialDataHandler`, not
-    // `refreshInitialDataHandler`, even though no live call site sets
-    // `shouldReload` today.
-    msg.shouldReload
-      ? updateAndCmd<Msg<Item, ItemMsg, Route>, Model<Item>>(
-          getInitialDataHandler(networkStatus),
-        )
-      : identity,
-  )
 }
 
 export const scrollToNewestHandler = <Item, ItemMsg, Route>(

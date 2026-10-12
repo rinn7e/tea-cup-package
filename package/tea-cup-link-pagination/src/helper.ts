@@ -96,6 +96,10 @@ export const isEmpty = <Item>(model: Model<Item>): boolean =>
 export const isInitialLoaded = <Item>(model: Model<Item>): boolean =>
   model.mode.initial._tag === 'Loaded'
 
+// The first page failed to load, with nothing to show.
+export const isInitialFailed = <Item>(model: Model<Item>): boolean =>
+  model.mode.initial._tag === 'Failed'
+
 // The first page's rows are shown, from the cache or the API.
 export const isInitialShown = <Item>(model: Model<Item>): boolean =>
   model.mode.initial._tag === 'Cached' || model.mode.initial._tag === 'Loaded'

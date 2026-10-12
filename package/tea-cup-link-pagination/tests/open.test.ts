@@ -105,19 +105,6 @@ describe('opening at a target', () => {
     expect(scrolledGracefully(afterApi)).toBe(true)
   })
 
-  it('does not show cached rows without the target; the API step scrolls', () => {
-    const others = [item('older', 1), item('other', 2)]
-    const afterCache = cacheStep(openingModel('target'), others)
-    expect(scrolledHidden(afterCache)).toBe(false)
-    expect(afterCache.mode.initial._tag).toBe('Loading')
-    expect(afterCache.mode.overallData.value.length).toBe(0)
-    expect(afterCache.initialScroll._tag).toBe('Pending')
-
-    const afterApi = apiStep(afterCache, okResponse(cached, 'target'))
-    expect(scrolledHidden(afterApi)).toBe(true)
-    expect(afterApi.initialScroll._tag).toBe('Done')
-  })
-
   it('leaves the scroll to the API step when nothing is cached', () => {
     const afterCache = cacheStep(openingModel('target'), [])
     expect(scrolledHidden(afterCache)).toBe(false)

@@ -80,7 +80,8 @@ everywhere (there is no separate key `Eq`).
 
 `Model<Item>` holds the list and the state of its loading:
 
-- **`mode`**: the data source (given at `init`, replaced to switch lists).
+- **`mode`**: the data source (given at `init`; to switch lists, build a new
+  one with `init`).
   - `overallData`: every loaded item, sorted by `ord`, unique by `uniqueKeyField`.
   - `initial` (`Initial`): the first page: `NotStarted`, `Loading`, `Cached`
     (the cached rows are shown, the API is still deciding), `Failed` or
@@ -91,7 +92,11 @@ everywhere (there is no separate key `Eq`).
     `ui.prevFailedCustomView` / `nextFailedCustomView`) or `Exhausted`
     (nothing older / newer).
   - `initialHandler`, `prevHandler`, `nextHandler`, `selectedKey` (the item to
-    open at, `null` for the newest page) and `dataSourceId`.
+    open at, `null` for the newest page) and `dataSourceId`. An open at a
+    target reads the cache around it: `initialHandler`'s cache returns the
+    cached page around `selectedKey`, or nothing when it isn't cached. Cached
+    rows without the target would show where the open won't stay, and load
+    the page next to them.
 - **`initialScroll`**: the one scroll of an open: `Pending`, `FromCache { key }`
   or `Done`. A first load that fails with nothing to show leaves it `Pending`;
   a reader who scrolls the cached rows (wheel, touch or key: `ReaderScrolled`)
@@ -116,7 +121,8 @@ fields. They compare items by key, so two rows of one item can't both be kept.
 
 - **Reading:** `items`, `findByKey`, `findBy`, `hasKey`, `first` / `last`,
   `isEmpty`, `isInitialLoaded` (the API answered), `isInitialShown` (the first
-  page's rows are on screen, cached or loaded), `isAtNewest`.
+  page's rows are on screen, cached or loaded), `isInitialFailed` (the first
+  page failed, with nothing to show), `isAtNewest`.
 - **Changing:** `mapItems`, `filterItems`, `filterMapItems`, `updateByKey`,
   `updateWhere`, `removeByKey`, `removeWhere`, `upsertItems` (the fresh item
   replaces the loaded one of the same key; `merge` can combine them) and
