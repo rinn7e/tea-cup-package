@@ -2,6 +2,7 @@ import { attemptTE } from '@rinn7e/tea-cup-prelude'
 import { Cmd } from 'tea-cup-fp'
 
 import * as Api from '../../api'
+import { type MyDB } from '../../common/cache/db/type'
 import { type Model, type Msg } from './type'
 
 export const init = (roomId: string): [Model, Cmd<Msg>] => {
@@ -29,7 +30,11 @@ export const reInit = (roomId: string, oldModel: Model): [Model, Cmd<Msg>] => {
   return init(roomId)
 }
 
-export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
+export const update = (
+  db: MyDB | null,
+  msg: Msg,
+  model: Model,
+): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'NoOp':
       return [model, Cmd.none()]
@@ -86,7 +91,7 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
             (): Msg => ({ _tag: 'NoOp' }),
           ),
           attemptTE(
-            Api.sendChat({
+            Api.sendChat(db, {
               roomId: model.roomId,
               content: targetDraft.content,
               authorId: 'user-master',

@@ -2,10 +2,13 @@ import type * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 import type * as TeaRouter from '@rinn7e/tea-cup-router'
 import { type Cmd } from 'tea-cup-fp'
 
+import { type MyDB } from './cache/db/type'
 import { type AppRoute, AppRouteEq, parseAppRoute, toUrlString } from './route'
 import { type PageModel } from './type/page-model'
 
 export type Shared = {
+  // The local database (the offline cache); `null` runs without one
+  readonly db: MyDB | null
   readonly networkOnline: boolean
   readonly latencyMs: number
   readonly refs: LinkPagination.Refs

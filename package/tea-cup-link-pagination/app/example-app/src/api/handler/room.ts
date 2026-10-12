@@ -1,9 +1,13 @@
 import * as RD from '@devexperts/remote-data-ts'
-import type * as CacheData from '@rinn7e/tea-cup-prelude/type/cache-data'
+import * as CacheData from '@rinn7e/tea-cup-prelude/type/cache-data'
+import * as E from 'fp-ts/lib/Either'
+import type * as T from 'fp-ts/lib/Task'
 import * as TE from 'fp-ts/lib/TaskEither'
 import { pipe } from 'fp-ts/lib/function'
 
-import { type HttpError } from '../type/common'
+import * as DbRoom from '../../common/cache/db/room'
+import { type MyDB } from '../../common/cache/db/type'
+import { type HttpError, mkHttpError } from '../type/common'
 import { type Pagination } from '../type/pagination'
 import {
   type GetRoomsParams,
@@ -12,27 +16,10 @@ import {
 } from '../type/room'
 import { fetchJson } from './common'
 
-let LOCAL_ROOMS_CACHE: Room[] = []
-
-export const getCachedRooms = async (): Promise<CacheData.Type<Room[]>> => {
-  if (LOCAL_ROOMS_CACHE.length > 0) {
-    return {
-      data: RD.success(LOCAL_ROOMS_CACHE),
-      updatedAt: new Date(),
-    }
-  }
-  return {
-    data: RD.initial,
-    updatedAt: new Date(),
-  }
-}
-
-export const setCachedRooms = (rooms: Room[]) => {
-  LOCAL_ROOMS_CACHE = rooms
-}
-
-export const clearCachedRooms = () => {
-  LOCAL_ROOMS_CACHE = []
+// The ids of the cached rooms the answer doesn't hold: deleted since
+const staleIds = (cacheData: Room[], result: Room[]): string[] => {
+  const resultIds = new Set(result.map((room) => room.id))
+  return cacheData.map((room) => room.id).filter((id) => !resultIds.has(id))
 }
 
 /**
@@ -84,90 +71,95 @@ export const getRoomCurrentPrevNext = (
   )
 }
 
-/**
- * Initial load for Room link pagination
- */
-export const fetchInitialRooms = (params: {
-  targetRoomId?: string | null
-  pageSize?: number
-  latencyMs?: number
-  networkOnline?: boolean
-}): TE.TaskEither<
-  HttpError<string>,
-  { dataF: (curr: Room[]) => Room[]; nextIsMax: boolean }
-> => {
-  const { targetRoomId, pageSize = 15 } = params
-
-  if (targetRoomId) {
-    return pipe(
-      getRoomCurrentPrevNext(targetRoomId, pageSize),
-      TE.map((result) => {
-        if (!result) {
-          return {
-            dataF: () => [],
-            nextIsMax: true,
+// Rooms (`getRooms`), with their cache: read from it while online (the list
+// shows them before the answer), saved to it with the answer, and read from it
+// offline
+export const callRoomsEndpoint = (
+  db: MyDB | null,
+  param: {
+    beforeTimestamp?: number
+    afterTimestamp?: number
+    pageSize: number
+  },
+): {
+  cache: (networkStatus: boolean) => T.Task<CacheData.Type<Pagination<Room>>>
+  endpoint: (
+    networkStatus: boolean,
+    cacheData: Room[],
+  ) => TE.TaskEither<HttpError<string>, Pagination<Room>>
+} => ({
+  cache: (networkStatus) => async () => {
+    if (networkStatus && db) {
+      return CacheData.fromNullable(await DbRoom.read({ db, ...param }))
+    } else {
+      return CacheData.fromRD(RD.initial)
+    }
+  },
+  endpoint: (networkStatus, cacheData) => {
+    if (networkStatus) {
+      return pipe(
+        getRooms(param),
+        TE.chainFirstTaskK((result) => async () => {
+          if (db) {
+            // Update offline cache, and delete stale offline cache
+            await DbRoom.createMany(db, result.data)
+            await DbRoom.deleteMany(db, staleIds(cacheData, result.data))
           }
-        }
-        const [focus, prevPage, nextPage] = result
-        const all = [...prevPage.data, focus, ...nextPage.data].sort(
-          (a, b) =>
-            (b.lastMessage?.timestamp ?? 0) - (a.lastMessage?.timestamp ?? 0),
+        }),
+      )
+    } else {
+      return async () =>
+        db
+          ? E.right(await DbRoom.read({ db, ...param }))
+          : E.left(mkHttpError(503, 'Offline mode: sqlite is disabled'))
+    }
+  },
+})
+
+// A room with a page on each side (`getRoomCurrentPrevNext`), with its cache,
+// as `callRoomsEndpoint`
+export const callRoomCurrentPrevNextEndpoint = (
+  db: MyDB | null,
+  param: { roomId: string; pageSize: number },
+): {
+  cache: (
+    networkStatus: boolean,
+  ) => T.Task<CacheData.Type<RoomCurrentPrevNextResult>>
+  endpoint: (
+    networkStatus: boolean,
+    cacheData: Room[],
+  ) => TE.TaskEither<HttpError<string>, RoomCurrentPrevNextResult | null>
+} => {
+  const { roomId, pageSize } = param
+  return {
+    cache: (networkStatus) => async () => {
+      if (networkStatus && db) {
+        return CacheData.fromNullable(
+          await DbRoom.readCurrentPrevNext(db, roomId, pageSize),
         )
-        setCachedRooms(all)
-        return {
-          dataF: () => all,
-          nextIsMax: nextPage.data.length === 0,
-        }
-      }),
-    )
-  }
-
-  return pipe(
-    getRooms({ pageSize }),
-    TE.map((res) => {
-      setCachedRooms(res.data)
-      return {
-        dataF: () => res.data,
-        nextIsMax: true,
+      } else {
+        return CacheData.fromRD(RD.initial)
       }
-    }),
-  )
-}
-
-/**
- * Endpoint: GET /api/rooms (older rooms via before_timestamp)
- */
-export const fetchPrevRooms = (params: {
-  beforeTimestamp?: number
-  limit?: number
-  latencyMs?: number
-  networkOnline?: boolean
-}): TE.TaskEither<HttpError<string>, Room[]> => {
-  const { beforeTimestamp, limit = 15 } = params
-  return pipe(
-    getRooms({
-      beforeTimestamp,
-      pageSize: limit,
-    }),
-    TE.map((res) => res.data),
-  )
-}
-
-/**
- * Endpoint: GET /api/rooms (newer rooms via after_timestamp)
- */
-export const fetchNextRooms = (params: {
-  afterTimestamp?: number
-  limit?: number
-  latencyMs?: number
-  networkOnline?: boolean
-}): TE.TaskEither<HttpError<string>, Room[]> => {
-  const { afterTimestamp, limit = 15 } = params
-  return pipe(
-    getRooms({
-      afterTimestamp,
-      pageSize: limit,
-    }),
-    TE.map((res) => res.data),
-  )
+    },
+    endpoint: (networkStatus, cacheData) => {
+      if (networkStatus) {
+        return pipe(
+          getRoomCurrentPrevNext(roomId, pageSize),
+          TE.chainFirstTaskK((result) => async () => {
+            if (result && db) {
+              const rooms = [result[0], ...result[1].data, ...result[2].data]
+              // Update offline cache, and delete stale offline cache
+              await DbRoom.createMany(db, rooms)
+              await DbRoom.deleteMany(db, staleIds(cacheData, rooms))
+            }
+          }),
+        )
+      } else {
+        return async () =>
+          E.right(
+            db ? await DbRoom.readCurrentPrevNext(db, roomId, pageSize) : null,
+          )
+      }
+    },
+  }
 }

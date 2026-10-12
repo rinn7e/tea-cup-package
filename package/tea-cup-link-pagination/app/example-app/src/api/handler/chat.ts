@@ -1,8 +1,12 @@
 import * as RD from '@devexperts/remote-data-ts'
-import type * as CacheData from '@rinn7e/tea-cup-prelude/type/cache-data'
+import * as CacheData from '@rinn7e/tea-cup-prelude/type/cache-data'
+import * as E from 'fp-ts/lib/Either'
+import type * as T from 'fp-ts/lib/Task'
 import * as TE from 'fp-ts/lib/TaskEither'
 import { pipe } from 'fp-ts/lib/function'
 
+import * as DbChat from '../../common/cache/db/chat'
+import { type MyDB } from '../../common/cache/db/type'
 import {
   type Chat,
   type ChatCurrentPrevNextResult,
@@ -10,42 +14,15 @@ import {
   type SearchChatsParams,
   type SendChatParams,
 } from '../type/chat'
-import { type HttpError } from '../type/common'
+import { type HttpError, mkHttpError } from '../type/common'
 import { type Pagination } from '../type/pagination'
 import { type Room } from '../type/room'
 import { fetchJson } from './common'
 
-// In-memory local cache per room
-const LOCAL_CACHE: Record<string, Chat[]> = {}
-
-export const getCachedChats = async (
-  roomId: string,
-): Promise<CacheData.Type<Chat[]>> => {
-  const cached = LOCAL_CACHE[roomId]
-  if (cached && cached.length > 0) {
-    return {
-      data: RD.success(cached),
-      updatedAt: new Date(),
-    }
-  }
-  return {
-    data: RD.initial,
-    updatedAt: new Date(),
-  }
-}
-
-export const setCachedChats = (roomId: string, chats: Chat[]) => {
-  LOCAL_CACHE[roomId] = chats
-}
-
-export const clearCachedChats = (roomId?: string) => {
-  if (roomId) {
-    delete LOCAL_CACHE[roomId]
-  } else {
-    for (const key of Object.keys(LOCAL_CACHE)) {
-      delete LOCAL_CACHE[key]
-    }
-  }
+// The ids of the cached chats the answer doesn't hold: deleted since
+const staleIds = (cacheData: Chat[], result: Chat[]): string[] => {
+  const resultIds = new Set(result.map((chat) => chat.id))
+  return cacheData.map((chat) => chat.id).filter((id) => !resultIds.has(id))
 }
 
 /**
@@ -102,124 +79,100 @@ export const getChatCurrentPrevNext = (
   )
 }
 
-/**
- * Initial load for Chat link pagination
- */
-export const fetchInitialChats = (params: {
-  roomId: string
-  targetChatId?: string | null
-  pageSize?: number
-  latencyMs?: number
-  networkOnline?: boolean
-}): TE.TaskEither<
-  HttpError<string>,
-  {
-    dataF: (curr: Chat[]) => Chat[]
-    nextIsMax: boolean
-    selectedKey?: string | null
-  }
-> => {
-  const { roomId, targetChatId, pageSize = 15 } = params
-
-  if (targetChatId) {
-    const isRepointScenario = targetChatId.includes('repoint')
-    const actualTargetId = targetChatId.replace('-repoint', '')
-
-    if (isRepointScenario) {
-      // In the reproduction scenario, the server re-points the provisional target to the latest messages at the end
+// Chats of a room (`getChats`), with their cache: read from it while online
+// (the list shows them before the answer), saved to it with the answer, and
+// read from it offline
+export const callChatsEndpoint = (
+  db: MyDB | null,
+  param: {
+    roomId: string
+    beforeTimestamp?: number
+    afterTimestamp?: number
+    pageSize: number
+  },
+): {
+  cache: (networkStatus: boolean) => T.Task<CacheData.Type<Pagination<Chat>>>
+  endpoint: (
+    networkStatus: boolean,
+    cacheData: Chat[],
+  ) => TE.TaskEither<HttpError<string>, Pagination<Chat>>
+} => ({
+  cache: (networkStatus) => async () => {
+    if (networkStatus && db) {
+      return CacheData.fromNullable(await DbChat.read({ db, ...param }))
+    } else {
+      return CacheData.fromRD(RD.initial)
+    }
+  },
+  endpoint: (networkStatus, cacheData) => {
+    if (networkStatus) {
       return pipe(
-        getChats({ roomId, pageSize }),
-        TE.map((res) => {
-          setCachedChats(roomId, res.data)
-          return {
-            dataF: () => res.data,
-            nextIsMax: true,
-            selectedKey: null,
+        getChats(param),
+        TE.chainFirstTaskK((result) => async () => {
+          if (db) {
+            // Update offline cache, and delete stale offline cache
+            await DbChat.createMany(db, result.data)
+            await DbChat.deleteMany(db, staleIds(cacheData, result.data))
           }
         }),
       )
+    } else {
+      return async () =>
+        db
+          ? E.right(await DbChat.read({ db, ...param }))
+          : E.left(mkHttpError(503, 'Offline mode: sqlite is disabled'))
     }
+  },
+})
 
-    return pipe(
-      getChatCurrentPrevNext(roomId, actualTargetId, pageSize),
-      TE.map((result) => {
-        if (!result) {
-          return {
-            dataF: () => [],
-            nextIsMax: true,
-            selectedKey: null,
-          }
-        }
-        const [focus, prevPage, nextPage] = result
-        const all = [...prevPage.data, focus, ...nextPage.data].sort(
-          (a, b) => b.timestamp - a.timestamp,
+// A chat with a page on each side (`getChatCurrentPrevNext`), with its cache,
+// as `callChatsEndpoint`
+export const callChatCurrentPrevNextEndpoint = (
+  db: MyDB | null,
+  param: { roomId: string; chatId: string; pageSize: number },
+): {
+  cache: (
+    networkStatus: boolean,
+  ) => T.Task<CacheData.Type<ChatCurrentPrevNextResult>>
+  endpoint: (
+    networkStatus: boolean,
+    cacheData: Chat[],
+  ) => TE.TaskEither<HttpError<string>, ChatCurrentPrevNextResult | null>
+} => {
+  const { roomId, chatId, pageSize } = param
+  return {
+    cache: (networkStatus) => async () => {
+      if (networkStatus && db) {
+        return CacheData.fromNullable(
+          await DbChat.readCurrentPrevNext(db, roomId, chatId, pageSize),
         )
-        setCachedChats(roomId, all)
-        return {
-          dataF: () => all,
-          nextIsMax: nextPage.data.length === 0,
-          selectedKey: actualTargetId,
-        }
-      }),
-    )
-  }
-
-  return pipe(
-    getChats({ roomId, pageSize }),
-    TE.map((res) => {
-      setCachedChats(roomId, res.data)
-      return {
-        dataF: () => res.data,
-        nextIsMax: true,
+      } else {
+        return CacheData.fromRD(RD.initial)
       }
-    }),
-  )
-}
-
-/**
- * Endpoint: GET /api/rooms/:roomId/chats (older chats via before_timestamp)
- */
-export const fetchPrevChats = (params: {
-  roomId: string
-  beforeTimestamp?: number
-  oldestTimestamp?: number
-  limit?: number
-  latencyMs?: number
-  networkOnline?: boolean
-}): TE.TaskEither<HttpError<string>, Chat[]> => {
-  const { roomId, beforeTimestamp, oldestTimestamp, limit = 15 } = params
-  const ts = beforeTimestamp ?? oldestTimestamp
-  return pipe(
-    getChats({
-      roomId,
-      beforeTimestamp: ts,
-      pageSize: limit,
-    }),
-    TE.map((res) => res.data),
-  )
-}
-
-/**
- * Endpoint: GET /api/rooms/:roomId/chats (newer chats via after_timestamp)
- */
-export const fetchNextChats = (params: {
-  roomId: string
-  afterTimestamp?: number
-  newestTimestamp?: number
-  limit?: number
-  latencyMs?: number
-  networkOnline?: boolean
-}): TE.TaskEither<HttpError<string>, Chat[]> => {
-  const { roomId, afterTimestamp, newestTimestamp, limit = 15 } = params
-  const ts = afterTimestamp ?? newestTimestamp
-  return pipe(
-    getChats({
-      roomId,
-      afterTimestamp: ts,
-      pageSize: limit,
-    }),
-    TE.map((res) => res.data),
-  )
+    },
+    endpoint: (networkStatus, cacheData) => {
+      if (networkStatus) {
+        return pipe(
+          getChatCurrentPrevNext(roomId, chatId, pageSize),
+          TE.chainFirstTaskK((result) => async () => {
+            if (result && db) {
+              const chats = [result[0], ...result[1].data, ...result[2].data]
+              // Update offline cache, and delete stale offline cache
+              await DbChat.createMany(db, chats)
+              await DbChat.deleteMany(db, staleIds(cacheData, chats))
+            }
+          }),
+        )
+      } else {
+        return async () =>
+          E.right(
+            db
+              ? await DbChat.readCurrentPrevNext(db, roomId, chatId, pageSize)
+              : null,
+          )
+      }
+    },
+  }
 }
 
 /**
@@ -242,15 +195,24 @@ export const searchChats = (
  * Endpoint: POST /api/rooms/:roomId/chats
  */
 export const sendChat = (
+  db: MyDB | null,
   params: SendChatParams,
 ): TE.TaskEither<HttpError<string>, Chat> => {
   const { roomId, content, authorId = 'user-master' } = params
 
-  return fetchJson<Chat>(`/api/rooms/${encodeURIComponent(roomId)}/chats`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content, authorId }),
-  })
+  return pipe(
+    fetchJson<Chat>(`/api/rooms/${encodeURIComponent(roomId)}/chats`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, authorId }),
+    }),
+    // Update offline cache
+    TE.chainFirstTaskK((chat) => async () => {
+      if (db) {
+        await DbChat.create(db, chat)
+      }
+    }),
+  )
 }
 
 /**
@@ -298,12 +260,15 @@ export const toggleChatStar = (params: {
 /**
  * Endpoint: DELETE /api/rooms/:roomId/chats/:chatId
  */
-export const deleteChat = (params: {
-  roomId: string
-  chatId: string
-  latencyMs?: number
-  networkOnline?: boolean
-}): TE.TaskEither<HttpError<string>, void> => {
+export const deleteChat = (
+  db: MyDB | null,
+  params: {
+    roomId: string
+    chatId: string
+    latencyMs?: number
+    networkOnline?: boolean
+  },
+): TE.TaskEither<HttpError<string>, void> => {
   const { roomId, chatId } = params
 
   return pipe(
@@ -313,10 +278,10 @@ export const deleteChat = (params: {
         method: 'DELETE',
       },
     ),
-    TE.map(() => {
-      const cached = LOCAL_CACHE[roomId]
-      if (cached) {
-        LOCAL_CACHE[roomId] = cached.filter((c) => c.id !== chatId)
+    // Delete it from the offline cache too
+    TE.chainFirstTaskK(() => async () => {
+      if (db) {
+        await DbChat.deleteMany(db, [chatId])
       }
     }),
   )

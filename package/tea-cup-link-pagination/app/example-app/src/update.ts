@@ -5,6 +5,9 @@ import * as TE from 'fp-ts/lib/TaskEither'
 import { Cmd, type Result, Sub } from 'tea-cup-fp'
 
 import * as Api from './api'
+import * as DbChat from './common/cache/db/chat'
+import * as DbRoom from './common/cache/db/room'
+import { type MyDB } from './common/cache/db/type'
 import { type AppRoute, roomChatRoute } from './common/route/type'
 import {
   type PageModel,
@@ -22,8 +25,10 @@ import { type Model, type Msg } from './type'
 export const init = (
   location: Location,
   refs: LinkPagination.Refs,
+  db: MyDB | null,
 ): [Model, Cmd<Msg>] => {
   const shared = {
+    db,
     networkOnline: true,
     latencyMs: 80,
     refs,
@@ -106,8 +111,14 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
     case 'ClearCacheAndResetGlobalEvent':
       return clearCacheAndResetGlobalEventHandler(model)
 
+    case 'ClearCacheAndResetDoneGlobalEvent':
+      return clearCacheAndResetDoneGlobalEventHandler(model)
+
     case 'ReloadActiveRoomGlobalEvent':
       return reloadActiveRoomGlobalEventHandler(model)
+
+    case 'ReloadActiveRoomCacheClearedGlobalEvent':
+      return reloadActiveRoomCacheClearedGlobalEventHandler(model)
 
     case 'SimulateRepointBugGlobalEvent':
       return simulateRepointBugGlobalEventHandler(model)
@@ -119,6 +130,18 @@ export const update = (msg: Msg, model: Model): [Model, Cmd<Msg>] => {
       return toggleNetworkOnlineGlobalEventHandler(model)
   }
 }
+
+// Writes to the local cache, as a Cmd
+const saveToCache = (
+  db: MyDB | null,
+  write: (db: MyDB) => Promise<void>,
+): Cmd<Msg> =>
+  db
+    ? attemptTE(
+        TE.fromTask(() => write(db)),
+        (): Msg => ({ _tag: 'NoOp' }),
+      )
+    : Cmd.none()
 
 // ------------------------------------------------------------------
 // Sub-Message & Action Handlers
@@ -209,6 +232,7 @@ const roomChatPageMsgHandler = (
   }
 
   const [newChatModel, chatCmd] = RoomChatPage.update(
+    model.shared.db,
     subMsg,
     currentChatModel,
     model.shared.refs,
@@ -250,6 +274,7 @@ const roomDraftPageMsgHandler = (
   }
 
   const [newDraftModel, draftCmd] = RoomDraftPage.update(
+    model.shared.db,
     subMsg,
     currentPageModel.eachPageModel.model,
   )
@@ -327,7 +352,7 @@ const markRoomAsReadResponseGlobalEventHandler = (
       ...model,
       router: TeaRouter.setPageModel(model.router, newPageModel),
     },
-    Cmd.none(),
+    saveToCache(model.shared.db, (db) => DbRoom.create(db, room)),
   ]
 }
 
@@ -405,7 +430,14 @@ const simulateIncomingChatResponseGlobalEventHandler = (
     return [model, Cmd.none()]
   }
 
-  return applyIncomingChat(result.value, model)
+  const [newModel, cmd] = applyIncomingChat(result.value, model)
+  return [
+    newModel,
+    Cmd.batch([
+      cmd,
+      saveToCache(model.shared.db, (db) => DbChat.create(db, result.value)),
+    ]),
+  ]
 }
 
 const simulateIncomingChatOtherRoomGlobalEventHandler = (
@@ -455,18 +487,35 @@ const simulateIncomingChatOtherRoomResponseGlobalEventHandler = (
     roomSidebar: updatedRoomSidebar,
   }
 
-  return applyIncomingChat(incomingChat, {
+  const [newModel, cmd] = applyIncomingChat(incomingChat, {
     ...model,
     router: TeaRouter.setPageModel(model.router, newPageModel),
   })
+  return [
+    newModel,
+    Cmd.batch([
+      cmd,
+      saveToCache(model.shared.db, async (db) => {
+        await DbChat.create(db, incomingChat)
+        await DbRoom.create(db, updatedRoom)
+      }),
+    ]),
+  ]
 }
 
 const clearCacheAndResetGlobalEventHandler = (
   model: Model,
-): [Model, Cmd<Msg>] => {
-  Api.clearCachedRooms()
-  Api.clearCachedChats()
+): [Model, Cmd<Msg>] => [
+  model,
+  attemptTE(
+    Api.resetDatabase(model.shared.db),
+    (): Msg => ({ _tag: 'ClearCacheAndResetDoneGlobalEvent' }),
+  ),
+]
 
+const clearCacheAndResetDoneGlobalEventHandler = (
+  model: Model,
+): [Model, Cmd<Msg>] => {
   const currentRoute = TeaRouter.getRoute(model.router)
 
   // Force re-initialize the page model
@@ -481,14 +530,7 @@ const clearCacheAndResetGlobalEventHandler = (
     { ...model, router: newRouterModel },
   )
 
-  return [
-    routeModel,
-    Cmd.batch([
-      routerCmd,
-      routeCmd,
-      attemptTE(Api.resetDatabase(), (): Msg => ({ _tag: 'NoOp' })),
-    ]),
-  ]
+  return [routeModel, Cmd.batch([routerCmd, routeCmd])]
 }
 
 const reloadActiveRoomGlobalEventHandler = (
@@ -497,10 +539,22 @@ const reloadActiveRoomGlobalEventHandler = (
   const currentRoute = TeaRouter.getRoute(model.router)
   const roomId = getActiveRoomId(currentRoute)
 
-  Api.clearCachedChats(roomId)
+  return [
+    model,
+    attemptTE(
+      Api.resetRoomCache(model.shared.db, roomId),
+      (): Msg => ({ _tag: 'ReloadActiveRoomCacheClearedGlobalEvent' }),
+    ),
+  ]
+}
+
+const reloadActiveRoomCacheClearedGlobalEventHandler = (
+  model: Model,
+): [Model, Cmd<Msg>] => {
+  const currentRoute = TeaRouter.getRoute(model.router)
 
   return teaRouterMsgHandler(
-    { _tag: 'ChangeRoute', route: currentRoute },
+    { _tag: 'ChangeRoute', route: currentRoute, forceRefresh: true },
     model,
   )
 }

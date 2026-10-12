@@ -152,7 +152,7 @@ export const DebugPanelComponent = ({
             data-testid='clear-cache-btn'
             onClick={onClearCacheAndReset}
             className='flex w-full items-center justify-center gap-2 rounded-xl border border-rose-800/60 bg-rose-950/50 py-1.5 text-xs font-bold text-rose-300 shadow-2xs transition-all hover:border-rose-700 hover:bg-rose-900/60'
-            title='Clear all in-memory cache, reset database, and simulate first visit'
+            title='Clear the local database (the offline cache), and simulate first visit'
           >
             <RotateCcw className='size-3.5 text-rose-400' />
             <span>Clear Cache & Reset (First Visit)</span>

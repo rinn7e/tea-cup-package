@@ -23,7 +23,6 @@ export const logicConfig: LinkPagination.LogicConfig<
   ChatItemMsg
 > = {
   refs: LinkPagination.mkRefs(),
-  dataSourceIdAttribute: 'data-datasource-id',
   isReversed: true, // Chat mode: older chats at top, newer at bottom
   ord: ChatOrd,
   uniqueKeyField: (c: Chat) => c.id,

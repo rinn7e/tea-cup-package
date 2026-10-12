@@ -38,14 +38,23 @@ export const initPageModel = (
   }
 
   // 1. Sidebar (LinkPagination Room List)
-  const [roomSidebar, sidebarCmd] = prevPageModel
+  const [roomSidebar, sidebarCmd] = prev
     ? RoomSidebar.reInit(
+        shared.db,
         activeRoomId,
-        prevPageModel.roomSidebar,
+        prev.pageModel.roomSidebar,
+        prev.route,
+        route,
+        forceRefresh,
         shared.latencyMs,
         shared.networkOnline,
       )
-    : RoomSidebar.init(activeRoomId, shared.latencyMs, shared.networkOnline)
+    : RoomSidebar.init(
+        shared.db,
+        activeRoomId,
+        shared.latencyMs,
+        shared.networkOnline,
+      )
 
   // 2. Room Detail Modal (Details / Members)
   const [roomDetailModal, roomDetailModalCmd] = O.isSome(route.sidebarParam)
@@ -128,22 +137,26 @@ export const initPageModel = (
         const existingChatPageModel =
           prevPageModel?.roomChatPageDict.get(roomId)
 
-        const [newRoomChatModel, chatCmd] = existingChatPageModel
-          ? RoomChatPage.reInit(
-              roomId,
-              targetChatId,
-              existingChatPageModel,
-              shared.refs,
-              shared.latencyMs,
-              shared.networkOnline,
-              forceRefresh,
-            )
-          : RoomChatPage.init(
-              roomId,
-              targetChatId,
-              shared.latencyMs,
-              shared.networkOnline,
-            )
+        const [newRoomChatModel, chatCmd] =
+          prev && existingChatPageModel
+            ? RoomChatPage.reInit(
+                shared.db,
+                roomId,
+                targetChatId,
+                existingChatPageModel,
+                prev.route,
+                route,
+                shared.latencyMs,
+                shared.networkOnline,
+                forceRefresh,
+              )
+            : RoomChatPage.init(
+                shared.db,
+                roomId,
+                targetChatId,
+                shared.latencyMs,
+                shared.networkOnline,
+              )
 
         const newDict = upsertRoomChatPageDict(
           roomId,

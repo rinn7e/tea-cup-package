@@ -2,7 +2,8 @@ import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 import { Cmd, type Sub } from 'tea-cup-fp'
 
 import type * as Api from '../../api'
-import { type AppRoute } from '../../common/route/type'
+import { type MyDB } from '../../common/cache/db/type'
+import { AppPageEq, type AppRoute } from '../../common/route/type'
 import * as RoomList from './sub-component/room-list'
 import {
   type ParentContext,
@@ -12,11 +13,13 @@ import { logicConfig } from './sub-component/room-list/util'
 import { type Model, type Msg } from './type'
 
 export const init = (
+  db: MyDB | null,
   activeRoomId?: string,
   latencyMs = 80,
   networkOnline = true,
 ): [Model, Cmd<Msg>] => {
   const [roomList, roomListCmd] = RoomList.init(
+    db,
     activeRoomId ?? null,
     latencyMs,
     networkOnline,
@@ -35,30 +38,37 @@ export const init = (
 }
 
 export const reInit = (
+  db: MyDB | null,
   activeRoomId: string | undefined,
   oldModel: Model,
-  _latencyMs = 80,
-  _networkOnline = true,
+  oldRoute: AppRoute,
+  newRoute: AppRoute,
+  forceRefresh: boolean,
+  latencyMs = 80,
+  networkOnline = true,
 ): [Model, Cmd<Msg>] => {
-  // Update selectedKey in room list mode
-  const updatedMode = {
-    ...oldModel.roomList.linkPagin.mode,
-    selectedKey: activeRoomId ?? null,
+  if (AppPageEq.equals(oldRoute.page, newRoute.page) && !forceRefresh) {
+    return [oldModel, Cmd.none()]
   }
-  const updatedRoomList: RoomList.Model = {
-    ...oldModel.roomList,
-    linkPagin: {
-      ...oldModel.roomList.linkPagin,
-      mode: updatedMode,
-    },
-  }
+
+  // Update the room list: select the active room in it, or init it again
+  const [roomList, roomListCmd] = RoomList.reInit(
+    db,
+    activeRoomId,
+    oldModel.roomList,
+    oldRoute,
+    newRoute,
+    forceRefresh,
+    latencyMs,
+    networkOnline,
+  )
 
   return [
     {
       ...oldModel,
-      roomList: updatedRoomList,
+      roomList,
     },
-    Cmd.none(),
+    roomListCmd.map((subMsg): Msg => ({ _tag: 'RoomListMsg', subMsg })),
   ]
 }
 

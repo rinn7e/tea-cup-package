@@ -22,5 +22,17 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // The SQLite worker imports its wasm as a module
+  worker: {
+    format: 'es',
+  },
+  optimizeDeps: {
+    // SQLite runs in a worker and loads its wasm itself
+    exclude: [
+      'wa-sqlite',
+      'kysely-wasqlite-worker',
+      '@subframe7536/sqlite-wasm',
+    ],
+  },
   plugins: [react(), tailwindcss()],
 })

@@ -8,7 +8,8 @@ import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
 import * as Api from '../../../../api'
-import { type AppRoute } from '../../../../common/route/type'
+import { type MyDB } from '../../../../common/cache/db/type'
+import { AppPageEq, type AppRoute } from '../../../../common/route/type'
 import {
   type Model,
   type Msg,
@@ -17,83 +18,140 @@ import {
 } from './type'
 import { logicConfig } from './util'
 
+// The rooms, from the cache then the API (`callRoomsEndpoint`,
+// `callRoomCurrentPrevNextEndpoint`)
 export const mkRoomListLinkPaginationMode = (
+  db: MyDB | null,
   activeRoomId: string | null,
-  latencyMs: number,
+  _latencyMs: number,
   networkOnline: boolean,
 ): LinkPagination.Mode<Api.Room> => {
+  const initialPageSize = 15
+
+  // The most recently active rooms
+  const noSelectedKeyInitialHandler = (): ReturnType<
+    LinkPagination.InitialHandler<Api.Room>
+  > => {
+    const { cache, endpoint } = Api.callRoomsEndpoint(db, {
+      pageSize: initialPageSize,
+    })
+    return {
+      cache: LinkPagination.mkCacheHandler(
+        cache(networkOnline),
+        (response) => response.data,
+      ),
+      endpoint: (networkStatus, cacheData) =>
+        pipe(
+          endpoint(networkStatus, cacheData),
+          TE.map((response) => ({
+            dataF: () => response.data,
+            nextIsMax: true,
+          })),
+          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
+        ),
+    }
+  }
+
+  // The page around `roomId`: the cache's read around it, or nothing when it
+  // isn't cached, as the endpoint answers (`InitialHandler`)
+  const withSelectedKeyInitialHandler = (
+    roomId: string,
+  ): ReturnType<LinkPagination.InitialHandler<Api.Room>> => {
+    const { cache, endpoint } = Api.callRoomCurrentPrevNextEndpoint(db, {
+      roomId,
+      pageSize: initialPageSize,
+    })
+    return {
+      cache: LinkPagination.mkCacheHandler(
+        cache(networkOnline),
+        ([current, prev, next]) => [...prev.data, current, ...next.data],
+      ),
+      endpoint: (networkStatus, cacheData) =>
+        pipe(
+          endpoint(networkStatus, cacheData),
+          TE.map((result) =>
+            result
+              ? {
+                  dataF: () => [
+                    ...result[1].data,
+                    result[0],
+                    ...result[2].data,
+                  ],
+                  nextIsMax: result[2].data.length === 0,
+                }
+              : { dataF: () => [], nextIsMax: true },
+          ),
+          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
+        ),
+    }
+  }
+
+  // A page next to the loaded rooms
+  const pageHandler = (param: {
+    beforeTimestamp?: number
+    afterTimestamp?: number
+    pageSize: number
+  }) => {
+    const { cache, endpoint } = Api.callRoomsEndpoint(db, param)
+    return {
+      cache: LinkPagination.mkCacheHandler(
+        cache(networkOnline),
+        (response: Api.Pagination<Api.Room>) => response.data,
+      ),
+      endpoint: (networkStatus: boolean, cacheData: Api.Room[]) =>
+        pipe(
+          endpoint(networkStatus, cacheData),
+          TE.map((response) => response.data),
+          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
+        ),
+    }
+  }
+
   return {
     dataSourceId: 'sidebar-rooms',
     overallData: SUA.empty(),
     prev: { _tag: 'Idle' },
-    prevSize: size(15),
+    prevSize: size(initialPageSize),
 
-    initialHandler: () => ({
-      cache: async () => Api.getCachedRooms(),
-      endpoint: () =>
-        pipe(
-          Api.fetchInitialRooms({
-            targetRoomId: activeRoomId,
-            pageSize: 15,
-            latencyMs,
-            networkOnline,
-          }),
-          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
-        ),
-    }),
+    initialHandler: () =>
+      activeRoomId === null
+        ? noSelectedKeyInitialHandler()
+        : withSelectedKeyInitialHandler(activeRoomId),
     initial: { _tag: 'NotStarted' },
     selectedKey: activeRoomId,
 
     // prevHandler: loads older / more items below (bottom of list when non-reversed)
-    prevHandler: (overallData) => (pageSize) => ({
-      cache: async () => Api.getCachedRooms(),
-      endpoint: () => {
-        const beforeTimestamp =
+    prevHandler: (overallData) => (pageSize) =>
+      pageHandler({
+        beforeTimestamp:
           overallData.length > 0
             ? overallData[overallData.length - 1]?.lastMessage?.timestamp
-            : undefined
-        return pipe(
-          Api.fetchPrevRooms({
-            beforeTimestamp,
-            limit: pageSize,
-            latencyMs,
-            networkOnline,
-          }),
-          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
-        )
-      },
-    }),
+            : undefined,
+        pageSize,
+      }),
 
     // nextHandler: loads newer / items above (top of list when non-reversed)
-    nextHandler: (overallData) => (pageSize) => ({
-      cache: async () => Api.getCachedRooms(),
-      endpoint: () => {
-        const afterTimestamp =
+    nextHandler: (overallData) => (pageSize) =>
+      pageHandler({
+        afterTimestamp:
           overallData.length > 0
             ? overallData[0]?.lastMessage?.timestamp
-            : undefined
-        return pipe(
-          Api.fetchNextRooms({
-            afterTimestamp,
-            limit: pageSize,
-            latencyMs,
-            networkOnline,
-          }),
-          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
-        )
-      },
-    }),
+            : undefined,
+        pageSize,
+      }),
     next: { _tag: 'Exhausted' },
-    nextSize: size(15),
+    nextSize: size(initialPageSize),
   }
 }
 
 export const init = (
+  db: MyDB | null,
   activeRoomId: string | null = 'room-general',
   latencyMs = 80,
   networkOnline = true,
 ): [Model, Cmd<Msg>] => {
   const mode = mkRoomListLinkPaginationMode(
+    db,
     activeRoomId,
     latencyMs,
     networkOnline,
@@ -116,24 +174,33 @@ export const init = (
 }
 
 export const reInit = (
+  db: MyDB | null,
   activeRoomId: string | undefined,
   oldModel: Model,
-  _latencyMs = 80,
-  _networkOnline = true,
+  oldRoute: AppRoute,
+  newRoute: AppRoute,
+  forceRefresh: boolean,
+  latencyMs = 80,
+  networkOnline = true,
 ): [Model, Cmd<Msg>] => {
-  return [
-    {
-      ...oldModel,
-      linkPagin: {
-        ...oldModel.linkPagin,
-        mode: {
-          ...oldModel.linkPagin.mode,
-          selectedKey: activeRoomId ?? null,
-        },
+  // Use old state (the page is the same)
+  if (AppPageEq.equals(oldRoute.page, newRoute.page) && !forceRefresh) {
+    return [oldModel, Cmd.none()]
+  }
+  // Another room is active: keep the list, and select the room in it
+  else if (!forceRefresh) {
+    return [
+      {
+        ...oldModel,
+        linkPagin: LinkPagination.setSelectedKey(activeRoomId ?? null)(
+          oldModel.linkPagin,
+        ),
       },
-    },
-    Cmd.none(),
-  ]
+      Cmd.none(),
+    ]
+  }
+  // Otherwise initialize everything
+  else return init(db, activeRoomId ?? null, latencyMs, networkOnline)
 }
 
 export const update = (

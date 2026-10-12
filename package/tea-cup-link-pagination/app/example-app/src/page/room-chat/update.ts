@@ -10,7 +10,12 @@ import { pipe } from 'fp-ts/lib/function'
 import { Cmd, type Sub } from 'tea-cup-fp'
 
 import * as Api from '../../api'
-import { type AppRoute } from '../../common/route/type'
+import { type MyDB } from '../../common/cache/db/type'
+import {
+  AppPageEq,
+  type AppRoute,
+  isNewChatTarget,
+} from '../../common/route/type'
 import {
   type ChatItemMsg,
   type Model,
@@ -19,74 +24,148 @@ import {
 } from './type'
 import { logicConfig } from './util'
 
+// The room's chats, from the cache then the API (`callChatsEndpoint`,
+// `callChatCurrentPrevNextEndpoint`)
 export const mkLinkPaginationMode = (
+  db: MyDB | null,
   roomId: string,
   targetChatId: string | null,
-  latencyMs: number,
+  _latencyMs: number,
   networkOnline: boolean,
 ): LinkPagination.Mode<Api.Chat> => {
+  const initialPageSize = 15
+  // In the reproduction scenario (`-repoint`), the server re-points the
+  // provisional target to the latest messages at the end
+  const isRepointScenario = targetChatId?.includes('repoint') ?? false
+  const selectedKey = targetChatId ? targetChatId.replace('-repoint', '') : null
+
+  // The newest page; `isRepointed` when it answers an open at a target
+  const noSelectedKeyInitialHandler = (
+    isRepointed = false,
+  ): ReturnType<LinkPagination.InitialHandler<Api.Chat>> => {
+    const { cache, endpoint } = Api.callChatsEndpoint(db, {
+      roomId,
+      pageSize: initialPageSize,
+    })
+    return {
+      cache: LinkPagination.mkCacheHandler(
+        cache(networkOnline),
+        (response) => response.data,
+      ),
+      endpoint: (networkStatus, cacheData) =>
+        pipe(
+          endpoint(networkStatus, cacheData),
+          TE.map((response) => ({
+            dataF: () => response.data,
+            nextIsMax: true,
+            ...(isRepointed ? { selectedKey: null } : {}),
+          })),
+          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
+        ),
+    }
+  }
+
+  // The page around `key`: the cache's read around it, or nothing when it
+  // isn't cached, as the endpoint answers (`InitialHandler`)
+  const withSelectedKeyInitialHandler = (
+    key: string,
+  ): ReturnType<LinkPagination.InitialHandler<Api.Chat>> => {
+    const { cache, endpoint } = Api.callChatCurrentPrevNextEndpoint(db, {
+      roomId,
+      chatId: key,
+      pageSize: initialPageSize,
+    })
+    return {
+      cache: LinkPagination.mkCacheHandler(
+        cache(networkOnline),
+        ([current, prev, next]) => [...prev.data, current, ...next.data],
+      ),
+      endpoint: isRepointScenario
+        ? // The newest page instead; the cached rows around the target
+          // aren't stale
+          (networkStatus) =>
+            noSelectedKeyInitialHandler(true).endpoint(networkStatus, [])
+        : (networkStatus, cacheData) =>
+            pipe(
+              endpoint(networkStatus, cacheData),
+              TE.map((result) =>
+                result
+                  ? {
+                      dataF: () => [
+                        ...result[1].data,
+                        result[0],
+                        ...result[2].data,
+                      ],
+                      nextIsMax: result[2].data.length === 0,
+                      selectedKey: key,
+                    }
+                  : { dataF: () => [], nextIsMax: true, selectedKey: null },
+              ),
+              TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
+            ),
+    }
+  }
+
   return {
     dataSourceId: roomId,
     overallData: SUA.empty(),
     prev: { _tag: 'Idle' },
-    prevSize: size(15),
+    prevSize: size(initialPageSize),
 
-    initialHandler: () => ({
-      cache: async () => Api.getCachedChats(roomId),
-      endpoint: () =>
-        pipe(
-          Api.fetchInitialChats({
-            roomId,
-            targetChatId,
-            pageSize: 15,
-            latencyMs,
-            networkOnline,
-          }),
-          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
-        ),
-    }),
+    initialHandler: () =>
+      selectedKey === null
+        ? noSelectedKeyInitialHandler()
+        : withSelectedKeyInitialHandler(selectedKey),
     initial: { _tag: 'NotStarted' },
-    selectedKey: targetChatId ? targetChatId.replace('-repoint', '') : null,
+    selectedKey,
 
-    prevHandler: (overallData) => (pageSize) => ({
-      cache: async () => Api.getCachedChats(roomId),
-      endpoint: () => {
-        const beforeTimestamp =
-          overallData.length > 0
-            ? overallData[overallData.length - 1]?.timestamp
-            : undefined
-        return pipe(
-          Api.fetchPrevChats({
-            roomId,
-            beforeTimestamp,
-            limit: pageSize,
-            latencyMs,
-            networkOnline,
-          }),
-          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
-        )
-      },
-    }),
+    prevHandler: (overallData) => (pageSize) => {
+      const beforeTimestamp =
+        overallData.length > 0
+          ? overallData[overallData.length - 1]?.timestamp
+          : undefined
+      const { cache, endpoint } = Api.callChatsEndpoint(db, {
+        roomId,
+        beforeTimestamp,
+        pageSize,
+      })
+      return {
+        cache: LinkPagination.mkCacheHandler(
+          cache(networkOnline),
+          (response) => response.data,
+        ),
+        endpoint: (networkStatus, cacheData) =>
+          pipe(
+            endpoint(networkStatus, cacheData),
+            TE.map((response) => response.data),
+            TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
+          ),
+      }
+    },
 
-    nextHandler: (overallData) => (pageSize) => ({
-      cache: async () => Api.getCachedChats(roomId),
-      endpoint: () => {
-        const afterTimestamp =
-          overallData.length > 0 ? overallData[0]?.timestamp : undefined
-        return pipe(
-          Api.fetchNextChats({
-            roomId,
-            afterTimestamp,
-            limit: pageSize,
-            latencyMs,
-            networkOnline,
-          }),
-          TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
-        )
-      },
-    }),
+    nextHandler: (overallData) => (pageSize) => {
+      const afterTimestamp =
+        overallData.length > 0 ? overallData[0]?.timestamp : undefined
+      const { cache, endpoint } = Api.callChatsEndpoint(db, {
+        roomId,
+        afterTimestamp,
+        pageSize,
+      })
+      return {
+        cache: LinkPagination.mkCacheHandler(
+          cache(networkOnline),
+          (response) => response.data,
+        ),
+        endpoint: (networkStatus, cacheData) =>
+          pipe(
+            endpoint(networkStatus, cacheData),
+            TE.map((response) => response.data),
+            TE.mapLeft((httpErr) => mkHttpError(httpErr.actualErr)),
+          ),
+      }
+    },
     next: { _tag: 'Idle' },
-    nextSize: size(15),
+    nextSize: size(initialPageSize),
   }
 }
 
@@ -123,28 +202,25 @@ export const customScrollToNewestHandler = (
 }
 
 export const init = (
+  db: MyDB | null,
   roomId: string,
   targetChatId: string | null = null,
   latencyMs = 80,
   networkOnline = true,
+  scrollStateRef = LinkPagination.newScrollStateRef(),
 ): [Model, Cmd<Msg>] => {
   const initialMode = mkLinkPaginationMode(
+    db,
     roomId,
     targetChatId,
     latencyMs,
     networkOnline,
   )
-  const scrollStateRef = LinkPagination.newScrollStateRef()
   const [linkPagin, linkPaginCmd] = LinkPagination.init<
     Api.Chat,
     ChatItemMsg,
     AppRoute
-  >(
-    networkOnline,
-    initialMode,
-    LinkPagination.storeScrollState(scrollStateRef),
-    LinkPagination.mkShouldRestoreScrollState(roomId, scrollStateRef),
-  )
+  >(networkOnline, initialMode, LinkPagination.storeScrollState(scrollStateRef))
 
   const model: Model = {
     roomId,
@@ -163,48 +239,50 @@ export const init = (
   ]
 }
 
+const isSameRoomChatPage = (oldRoute: AppRoute, newRoute: AppRoute) =>
+  oldRoute.page._tag === 'RoomChatPage' &&
+  newRoute.page._tag === 'RoomChatPage' &&
+  oldRoute.page.roomId === newRoute.page.roomId
+
 export const reInit = (
+  db: MyDB | null,
   roomId: string,
   targetChatId: string | null,
   oldModel: Model,
-  _refs: LinkPagination.Refs,
+  oldRoute: AppRoute,
+  newRoute: AppRoute,
   latencyMs = 80,
   networkOnline = true,
   forceRefresh = false,
 ): [Model, Cmd<Msg>] => {
-  if (forceRefresh || targetChatId) {
-    const newMode = mkLinkPaginationMode(
-      roomId,
-      targetChatId,
-      latencyMs,
-      networkOnline,
-    )
-    const parentContext: ParentContext = {
-      currentUserId: 'user-master',
-      highlightedChatId: targetChatId,
-      room: undefined,
-      dispatch: () => {},
-    }
-    const [newLinkPagin, linkPaginCmd] = LinkPagination.update<
+  // Use old state (the page is the same)
+  if (AppPageEq.equals(oldRoute.page, newRoute.page) && !forceRefresh) {
+    return [oldModel, Cmd.none()]
+  }
+
+  // The same room without a target (back after a link): keep the model, the
+  // list stays where the reader is
+  else if (
+    !forceRefresh &&
+    isSameRoomChatPage(oldRoute, newRoute) &&
+    targetChatId === null
+  ) {
+    return [oldModel, Cmd.none()]
+  }
+
+  // Restore the room's model: another page, with no target to open at
+  else if (
+    !forceRefresh &&
+    !isSameRoomChatPage(oldRoute, newRoute) &&
+    targetChatId === null
+  ) {
+    // Restore the reading position, and reopen both ends
+    const [updatedLinkPagin, linkPaginCmd] = LinkPagination.restoreSavedScroll<
       Api.Chat,
       ParentContext,
       ChatItemMsg,
       AppRoute
-    >(networkOnline, logicConfig)(
-      parentContext,
-      {
-        _tag: 'SetModeAndAddUpdateData',
-        mode: newMode,
-        data: null,
-        shouldReload: true,
-        onContainerScroll: LinkPagination.storeScrollState(
-          oldModel.scrollStateRef,
-        ),
-        shouldRestoreScrollState: LinkPagination.mkShouldRestoreScrollState(
-          roomId,
-          oldModel.scrollStateRef,
-        ),
-      },
+    >(logicConfig, oldModel.scrollStateRef, { resetEdges: true })(
       oldModel.linkPagin,
     )
 
@@ -212,34 +290,69 @@ export const reInit = (
       {
         ...oldModel,
         roomId,
-        linkPagin: newLinkPagin,
-        highlightedChatId: targetChatId,
+        linkPagin: updatedLinkPagin,
       },
       linkPaginCmd.map((subMsg): Msg => ({ _tag: 'LinkPaginMsg', subMsg })),
     ]
   }
 
-  // Restore the reading position, and reopen both ends
-  const [updatedLinkPagin, linkPaginCmd] = LinkPagination.restoreSavedScroll<
-    Api.Chat,
-    ParentContext,
-    ChatItemMsg,
-    AppRoute
-  >(logicConfig, oldModel.scrollStateRef, { resetEdges: true })(
-    oldModel.linkPagin,
-  )
+  // Re-init: a fresh list for the new open, keeping the room's stored
+  // positions
+  else {
+    const isSameRoom = isSameRoomChatPage(oldRoute, newRoute)
 
-  return [
-    {
-      ...oldModel,
+    // Re-initing the same room keeps its loaded chats: the list stays visible
+    // while the first page loads again, instead of going back to the loader.
+    // The open continues, so its one scroll isn't due again, unless the room
+    // now opens at another chat (`isNewChatTarget`): a new open over the kept
+    // chats, scrolled to its target
+    const preserved =
+      isSameRoom && !LinkPagination.isEmpty(oldModel.linkPagin)
+        ? oldModel.linkPagin
+        : null
+
+    const [m, cmd] = init(
+      db,
       roomId,
-      linkPagin: updatedLinkPagin,
-    },
-    linkPaginCmd.map((subMsg): Msg => ({ _tag: 'LinkPaginMsg', subMsg })),
-  ]
+      targetChatId,
+      latencyMs,
+      networkOnline,
+      oldModel.scrollStateRef,
+    )
+
+    return [
+      {
+        ...m,
+        // The same room keeps its draft and search
+        ...(isSameRoom
+          ? {
+              inputDraft: oldModel.inputDraft,
+              searchQuery: oldModel.searchQuery,
+              searchResults: oldModel.searchResults,
+              isSearchDropdownOpen: oldModel.isSearchDropdownOpen,
+            }
+          : {}),
+        linkPagin: preserved
+          ? {
+              ...m.linkPagin,
+              initialScroll: isNewChatTarget(oldRoute.page, newRoute.page)
+                ? m.linkPagin.initialScroll
+                : preserved.initialScroll,
+              mode: {
+                ...m.linkPagin.mode,
+                initial: preserved.mode.initial,
+                overallData: preserved.mode.overallData,
+              },
+            }
+          : m.linkPagin,
+      },
+      cmd,
+    ]
+  }
 }
 
 export const update = (
+  db: MyDB | null,
   msg: Msg,
   model: Model,
   refs: LinkPagination.Refs,
@@ -253,7 +366,7 @@ export const update = (
     case 'UpdateInputDraft':
       return updateInputDraftHandler(msg.text, model)
     case 'SendChat':
-      return sendChatHandler(model, networkOnline)
+      return sendChatHandler(db, model, networkOnline)
     case 'SendChatSuccess':
       return sendChatSuccessHandler(msg.chat, model)
     case 'UpdateChatSuccess':
@@ -324,6 +437,7 @@ const updateInputDraftHandler = (
 ): [Model, Cmd<Msg>] => [{ ...model, inputDraft: text }, Cmd.none()]
 
 const sendChatHandler = (
+  db: MyDB | null,
   model: Model,
   networkOnline: boolean,
 ): [Model, Cmd<Msg>] => {
@@ -333,7 +447,7 @@ const sendChatHandler = (
   return [
     { ...model, inputDraft: '' },
     attemptTE(
-      Api.sendChat({
+      Api.sendChat(db, {
         roomId: model.roomId,
         content,
         authorId: 'user-master',

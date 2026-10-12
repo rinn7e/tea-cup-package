@@ -56,7 +56,11 @@ export type Msg =
       readonly result: Result<HttpErrorString, { chat: Chat; room: Room }>
     }
   | { readonly _tag: 'ClearCacheAndResetGlobalEvent' }
+  // The local cache is cleared: re-open everything
+  | { readonly _tag: 'ClearCacheAndResetDoneGlobalEvent' }
   | { readonly _tag: 'ReloadActiveRoomGlobalEvent' }
+  // The active room's cached chats are cleared: re-open it
+  | { readonly _tag: 'ReloadActiveRoomCacheClearedGlobalEvent' }
   | { readonly _tag: 'SimulateRepointBugGlobalEvent' }
   | { readonly _tag: 'SetNetworkLatencyGlobalEvent'; readonly ms: number }
   | { readonly _tag: 'ToggleNetworkOnlineGlobalEvent' }

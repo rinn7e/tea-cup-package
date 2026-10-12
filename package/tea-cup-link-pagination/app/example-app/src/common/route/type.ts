@@ -103,6 +103,16 @@ export type NotFoundPage = {
 
 export type AppPage = HomePage | RoomChatPage | RoomDraftPage | NotFoundPage
 
+// A route change that opens the room at another chat (a link, a search
+// result): a new open, unlike a refresh of the same page, which keeps its
+// `targetChatId`. Back to the room without one isn't: it stays where the
+// reader is.
+export const isNewChatTarget = (oldPage: AppPage, newPage: AppPage): boolean =>
+  oldPage._tag === 'RoomChatPage' &&
+  newPage._tag === 'RoomChatPage' &&
+  O.isSome(newPage.targetChatId) &&
+  !O.getEq(S.Eq).equals(oldPage.targetChatId, newPage.targetChatId)
+
 export const AppPageEq: EqClass.Eq<AppPage> = {
   equals: (a, b) => {
     if (a._tag === 'HomePage' && b._tag === 'HomePage') return true
