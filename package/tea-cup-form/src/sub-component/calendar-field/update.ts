@@ -30,7 +30,6 @@ export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
         {
           ...field,
           currentValue: msg.value,
-          showValidation: true,
         },
         Cmd.none(),
       ]

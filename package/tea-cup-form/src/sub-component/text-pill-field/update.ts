@@ -32,7 +32,6 @@ export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
         {
           ...field,
           currentValue: msg.event.currentTarget.value,
-          showValidation: true,
         },
         Cmd.none(),
       ]
@@ -42,7 +41,6 @@ export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
           ...field,
           allValues: field.allValues.concat(msg.value),
           currentValue: '',
-          showValidation: true,
         },
         Cmd.none(),
       ]
@@ -52,7 +50,6 @@ export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
         {
           ...field,
           allValues: result._tag === 'Some' ? result.value : field.allValues,
-          showValidation: true,
         },
         Cmd.none(),
       ]

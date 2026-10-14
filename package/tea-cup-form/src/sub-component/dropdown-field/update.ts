@@ -31,7 +31,6 @@ export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
           ...field,
           currentValue: msg.value,
           isFocus: false,
-          showValidation: true,
         },
         Cmd.none(),
       ]

@@ -234,4 +234,18 @@ test.describe('TeaCup Form Example App', () => {
     await sliderTrack.click({ position: { x: 200, y: 4 } })
     await expect(sliderValueBadge).not.toContainText('30 days')
   })
+
+  test('15. should show a field error only once the field loses focus', async ({
+    page,
+  }) => {
+    const usernameInput = page.locator('[data-test="text"]')
+    await usernameInput.focus()
+    await usernameInput.fill('ab')
+
+    // Still typing: no error yet
+    await expect(page.getByText('Username too short')).not.toBeVisible()
+
+    await usernameInput.blur()
+    await expect(page.getByText('Username too short')).toBeVisible()
+  })
 })

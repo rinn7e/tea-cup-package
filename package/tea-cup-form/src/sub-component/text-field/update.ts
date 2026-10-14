@@ -30,7 +30,6 @@ export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
         {
           ...field,
           currentValue: msg.value,
-          showValidation: true,
         },
         Cmd.none(),
       ]
@@ -40,7 +39,6 @@ export const update = (msg: Msg, field: Model): [Model, Cmd<Msg>] => {
           {
             ...field,
             currentValue: (msg.event.target as HTMLInputElement).value,
-            showValidation: true,
           },
           Cmd.none(),
         ]
