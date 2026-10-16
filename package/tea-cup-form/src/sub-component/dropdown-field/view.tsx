@@ -96,13 +96,12 @@ export const defaultDropdownView = ({
                         ? 'bg-blue-50 text-blue-600'
                         : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900',
                     ].join(' ')}
-                    onMouseDown={(event) =>
-                      dispatch({
-                        _tag: 'UpdateDropdownType',
-                        value: choice,
-                        event,
-                      })
-                    }
+                    onMouseDown={(event) => {
+                      // Keep the focus on the field: picking an option
+                      // shouldn't blur it
+                      event.preventDefault()
+                      dispatch({ _tag: 'UpdateDropdownType', value: choice })
+                    }}
                   >
                     {choice}
                   </div>

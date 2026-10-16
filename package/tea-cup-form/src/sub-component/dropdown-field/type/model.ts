@@ -26,7 +26,7 @@ import * as E from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
 import * as B from 'fp-ts/lib/boolean'
 import * as S from 'fp-ts/lib/string'
-import { type JSX, type MouseEvent } from 'react'
+import { type JSX } from 'react'
 import { Dispatcher } from 'tea-cup-fp'
 
 /** Reducer messages for DropdownField sub-component */
@@ -34,7 +34,6 @@ export type Msg =
   | {
       _tag: 'UpdateDropdownType'
       value: string
-      event?: MouseEvent<HTMLDivElement>
     }
   | {
       _tag: 'HandleFocus'

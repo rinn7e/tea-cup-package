@@ -48,6 +48,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/) and adher
   - A pending change on top was lost when another change (an item's message that moves nothing, such as a hover, or one in place) arrived before the view drew it: the new `containerChangeEvent` replaced it, and the view jumped by the older page's height. Changes now combine, and only the view clears them once drawn.
   - A first load that failed with nothing to show set `initialScrollDone`, so a later refresh showed the rows without scrolling to the target. The open now stays `Pending` until a load brings rows.
   - Adds a Vitest suite.
+- **`@rinn7e/tea-cup-form`**:
+  - A text field's link validation (`linkValidations`, e.g. a repeated password checked against the first) stopped following the field it is linked to: the memoized field ignored `forms`, so the error stayed after the linked field was fixed, and didn't show after it was broken. The field now re-renders when a field it validates against changes.
+  - Picking a dropdown option no longer blurs the field: the option's `mousedown` calls `preventDefault()` again, as before the fields were split into sub-components. `UpdateDropdownType` no longer carries the unused `event`.
 
 ---
 

@@ -19,11 +19,14 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
+import * as A from 'fp-ts/lib/Array'
 import * as EqClass from 'fp-ts/lib/Eq'
+import * as O from 'fp-ts/lib/Option'
+import { pipe } from 'fp-ts/lib/function'
 import * as S from 'fp-ts/lib/string'
 import { Dispatcher } from 'tea-cup-fp'
 
-import type { Forms } from '../../../common/type'
+import { type Forms, lookupFormSafe, valueTextType } from '../../../common/type'
 import type { Model, Msg } from './model'
 import { ModelEq } from './model'
 
@@ -39,9 +42,29 @@ export type Props = {
   forms: Forms
 }
 
-export const PropsEq = EqClass.struct<Props>({
-  fieldKey: S.Eq,
-  model: ModelEq,
-  dispatch: { equals: () => true },
-  forms: { equals: () => true },
+// The text of a linked field, as `runValidationAndLink` reads it
+const linkedValue = (forms: Forms, key: string): O.Option<string> =>
+  pipe(lookupFormSafe(key, forms), O.map(valueTextType))
+
+// Only the fields this one validates against (`linkValidations`) matter:
+// when one of them changes, the field re-renders so its error follows it
+// (e.g. "Password does not match" clears once the new password matches).
+const linkedFormsEq = (model: Model): EqClass.Eq<Forms> => ({
+  equals: (x, y) =>
+    pipe(
+      model.linkValidations,
+      A.every(({ linkKey }) =>
+        O.getEq(S.Eq).equals(linkedValue(x, linkKey), linkedValue(y, linkKey)),
+      ),
+    ),
 })
+
+export const PropsEq: EqClass.Eq<Props> = {
+  equals: (x, y) =>
+    EqClass.struct<Props>({
+      fieldKey: S.Eq,
+      model: ModelEq,
+      dispatch: { equals: () => true },
+      forms: linkedFormsEq(y.model),
+    }).equals(x, y),
+}
