@@ -12,6 +12,7 @@ Core prelude, interoperability utilities, and runtime helpers for React applicat
 - **Data Structure Utilities**: Immutable array (`ArrayExtra`) and map (`MapExtra`) manipulation utilities.
 - **Tailwind & Class Utilities**: Type-safe class name composer (`cn`) combining `clsx` and `tailwind-merge`.
 - **Runtime Validation Helpers**: `io-ts` runtime schema validation and decode utilities.
+- **Cancellable Requests (`Tracker`)**: Elm's `Http` trackers for tea-cup: run a request under a name (`Tracker.task`) and cancel it with a command (`Tracker.cancel`), so a Model and its `update` only ever hold the name.
 
 ---
 
@@ -135,6 +136,31 @@ const className = cn(
 
 ---
 
+### 6. Cancelling a Superseded Request (`Tracker`)
+
+Like Elm's `Http.request { tracker = Just name }` and `Http.cancel name`: the request gets an `AbortSignal` to pass to its fetches, and a cancelled request never reports back, so no message reaches `update`.
+
+```ts
+import { Tracker } from '@rinn7e/tea-cup-prelude'
+import { Cmd, Task } from 'tea-cup-fp'
+
+const searchTracker = 'search'
+
+// Cancel the previous search, then start this one
+const searchCmd = (term: string): Cmd<Msg> =>
+  Cmd.batch([
+    Tracker.cancel<Msg>(searchTracker),
+    Task.attempt(
+      Tracker.task(searchTracker, (signal) =>
+        fetch(`/api/search?q=${term}`, { signal }).then((r) => r.json()),
+      ),
+      (result): Msg => ({ _tag: 'SearchResponse', result }),
+    ),
+  ])
+```
+
+---
+
 ## API Reference
 
 ### TEA Helpers (`./tea`)
@@ -151,6 +177,13 @@ const className = cn(
 | `resultToRd`   | `(result) => RemoteData<E, A>`               | Converts a `tea-cup-fp` `Result` to `@devexperts/remote-data-ts` `RemoteData`.                     |
 | `delayCmd`     | `(ms, msg) => Cmd<Msg>`                      | Emits a message after a specified delay in milliseconds.                                           |
 | `cmdSucceed`   | `(fn) => Cmd<{ _tag: 'NoOp' }>`              | Runs a synchronous effect and returns a `NoOp` command.                                            |
+
+### Request Trackers (`Tracker`)
+
+| Function         | Signature                                           | Description                                                                                                                                    |
+| :--------------- | :-------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Tracker.task`   | `(tracker, (signal) => Promise<A>) => Task<any, A>` | Runs a request under `tracker`, giving it the `AbortSignal` that `Tracker.cancel` aborts. A newer request under the same name replaces it.     |
+| `Tracker.cancel` | `(tracker) => Cmd<Msg>`                             | Cancels the request `tracker` tracks; its Task never completes, so no message reaches `update`. In a `Cmd.batch`, runs before what follows it. |
 
 ---
 
