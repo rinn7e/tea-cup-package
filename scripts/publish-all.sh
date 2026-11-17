@@ -21,6 +21,7 @@ pnpm --filter @rinn7e/tea-cup-rte-toolkit build
 PACKAGES=(
   "package/tea-cup-prelude"
   "package/tea-cup-intersection-observer"
+  "package/tea-cup-scroll-container"
   "package/tea-cup-rte-toolkit"
   "package/tea-cup-router"
   "package/tea-cup-pagination"
@@ -37,4 +38,4 @@ for pkg in "${PACKAGES[@]}"; do
   echo "✨ Successfully published $pkg!"
 done
 
-echo "🎉 All 9 packages published to GitHub Packages!"
+echo "🎉 All 10 packages published to GitHub Packages!"

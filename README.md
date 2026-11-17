@@ -12,6 +12,7 @@ This monorepo manages the following sub-packages:
 *   **[package/tea-cup-form](package/tea-cup-form)**: Reusable, type-safe form validation and state management components.
 *   **[package/tea-cup-pagination](package/tea-cup-pagination)**: Standard React pagination component following Elm Architecture principles.
 *   **[package/tea-cup-link-pagination](package/tea-cup-link-pagination)**: Bidirectional infinite-scroll and cursor-based stream pagination engine.
+*   **[package/tea-cup-scroll-container](package/tea-cup-scroll-container)**: Virtualized scroll container that keeps the reading position, with its scroll decisions in TEA.
 *   **[package/tea-cup-intersection-observer](package/tea-cup-intersection-observer)**: Intersection Observer subscription for React Tea-Cup applications.
 *   **[package/tea-cup-router](package/tea-cup-router)**: Pure, modular router and navigation manager preventing double-update loops.
 *   **[package/tea-cup-drawer](package/tea-cup-drawer)**: Drawer / bottom sheet with swipe gestures and snap points, a TEA port of vaul.
@@ -117,7 +118,7 @@ pnpm run publish-all
 
 This runs:
 1. `tea-cup-prelude` (Core base)
-2. `tea-cup-intersection-observer` & `tea-cup-rte-toolkit`
+2. `tea-cup-intersection-observer`, `tea-cup-rte-toolkit` & `tea-cup-scroll-container`
 3. `tea-cup-router`, `tea-cup-pagination`, `tea-cup-link-pagination`, and `tea-cup-form`
 
 ### 3. Publish an Individual Package
@@ -177,6 +178,7 @@ In your host application's `package.json`, add the dependencies using relative p
   "@rinn7e/tea-cup-form": "link:../tea-cup-package/package/tea-cup-form",
   "@rinn7e/tea-cup-pagination": "link:../tea-cup-package/package/tea-cup-pagination",
   "@rinn7e/tea-cup-link-pagination": "link:../tea-cup-package/package/tea-cup-link-pagination",
+  "@rinn7e/tea-cup-scroll-container": "link:../tea-cup-package/package/tea-cup-scroll-container",
   "@rinn7e/tea-cup-intersection-observer": "link:../tea-cup-package/package/tea-cup-intersection-observer",
   "@rinn7e/tea-cup-router": "link:../tea-cup-package/package/tea-cup-router",
   "@rinn7e/tea-cup-rte-toolkit": "link:../tea-cup-package/package/tea-cup-rte-toolkit"
