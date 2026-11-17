@@ -185,6 +185,12 @@ const searchCmd = (term: string): Cmd<Msg> =>
 | `Tracker.task`   | `(tracker, (signal) => Promise<A>) => Task<any, A>` | Runs a request under `tracker`, giving it the `AbortSignal` that `Tracker.cancel` aborts. A newer request under the same name replaces it.     |
 | `Tracker.cancel` | `(tracker) => Cmd<Msg>`                             | Cancels the request `tracker` tracks; its Task never completes, so no message reaches `update`. In a `Cmd.batch`, runs before what follows it. |
 
+### Promises (`./promise`)
+
+| Function     | Signature                                                 | Description                                                                                                                                                                                                    |
+| :----------- | :-------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `withBudget` | `(promise, budgetMs, fallback, onTimeout?) => Promise<A>` | Resolves `promise`, or `fallback()` if it takes longer than `budgetMs` (calling `onTimeout` first). The slower promise is not cancelled (it cannot be): it is abandoned, and its later rejection is swallowed. |
+
 ---
 
 ## License

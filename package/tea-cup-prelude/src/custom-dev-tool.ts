@@ -29,7 +29,7 @@ import { DevTools } from 'react-tea-cup'
  * it recursively unwraps the message to find the innermost `subMsg` and logs that.
  *
  * For example:
- * `BundlePageMsg(EditorMsg(ChangeContent("text")))`
+ * `ChatPageMsg(EditorMsg(ChangeContent("text")))`
  *
  * Default logging would show the whole structure.
  * This implementation logs: `ChangeContent("text")`.
