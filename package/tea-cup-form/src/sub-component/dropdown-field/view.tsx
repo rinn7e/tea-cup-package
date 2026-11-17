@@ -59,6 +59,7 @@ export const defaultDropdownView = ({
       <div className={getContainerClasses(isError, isFocus)}>
         <div className='flex flex-row items-center'>
           <input
+            autoCapitalize='none'
             data-test={fieldKey}
             id={mkIdFromString(label)}
             className='w-full cursor-pointer bg-transparent px-4 py-3 font-medium text-slate-800 outline-none placeholder:text-slate-300'

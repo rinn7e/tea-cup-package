@@ -88,6 +88,7 @@ export const defaultTextPillView = ({
             )),
           )}
           <input
+            autoCapitalize='none'
             data-test={key}
             className='min-w-[140px] grow bg-transparent px-1 py-1.5 font-medium text-slate-800 outline-none placeholder:text-slate-300'
             value={currentValue}

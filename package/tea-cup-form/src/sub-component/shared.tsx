@@ -29,6 +29,7 @@ export const emptyEl = (): JSX.Element => <div></div>
 export const CalendarInput = React.forwardRef<HTMLInputElement, any>(
   (props, ref) => (
     <input
+      autoCapitalize='none'
       {...props}
       ref={ref}
       className='w-full bg-transparent px-4 py-3 font-medium text-slate-800 outline-none'

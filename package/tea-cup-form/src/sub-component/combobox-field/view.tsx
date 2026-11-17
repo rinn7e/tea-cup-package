@@ -94,6 +94,7 @@ export const defaultComboboxView = ({
           })}
 
           <input
+            autoCapitalize='none'
             data-test={key}
             className='min-w-[120px] grow bg-transparent px-1 py-1.5 font-medium text-slate-800 outline-none placeholder:text-slate-300'
             placeholder={
