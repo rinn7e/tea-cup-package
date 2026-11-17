@@ -3,11 +3,57 @@ import { Sub } from 'tea-cup-fp'
 import { observe } from './observe'
 import { IntersectionOptions } from './type'
 
-const RETRY_DELAY_MS = 50
+// The watches whose element isn't in the document yet (React mounts it later,
+// or a row of a virtualized list isn't drawn), by element id. One
+// `MutationObserver` for them all checks them when the document changes:
+// a watch waiting costs nothing until then, however long it waits.
+const waiting = new Map<string, Set<() => void>>()
+let documentObserver: MutationObserver | null = null
+
+const checkWaiting = (): void => {
+  waiting.forEach((callbacks, id) => {
+    if (document.getElementById(id)) {
+      waiting.delete(id)
+      callbacks.forEach((found) => found())
+    }
+  })
+  if (waiting.size === 0 && documentObserver !== null) {
+    documentObserver.disconnect()
+    documentObserver = null
+  }
+}
+
+// Calls `found` once an element with `id` is in the document. Returns the
+// cancel of the wait.
+const whenInDocument = (id: string, found: () => void): (() => void) => {
+  const callbacks = waiting.get(id) ?? new Set<() => void>()
+  callbacks.add(found)
+  waiting.set(id, callbacks)
+  if (documentObserver === null) {
+    documentObserver = new MutationObserver(checkWaiting)
+    documentObserver.observe(document, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['id'],
+    })
+  }
+  return () => {
+    const current = waiting.get(id)
+    if (current) {
+      current.delete(found)
+      if (current.size === 0) waiting.delete(id)
+    }
+    if (waiting.size === 0 && documentObserver !== null) {
+      documentObserver.disconnect()
+      documentObserver = null
+    }
+  }
+}
 
 class IntersectionObserverSubscription<Msg> extends Sub<Msg> {
   private unobserve: (() => void) | null = null
-  private retryTimeout: ReturnType<typeof setTimeout> | null = null
+  private cancelWait: (() => void) | null = null
   private readonly elementId: string
   private readonly options: IntersectionOptions
   private readonly tagger: (
@@ -37,11 +83,12 @@ class IntersectionObserverSubscription<Msg> extends Sub<Msg> {
         this.options,
       )
     } else {
-      // Element not yet in DOM — retry after a short delay to handle React mount timing
-      this.retryTimeout = setTimeout(() => {
-        this.retryTimeout = null
+      // Element not yet in DOM (React mount timing, a row not drawn): observe
+      // it once it is there
+      this.cancelWait = whenInDocument(this.elementId, () => {
+        this.cancelWait = null
         this.tryObserve()
-      }, RETRY_DELAY_MS)
+      })
     }
   }
 
@@ -50,9 +97,9 @@ class IntersectionObserverSubscription<Msg> extends Sub<Msg> {
   }
 
   protected override onRelease(): void {
-    if (this.retryTimeout !== null) {
-      clearTimeout(this.retryTimeout)
-      this.retryTimeout = null
+    if (this.cancelWait !== null) {
+      this.cancelWait()
+      this.cancelWait = null
     }
     if (this.unobserve) {
       this.unobserve()
@@ -66,8 +113,9 @@ class IntersectionObserverSubscription<Msg> extends Sub<Msg> {
  * identified by its HTML element ID.
  *
  * The subscription will look up the element via `document.getElementById` at init time.
- * If the element is not yet in the DOM (e.g. due to React mount timing), it will retry
- * automatically after a short delay.
+ * If the element is not yet in the DOM (e.g. due to React mount timing, or a row of a
+ * virtualized list not drawn), it observes it once it is added: one `MutationObserver`
+ * shared by every waiting watch, so a watch waiting costs nothing meanwhile.
  *
  * @example
  * ```typescript

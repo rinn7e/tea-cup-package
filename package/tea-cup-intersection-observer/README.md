@@ -8,7 +8,7 @@ Inspired by [react-intersection-observer](https://github.com/thebuilder/react-in
 
 - **Elm-like Subscriptions**: Manage intersection states using declarative TEA subscriptions (`Sub<Msg>`).
 - **Resource Optimized**: Automatically creates a single `IntersectionObserver` instance per unique combination of options, sharing instances using reference counting to minimize browser overhead.
-- **React Lifecycle Resilient**: Safely handles mount timing; if the target DOM element is not yet in the DOM during subscription initialization, it automatically retries with a short delay.
+- **React Lifecycle Resilient**: Safely handles mount timing; if the target DOM element is not yet in the DOM during subscription initialization (React mounts it later, or a row of a virtualized list is not drawn), it is observed once it is added. One `MutationObserver`, shared by every waiting watch, checks them when the document changes, so a watch waiting costs nothing meanwhile.
 
 ## Installation
 
@@ -90,3 +90,9 @@ Creates a subscription that monitors the visibility of a DOM element.
   - `rootMargin?: string`: Margin around the root.
   - `threshold?: number | number[]`: Threshold percentage(s) to trigger.
 - `tagger`: A function that receives the visibility status (`inView`) and the browser's `IntersectionObserverEntry` and maps them to a TEA `Msg`.
+
+## Development
+
+```bash
+pnpm --filter @rinn7e/tea-cup-intersection-observer test      # unit tests (Vitest, jsdom)
+```
