@@ -24,14 +24,12 @@ import { type Model, type Msg } from './type'
 
 export const init = (
   location: Location,
-  refs: LinkPagination.Refs,
   db: MyDB | null,
 ): [Model, Cmd<Msg>] => {
   const shared = {
     db,
     networkOnline: true,
     latencyMs: 80,
-    refs,
   }
 
   const [routerModel, routerCmd] = TeaRouter.init(
@@ -235,7 +233,6 @@ const roomChatPageMsgHandler = (
     model.shared.db,
     subMsg,
     currentChatModel,
-    model.shared.refs,
     model.shared.networkOnline,
   )
 

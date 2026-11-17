@@ -19,12 +19,16 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
+// Helpers for the list's owner: read and change the items without touching
+// the model's fields, route an item's messages, scroll, and build the data
+// source's handlers. Items are compared by key (`uniqueKeyField`), so a
+// caller can't pass the wrong `Eq`.
 import * as RD from '@devexperts/remote-data-ts'
-import { cmdFromPromise } from '@rinn7e/tea-cup-prelude'
 import * as CacheData from '@rinn7e/tea-cup-prelude/type/cache-data'
 import { type Size } from '@rinn7e/tea-cup-prelude/type/size'
 import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import { type SortedUniqueArray } from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
+import * as ScrollContainer from '@rinn7e/tea-cup-scroll-container'
 import * as A from 'fp-ts/lib/Array'
 import { type IORef } from 'fp-ts/lib/IORef'
 import * as O from 'fp-ts/lib/Option'
@@ -35,20 +39,16 @@ import { pipe } from 'fp-ts/lib/function'
 import * as S from 'fp-ts/lib/string'
 import { Cmd } from 'tea-cup-fp'
 
-import {
-  type ScrollStateMap,
-  restoreScrollState,
-} from './common/type/scroll-state-map'
+import { type ScrollStateMap } from './common/type/scroll-state-map'
 import { scrollToNewestHandler } from './handler'
 import {
-  type ContainerChangeEvent,
   type InitialHandler,
   type LogicConfig,
   type Mode,
   type Model,
   type Msg,
 } from './type'
-import { keyEq, reopenEdge, setOrKeepContainerChangeEvent } from './util'
+import { keyEq, reopenEdge } from './util'
 
 // -------------------------------------------
 // Reading items
@@ -112,70 +112,58 @@ export const isAtNewest = <Item>(model: Model<Item>): boolean =>
 // Changing items
 // -------------------------------------------
 //
-// Each takes the `ContainerChangeEvent` of its change (where it lands). Without
-// one, the pending change is kept, as `MapFunc` and `ReplaceFunc` do.
+// The scroll container keeps the reading position through any change of the
+// rows, so a change needs to say nothing of where it lands. Each takes the
+// list's `config`, which fixes the type of the items its functions are given.
 
 // Run `f` against all the items.
 export const modifyItems =
   <Item, Parent, ItemMsg>(
-    config: LogicConfig<Item, Parent, ItemMsg>,
+    _config: LogicConfig<Item, Parent, ItemMsg>,
     f: (items: SortedUniqueArray<Item>) => SortedUniqueArray<Item>,
-    event?: ContainerChangeEvent,
   ) =>
-  (model: Model<Item>): Model<Item> =>
-    setOrKeepContainerChangeEvent(
-      config.refs,
-      event,
-    )({
-      ...model,
-      mode: { ...model.mode, overallData: f(model.mode.overallData) },
-    })
+  (model: Model<Item>): Model<Item> => ({
+    ...model,
+    mode: { ...model.mode, overallData: f(model.mode.overallData) },
+  })
 
 export const mapItems = <Item, Parent, ItemMsg>(
   config: LogicConfig<Item, Parent, ItemMsg>,
   f: (item: Item) => Item,
-  event?: ContainerChangeEvent,
-) => modifyItems(config, SUA.map(keyEq(config), config.ord)(f), event)
+) => modifyItems(config, SUA.map(keyEq(config), config.ord)(f))
 
 export const filterItems = <Item, Parent, ItemMsg>(
   config: LogicConfig<Item, Parent, ItemMsg>,
   predicate: (item: Item) => boolean,
-  event?: ContainerChangeEvent,
-) => modifyItems(config, SUA.filter(predicate), event)
+) => modifyItems(config, SUA.filter(predicate))
 
 export const filterMapItems = <Item, Parent, ItemMsg>(
   config: LogicConfig<Item, Parent, ItemMsg>,
   f: (item: Item) => Option<Item>,
-  event?: ContainerChangeEvent,
-) => modifyItems(config, SUA.filterMap(keyEq(config), config.ord)(f), event)
+) => modifyItems(config, SUA.filterMap(keyEq(config), config.ord)(f))
 
 // Change the items that match `predicate`.
 export const updateWhere = <Item, Parent, ItemMsg>(
   config: LogicConfig<Item, Parent, ItemMsg>,
   predicate: (item: Item) => boolean,
   f: (item: Item) => Item,
-  event?: ContainerChangeEvent,
-) => mapItems(config, (item) => (predicate(item) ? f(item) : item), event)
+) => mapItems(config, (item) => (predicate(item) ? f(item) : item))
 
 export const updateByKey = <Item, Parent, ItemMsg>(
   config: LogicConfig<Item, Parent, ItemMsg>,
   key: string,
   f: (item: Item) => Item,
-  event?: ContainerChangeEvent,
-) =>
-  updateWhere(config, (item) => config.uniqueKeyField(item) === key, f, event)
+) => updateWhere(config, (item) => config.uniqueKeyField(item) === key, f)
 
 export const removeWhere = <Item, Parent, ItemMsg>(
   config: LogicConfig<Item, Parent, ItemMsg>,
   predicate: (item: Item) => boolean,
-  event?: ContainerChangeEvent,
-) => filterItems(config, (item) => !predicate(item), event)
+) => filterItems(config, (item) => !predicate(item))
 
 export const removeByKey = <Item, Parent, ItemMsg>(
   config: LogicConfig<Item, Parent, ItemMsg>,
   key: string,
-  event?: ContainerChangeEvent,
-) => removeWhere(config, (item) => config.uniqueKeyField(item) === key, event)
+) => removeWhere(config, (item) => config.uniqueKeyField(item) === key)
 
 // Add `fresh` items, replacing the loaded item of the same key. `merge`
 // builds the replacement from the loaded item and the fresh one (the fresh one
@@ -216,15 +204,11 @@ export const upsertItems = <Item, Parent, ItemMsg>(
   config: LogicConfig<Item, Parent, ItemMsg>,
   fresh: Item[],
   merge?: (loaded: Item, fresh: Item) => Item,
-  event?: ContainerChangeEvent,
-) => modifyItems(config, upsertInto(config, fresh, merge), event)
+) => modifyItems(config, upsertInto(config, fresh, merge))
 
 // -------------------------------------------
 // Item children
 // -------------------------------------------
-
-// No change to the rows, for an item's `update`.
-export const noChange: ContainerChangeEvent = { _tag: 'NoChange' }
 
 // The list's message carrying `msg` to `item`.
 export const childMsg =
@@ -309,59 +293,49 @@ export const updateAllChildren =
 // Scrolling
 // -------------------------------------------
 
-// Scroll to the newest item, smoothly.
+// Scroll to the newest item, smoothly unless `behavior` says otherwise.
 export const scrollToNewest =
-  <Item, Parent, ItemMsg, Route>(config: LogicConfig<Item, Parent, ItemMsg>) =>
+  <Item, Parent, ItemMsg, Route>(
+    config: LogicConfig<Item, Parent, ItemMsg>,
+    behavior?: ScrollContainer.Behavior,
+  ) =>
   (model: Model<Item>): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] =>
-    scrollToNewestHandler<Item, ItemMsg, Route>(
-      config.refs,
-      config.isReversed,
-      model,
-    )
+    scrollToNewestHandler<Item, Parent, ItemMsg, Route>(config, model, behavior)
 
 // Put a list shown again (kept by its owner while it was away) back at the
 // reading position stored for it, hidden until it's there. `resetEdges`
 // reopens exhausted ends, so stale data can load again; a list kept fresh
 // by other means keeps them.
 export const restoreSavedScroll =
-  <Item, Parent, ItemMsg, Route>(
-    config: LogicConfig<Item, Parent, ItemMsg>,
-    scrollStateRef: IORef<ScrollStateMap>,
-    option: { resetEdges: boolean },
-  ) =>
-  (model: Model<Item>): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
-    // A change the list had pending while it was away has a snapshot of the
-    // container as it was then (or of another list's, sharing `refs`):
-    // drawing it would move the view away from the stored position.
-    const away: Model<Item> = { ...model, pendingChange: { _tag: 'None' } }
+  (scrollStateRef: IORef<ScrollStateMap>, option: { resetEdges: boolean }) =>
+  <Item, ItemMsg, Route>(
+    model: Model<Item>,
+  ): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
     const reset: Model<Item> = option.resetEdges
       ? {
-          ...away,
+          ...model,
           mode: {
-            ...away.mode,
-            prev: reopenEdge(away.mode.prev),
-            next: reopenEdge(away.mode.next),
+            ...model.mode,
+            prev: reopenEdge(model.mode.prev),
+            next: reopenEdge(model.mode.next),
           },
         }
-      : away
+      : model
     const dataSourceId = model.mode.dataSourceId
-    if (RM.member(S.Eq)(dataSourceId)(scrollStateRef.read())) {
+    const stored = RM.lookup(S.Eq)(dataSourceId)(scrollStateRef.read())
+    if (stored._tag === 'Some') {
+      // The container puts the stored row back at its place before the list
+      // is drawn again, and holds it while the rows around it grow; it hides
+      // the list until a frame painted it there
       return [
-        { ...reset, visibility: { _tag: 'HiddenForRestore' } },
-        cmdFromPromise(
-          async () => {
-            // After the list is rendered again
-            await new Promise((resolve) => requestAnimationFrame(resolve))
-            const container = config.refs.containerRef.current
-            if (container) {
-              restoreScrollState(scrollStateRef)(dataSourceId, container)()
-            }
-          },
-          (): Msg<Item, ItemMsg, Route> => ({
-            _tag: 'RestoreDone',
-            dataSourceId,
-          }),
-        ),
+        {
+          ...reset,
+          scrollContainer: ScrollContainer.restoreHandler(
+            { key: stored.value.key, offset: stored.value.top },
+            true,
+          )(reset.scrollContainer),
+        },
+        Cmd.none(),
       ]
     } else {
       return [reset, Cmd.none()]
@@ -379,10 +353,9 @@ export const setSelectedKey =
 // A model for `mode` before `init` loads it (nothing asked for yet).
 export const emptyModel = <Item>(mode: Mode<Item>): Model<Item> => ({
   mode,
-  pendingChange: { _tag: 'None' },
-  visibility: { _tag: 'Visible' },
-  isScrolling: false,
   initialScroll: { _tag: 'Pending' },
+  scrollContainer: ScrollContainer.init(),
+  flash: null,
 })
 
 // -------------------------------------------

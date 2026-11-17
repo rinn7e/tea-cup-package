@@ -19,37 +19,17 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-import {
-  cn,
-  exec,
-  isInView,
-  memoStrategy,
-  useDebouncedCallback,
-} from '@rinn7e/tea-cup-prelude'
+import { cn, exec, memoStrategy } from '@rinn7e/tea-cup-prelude'
+import * as ScrollContainerModel from '@rinn7e/tea-cup-scroll-container'
+import { ScrollContainer } from '@rinn7e/tea-cup-scroll-container/component'
 import * as A from 'fp-ts/lib/Array'
+import * as O from 'fp-ts/lib/Option'
 import { pipe } from 'fp-ts/lib/function'
-import {
-  type JSX,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react'
+import { type JSX } from 'react'
 
-import { IconAdd } from './sub-component/add-icon'
 import { loadingIcon } from './sub-component/loading-icon'
-import {
-  type Mode,
-  type Msg,
-  type Props,
-  PropsEq,
-  type WithPrevAndNext,
-  dataSourceIdAttribute,
-  nextButtonId,
-  prevButtonId,
-} from './type'
-import { getSelectedItem } from './util'
+import { type Msg, type Props, PropsEq, type WithPrevAndNext } from './type'
+import { getSelectedItem, isEdgeWatched, isLatestButtonVisible } from './util'
 
 // -------------------------------------------------------------------------
 // View helpers
@@ -64,6 +44,11 @@ const dispatch =
   (subMsg: Msg<Item, ItemMsg, Route>): void =>
     props.dispatchParent(props.mkParentMsg(subMsg))
 
+// How far past the view's edge (its bottom in a reversed list) the newest
+// row may reach for the "go to latest" button to stay away: the button shows
+// once the reader is further than this from the newest row's end
+const LATEST_ROW_MARGIN = 84
+
 // -------------------------------------------------------------------------
 // View
 // -------------------------------------------------------------------------
@@ -76,196 +61,78 @@ const LinkPaginationComponent = <Item, Parent, ParentMsg, ItemMsg, Route>(
   const containerRef = config.logic.refs.containerRef
 
   // -------------------------------------------
-  // State that only affects the UI so we don't have to put into Model
-  // -------------------------------------------
-  const [showLatestDataFloater, setShowLatestDataFloater] = useState(false)
-
-  // -------------------------------------------
-  // Effect
-  // -------------------------------------------
-
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // The container's height as of the last scroll, media load or change of
-  // ours, so a media load can tell how much it grew.
-  const knownHeightRef = useRef(0)
-
-  // make time floaters disappear after 2 seconds of no scrolling
-  useEffect(() => {
-    if (!config.ui.customAllItemEffect) return
-    if (timerRef.current) clearTimeout(timerRef.current)
-    config.ui.customAllItemEffect(containerRef, timerRef, model.isScrolling)
-  }, [model.isScrolling, config.ui.customAllItemEffect])
-
-  const updateLatestDataFloater = useDebouncedCallback(() => {
-    if (model.mode.overallData.value.length > 0) {
-      const isLastDataInView = () => {
-        const lastDataId = config.logic.uniqueKeyField(
-          model.mode.overallData.value[0],
-        )
-
-        // If the next end is exhausted, there is no next data,
-        // and we can pick the last data as the actual latest data
-        const lastDataNode =
-          model.mode.next._tag === 'Exhausted'
-            ? document.getElementById(lastDataId)
-            : null
-
-        if (!lastDataNode) return false
-        return isInView(lastDataNode, { margin: -84 })
-      }
-
-      if (isLastDataInView()) {
-        setShowLatestDataFloater(false)
-      } else {
-        setShowLatestDataFloater(true)
-      }
-    }
-  }, 124)
-
-  // Listen to LinkPagin scrolling. If it is, check if last message is in view.
-  useEffect(() => {
-    updateLatestDataFloater()
-  }, [
-    model.isScrolling,
-    model.mode.overallData.value.length,
-    model.mode.next._tag,
-  ])
-
-  // Keep the reading position when an image or a video above the view gets its
-  // size late (it fires no scroll event). Browsers with scroll anchoring (not
-  // WebKit) already keep the position themselves.
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-    knownHeightRef.current = container.scrollHeight
-    // Read on this container: WebKit has no such property, and a stylesheet
-    // can turn anchoring off (`overflow-anchor: none`); either way the browser
-    // won't keep the position, so we do.
-    const nativeAnchoring =
-      (
-        getComputedStyle(container) as CSSStyleDeclaration & {
-          overflowAnchor?: string
-        }
-      ).overflowAnchor === 'auto'
-    const onMediaLoad = (e: Event) => {
-      const media = e.target as HTMLElement
-      const growth = container.scrollHeight - knownHeightRef.current
-      // It grows downwards from its top, so everything below it moves.
-      const startsAboveView =
-        media.getBoundingClientRect().top <
-        container.getBoundingClientRect().top
-      if (!nativeAnchoring && startsAboveView) {
-        container.scrollTop += growth
-      }
-      knownHeightRef.current = container.scrollHeight
-    }
-    // `load` and `loadedmetadata` don't bubble, so listen in the capture phase.
-    container.addEventListener('load', onMediaLoad, true)
-    container.addEventListener('loadedmetadata', onMediaLoad, true)
-    return () => {
-      container.removeEventListener('load', onMediaLoad, true)
-      container.removeEventListener('loadedmetadata', onMediaLoad, true)
-    }
-  }, [containerRef.current])
-
-  // Note: Since `containerRefOnScrollHandler` is used with `onScroll`, instead of addEventListener,
-  // throttle doesn't work.
-  const containerRefOnScrollHandler = useCallback(() => {
-    if (containerRef.current) {
-      if (!model.isScrolling)
-        dispatch(props)({ _tag: 'SetIsScrolling', value: true })
-
-      knownHeightRef.current = containerRef.current.scrollHeight
-
-      if (model.onContainerScroll) {
-        model.onContainerScroll(model.mode.dataSourceId, containerRef.current)()
-      }
-    }
-  }, [model.mode.dataSourceId, containerRef.current, model.isScrolling])
-
-  // Apply a change of ours before the browser paints it. A change on top keeps
-  // the scroll position: it moves by the height the change added or removed,
-  // measured against the snapshot `update` took before the change.
-  useLayoutEffect(() => {
-    const container = containerRef.current
-    if (model.pendingChange._tag === 'None') return
-    if (container) {
-      const snapshot =
-        model.pendingChange._tag === 'KeepPosition'
-          ? model.pendingChange.before
-          : null
-      if (snapshot) {
-        // The height can shrink (rows removed); the position stops at 0.
-        const newPos = Math.max(
-          0,
-          snapshot.scrollTop + container.scrollHeight - snapshot.scrollHeight,
-        )
-        container.scrollTo({ top: newPos })
-      }
-      knownHeightRef.current = container.scrollHeight
-    }
-    dispatch(props)({
-      _tag: 'PendingChangeApplied',
-      change: model.pendingChange,
-    })
-  }, [model.pendingChange])
-
-  // A render can change the content without a pending change (a message that
-  // expands): measure a later media load's growth from the height after it.
-  useLayoutEffect(() => {
-    if (containerRef.current)
-      knownHeightRef.current = containerRef.current.scrollHeight
-  })
-
-  // Only while the open's scroll to the cached target may still be redone.
-  const readerScrolled = () => {
-    if (
-      model.initialScroll._tag === 'FromCache' &&
-      model.visibility._tag === 'Visible'
-    )
-      dispatch(props)({ _tag: 'ReaderScrolled' })
-  }
-
-  // -------------------------------------------
   // View
   // -------------------------------------------
 
+  const rows = rowsOf(props)
+  const isReversed = config.logic.isReversed
+  // The ends at the start and at the end of the view
+  const startEdge = isReversed ? model.mode.prev : model.mode.next
+  const endEdge = isReversed ? model.mode.next : model.mode.prev
+  const hasOverlay =
+    config.ui.topItemOverlayUi !== undefined ||
+    config.ui.scrollToLatestCustomUi !== null
   return (
     <div className={cn(`relative flex h-full w-full flex-col`)}>
       {config.ui.loadingView &&
       (model.mode.initial._tag === 'Loading' ||
-        model.visibility._tag !== 'Visible')
+        ScrollContainerModel.isPlacing(model.scrollContainer))
         ? config.ui.loadingView()
         : null}
-      <div
-        onScroll={containerRefOnScrollHandler}
-        onWheel={readerScrolled}
-        onTouchMove={readerScrolled}
-        onKeyDown={readerScrolled}
-        onScrollEnd={() => {
-          dispatch(props)({ _tag: 'SetIsScrolling', value: false })
+      <ScrollContainer
+        // A list of another data source is another scroll: its decisions
+        // are numbered from its own model
+        key={model.mode.dataSourceId}
+        model={model.scrollContainer}
+        config={config.logic.scrollContainer}
+        count={rows.length}
+        getKey={(i) => config.logic.uniqueKeyField(rows[i].item)}
+        renderRow={(i) => rowView(props, rows, rows[i])}
+        header={isReversed ? prevLoadMoreView(props) : nextLoadMoreView(props)}
+        footer={isReversed ? nextLoadMoreView(props) : prevLoadMoreView(props)}
+        keyOffset={config.logic.scrollToKeyOffset}
+        containerRef={containerRef}
+        className={cn('pb-[52px] lg:pb-0', config.ui.scrollbarClass)}
+        onAnchor={(anchor) => {
+          if (model.onAnchor) model.onAnchor(model.mode.dataSourceId, anchor)()
         }}
-        ref={containerRef}
-        className={cn(
-          `relative flex flex-1 pb-[52px] lg:pb-0`,
-          config.ui.disableScrolling ? '' : 'overflow-y-auto',
-          config.ui.scrollbarClass,
-          'flex-col',
-          model.visibility._tag === 'Visible' ? 'opacity-100' : 'opacity-0',
-        )}
-      >
-        {/* Debugging purpose */}
-        {/* <div className='fixed top-0 p-[10px] bg-white border-black text-black'>
-          <div>height {model.currentScrollHeight}</div>
-        </div> */}
-        {config.ui.titleView &&
-          model.mode.overallData.value.length > 0 &&
-          config.ui.titleView()}
-
-        {view(props)}
-      </div>
-
-      {scrollToLatestCustomUi(props, showLatestDataFloater)}
+        overlay={
+          hasOverlay
+            ? (view) => (
+                <>
+                  {config.ui.topItemOverlayUi
+                    ? config.ui.topItemOverlayUi(
+                        view.topKey === null
+                          ? null
+                          : pipe(
+                              model.mode.overallData.value,
+                              A.findFirst(
+                                (item) =>
+                                  config.logic.uniqueKeyField(item) ===
+                                  view.topKey,
+                              ),
+                              O.toNullable,
+                            ),
+                        view.isScrolling,
+                      )
+                    : null}
+                  {scrollToLatestCustomUi(
+                    props,
+                    isLatestButtonVisible(model, isReversed, view),
+                  )}
+                </>
+              )
+            : undefined
+        }
+        shownMargin={LATEST_ROW_MARGIN}
+        watchEdges={{
+          start: isEdgeWatched(model, startEdge),
+          end: isEdgeWatched(model, endEdge),
+        }}
+        dispatch={(subMsg) =>
+          dispatch(props)({ _tag: 'ScrollContainerMsg', subMsg })
+        }
+      />
     </div>
   )
 }
@@ -294,7 +161,6 @@ const prevLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
   props: Props<Item, Parent, ParentMsg, ItemMsg, Route>,
 ) => {
   const { model, config } = props
-  const isReversed = config.logic.isReversed
   const showPrevLoadHeight = 'h-[72px]'
 
   const isMaxView = () =>
@@ -306,26 +172,12 @@ const prevLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
     config.ui.prevLoadingIndicatorView
       ? config.ui.prevLoadingIndicatorView()
       : defaultPrevLoadingIndicator()
-  // The trigger that loads the end when it comes into view
+  // The end can load: its space, which loads it when it comes into view
+  // (the scroll container's `EdgeShown`)
   const idleView = () => (
     <div
       className={`relative flex w-full items-center justify-center ${showPrevLoadHeight}`}
-    >
-      <div
-        className={cn(
-          `pointer-events-none absolute size-[20px] cursor-pointer opacity-0`,
-          isReversed ? 'top-0' : 'bottom-0',
-        )}
-        onClick={() => {
-          dispatch(props)({ _tag: 'GetMorePrevData' })
-        }}
-      >
-        <IconAdd
-          className='text-gray-6-cf text-[20px]'
-          id={prevButtonId(model.mode.dataSourceId)}
-        />
-      </div>
-    </div>
+    />
   )
 
   const retry = () => dispatch(props)({ _tag: 'GetMorePrevData' })
@@ -348,7 +200,15 @@ const prevLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
           case 'Failed':
             return failedView()
           case 'Idle':
-            return model.mode.initial._tag === 'Loaded' ? idleView() : null
+            // Before the first page is `Loaded` (e.g. `Cached` rows shown while
+            // the API decides) the end must not load yet (`isEdgeWatched`).
+            // Keep its space anyway: an empty slot made the rows jump down by
+            // its height once the first page arrived.
+            return model.mode.initial._tag === 'Loaded' ? (
+              idleView()
+            ) : (
+              <div className={showPrevLoadHeight} />
+            )
         }
       })}
     </div>
@@ -357,8 +217,8 @@ const prevLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
 
 const nextLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
   props: Props<Item, Parent, ParentMsg, ItemMsg, Route>,
-  mode: Mode<Item>,
 ) => {
+  const mode = props.model.mode
   const { model, config } = props
   const isReversed = config.logic.isReversed
   const spinnerClass = isReversed
@@ -379,24 +239,10 @@ const nextLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
     config.ui.nextFailedCustomView
       ? config.ui.nextFailedCustomView(props.parent, retry)
       : defaultFailedView(retry)
-  // The trigger that loads the end when it comes into view
+  // The end can load: it loads when it comes into view (the scroll
+  // container's `EdgeShown`)
   const idleView = () => (
-    <div className='relative flex h-0 w-full items-center justify-center'>
-      <div
-        className={cn(
-          `pointer-events-none absolute size-[20px] cursor-pointer opacity-0`,
-          isReversed ? 'bottom-0' : 'top-0',
-        )}
-        onClick={() => {
-          dispatch(props)({ _tag: 'GetMoreNextData' })
-        }}
-      >
-        <IconAdd
-          className='text-gray-6-cf text-[20px]'
-          id={nextButtonId(model.mode.dataSourceId)}
-        />
-      </div>
-    </div>
+    <div className='relative flex h-0 w-full items-center justify-center' />
   )
 
   return (
@@ -420,28 +266,12 @@ const nextLoadMoreView = <Item, Parent, ParentMsg, ItemMsg, Route>(
   )
 }
 
-const view = <Item, Parent, ParentMsg, ItemMsg, Route>(
+// The items in the order they are shown, each with its neighbors in time
+const rowsOf = <Item, Parent, ParentMsg, ItemMsg, Route>(
   props: Props<Item, Parent, ParentMsg, ItemMsg, Route>,
-): JSX.Element[] => {
-  const { model, config } = props
-  const mode = model.mode
-  const itemRefs = config.logic.refs.itemRefs
-
-  const customUiWrapper = (data: Item, children: () => JSX.Element) => (
-    <div
-      id={config.logic.uniqueKeyField(data)}
-      key={config.logic.uniqueKeyField(data)}
-      ref={(el) => {
-        itemRefs.current[config.logic.uniqueKeyField(data)] = el
-      }}
-      className='custom-ui-wrapper'
-      {...{ [dataSourceIdAttribute]: mode.dataSourceId }}
-    >
-      {children()}
-    </div>
-  )
-
-  const allDataWithPrevAndNext: WithPrevAndNext<Item>[] = pipe(
+): WithPrevAndNext<Item>[] => {
+  const mode = props.model.mode
+  const items: WithPrevAndNext<Item>[] = pipe(
     mode.overallData.value,
     A.mapWithIndex(
       (i: number, el: Item): WithPrevAndNext<Item> => ({
@@ -451,47 +281,44 @@ const view = <Item, Parent, ParentMsg, ItemMsg, Route>(
       }),
     ),
   )
+  return props.config.logic.isReversed ? A.reverse(items) : items
+}
 
-  const renderAllItemUi = (items: WithPrevAndNext<Item>[]) =>
-    pipe(
-      items,
-      A.map((withPrevNextItem) =>
-        customUiWrapper(withPrevNextItem.item, () => {
-          return config.ui.customItemUi({
-            withPrevNextItem,
-            parent: props.parent,
-            selectedItem: getSelectedItem(config.logic, model),
-            dataSourceId: mode.dataSourceId,
-            // Note: BundleShort comoonent needs access to all items
-            // Re-consider why this.
-            allItems: pipe(
-              items,
-              A.map((i) => i.item),
-            ),
-          })
-        }),
-      ),
-    )
-
-  const items = config.ui.customAllItemUi
-    ? config.ui.customAllItemUi(
-        allDataWithPrevAndNext,
-        renderAllItemUi,
-        config.logic.isReversed,
-      )
-    : renderAllItemUi(allDataWithPrevAndNext)
-
-  return config.logic.isReversed
-    ? pipe(
-        [prevLoadMoreView(props)],
-        A.concat([...items].reverse()),
-        A.concat([nextLoadMoreView(props, mode)]),
-      )
-    : pipe(
-        [nextLoadMoreView(props, mode)],
-        A.concat(items),
-        A.concat([prevLoadMoreView(props)]),
-      )
+const rowView = <Item, Parent, ParentMsg, ItemMsg, Route>(
+  props: Props<Item, Parent, ParentMsg, ItemMsg, Route>,
+  rows: WithPrevAndNext<Item>[],
+  withPrevNextItem: WithPrevAndNext<Item>,
+): JSX.Element => {
+  const { model, config } = props
+  const mode = model.mode
+  const key = config.logic.uniqueKeyField(withPrevNextItem.item)
+  // A search result's row fades from the highlight color (`flash`) while it
+  // is highlighted: from its start when it is drawn, cut where it is when the
+  // highlight's timer clears it (`FLASH_MS`, as long as the fade). Its React
+  // key has the highlight's `seq`, so a second highlight of the same row is
+  // a new element and fades from the start again
+  const flash =
+    model.flash !== null && model.flash.key === key ? model.flash : null
+  return (
+    <div
+      key={flash ? `${key}:${flash.seq}` : key}
+      id={key}
+      className={cn('custom-ui-wrapper', flash ? 'bg-fade-out' : null)}
+    >
+      {config.ui.itemPrefixUi ? config.ui.itemPrefixUi(withPrevNextItem) : null}
+      {config.ui.customItemUi({
+        withPrevNextItem,
+        parent: props.parent,
+        selectedItem: getSelectedItem(config.logic, model),
+        dataSourceId: mode.dataSourceId,
+        // For an item view that needs the other items too
+        allItems: pipe(
+          rows,
+          A.map((i) => i.item),
+        ),
+      })}
+    </div>
+  )
 }
 
 const scrollToLatestCustomUi = <Item, Parent, ParentMsg, ItemMsg, Route>(

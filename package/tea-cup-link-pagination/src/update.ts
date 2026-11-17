@@ -19,8 +19,10 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
+import { updateAndCmd } from '@rinn7e/tea-cup-prelude'
 import { type AppRouteUpdater } from '@rinn7e/tea-cup-prelude/type/app-route-updater'
 import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
+import * as ScrollContainer from '@rinn7e/tea-cup-scroll-container'
 import { type IO } from 'fp-ts/lib/IO'
 import { pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
@@ -29,7 +31,7 @@ import {
   addOrUpdateDataHandler,
   addToNextOverallDataHandler,
   addToPrevOverallDataHandler,
-  forceScrollToHandler,
+  endOpenOnReaderHandler,
   getInitialDataFromApiResponseHandler,
   getInitialDataFromCacheResponseHandler,
   getInitialDataHandler,
@@ -39,26 +41,18 @@ import {
   getMorePrevDataFromApiResponseHandler,
   getMorePrevDataFromCacheResponseHandler,
   getMorePrevDataHandler,
+  loadAtEdgeHandler,
   mapFuncHandler,
   refreshInitialDataHandler,
   replaceFuncAsyncCmd,
   replaceFuncHandler,
+  scrollContainerMsgHandler,
   scrollToKeyHandler,
   scrollToNewestHandler,
   setNewSelectedKeyHandler,
 } from './handler'
-import {
-  type LogicConfig,
-  type Mode,
-  type Model,
-  type Msg,
-  type ShouldRestoreScrollStateArg,
-} from './type'
-import {
-  pendingChangeApplied,
-  setContainerChangeEvent,
-  setOrKeepContainerChangeEvent,
-} from './util'
+import { type LogicConfig, type Mode, type Model, type Msg } from './type'
+import { heldPageOf } from './util'
 
 // -------------------------------------------
 // Init
@@ -67,18 +61,15 @@ import {
 export function init<Item, ItemMsg, Route>(
   networkStatus: boolean,
   mode: Mode<Item>,
-  onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => IO<void>,
-  shouldRestoreScrollState?: ShouldRestoreScrollStateArg,
+  onAnchor?: (dataSourceId: string, anchor: ScrollContainer.Anchor) => IO<void>,
 ): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] {
   const model = {
     mode,
-    pendingChange: { _tag: 'None' },
-    onContainerScroll,
-    shouldRestoreScrollState,
+    onAnchor,
 
-    visibility: { _tag: 'Visible' },
-    isScrolling: false,
     initialScroll: { _tag: 'Pending' },
+    scrollContainer: ScrollContainer.init(),
+    flash: null,
   } satisfies Model<Item>
 
   return getInitialDataHandler(networkStatus)<Item, ItemMsg, Route>(model)
@@ -99,6 +90,20 @@ export const update =
     msg: Msg<Item, ItemMsg, Route>,
     model: Model<Item>,
   ): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>, AppRouteUpdater<Route>] => {
+    // A page arriving while the reader moves the list waits until it rests
+    // (`Model.heldPages`). Because of iOS: rows added above need the position
+    // moved down by their height, and iOS ignores (or, after the finger
+    // lifts, cancels the fling on) a position write while a touch moves the
+    // list, so the engine would hold the rows out of reach above the old first
+    // row, and the reader would bounce at it with blank space above.
+    const page = heldPageOf(msg)
+    if (page !== null && model.readerScrolling === true) {
+      return [
+        { ...model, heldPages: [...(model.heldPages ?? []), page] },
+        Cmd.none(),
+        null,
+      ]
+    }
     switch (msg._tag) {
       case 'NoOp':
         return [
@@ -109,66 +114,30 @@ export const update =
           null,
         ]
       case 'ScrollToNewest': {
-        const [m, cmd] = scrollToNewestHandler<Item, ItemMsg, Route>(
-          config.refs,
-          config.isReversed,
+        const [m, cmd] = scrollToNewestHandler<Item, Parent, ItemMsg, Route>(
+          config,
           model,
-        )
-        return [m, cmd, null]
-      }
-      case 'ForceScrollTo': {
-        const [m, cmd] = forceScrollToHandler<Item, ItemMsg, Route>(
-          config.refs,
-          model,
-          msg,
+          msg.behavior,
         )
         return [m, cmd, null]
       }
       case 'ScrollToKey': {
         const [m, cmd] = scrollToKeyHandler<Item, ItemMsg, Route>(
-          config.refs,
           model,
           msg.key,
         )
         return [m, cmd, null]
       }
-      // TODO: Disabled for now since we disable prefetching
-      // case 'PopulateFirstResponse': {
-      // const populateFirstResponse = (
-      //   mode: Mode<Item>,
-      //   cacheRD: RD.RemoteData<string, Item[]>,
-      //   currentResult: E.Either<string, Item[]>,
-      // ) => {
-      //   if (currentResult._tag === 'Right') {
-      //     dispatch(props)({
-      //       _tag: 'SetInitialData',
-      //       dataSourceId: mode.dataSourceId,
-      //       value: RD.success(currentResult.right),
-
-      //       command: O.none,
-      //       // command:
-      //       //   cacheRD._tag === 'RemoteSuccess'
-      //       //     ? O.none
-      //       //     : O.some({
-      //       //         _tag: 'ScrollToCurrent',
-      //       //         isGraceful: false,
-      //       //         invokeTime: new Date(),
-      //       //       }),
-      //     })
-      //   } else {
-      //     console.warn('current data return errors.')
-      //   }
-      // }
-      //   // Only handle this Msg when the overall data is 0.
-      //   if (model.mode.overallData.value.length === 0)
-      //     populateFirstResponse(
-      //       model.mode,
-      //       RD.initial,
-      //       props.msgFromParent.result,
-      //     )
-      //   break
-      // }
-
+      case 'FlashDone': {
+        // Only the timer of the current highlight: a newer one keeps its own
+        return [
+          model.flash !== null && model.flash.seq === msg.seq
+            ? { ...model, flash: null }
+            : model,
+          Cmd.none(),
+          null,
+        ]
+      }
       // TODO: broken (works on a stale model), see `ReplaceFuncAsync` in `type.ts`
       case 'ReplaceFuncAsync': {
         return [model, replaceFuncAsyncCmd(model, { ...msg }), null]
@@ -212,24 +181,6 @@ export const update =
         )
         return [m, cmd, null]
       }
-      case 'SetContainerChangeEvent':
-        return [
-          setContainerChangeEvent(config.refs, msg.value)(model),
-          Cmd.none(),
-          null,
-        ]
-      case 'ReaderScrolled':
-        // The reader took over from the open's scroll to the cached target:
-        // the API's answer must not pull them back to it.
-        return [
-          model.initialScroll._tag === 'FromCache'
-            ? { ...model, initialScroll: { _tag: 'Done' } }
-            : model,
-          Cmd.none(),
-          null,
-        ]
-      case 'PendingChangeApplied':
-        return [pendingChangeApplied(msg.change)(model), Cmd.none(), null]
       case 'MapFunc': {
         return [mapFuncHandler(config, model, { ...msg }), Cmd.none(), null]
       }
@@ -238,16 +189,6 @@ export const update =
           ...msg,
         })
         return [newModel, Cmd.none(), routeUpdater]
-      }
-      case 'SetIsScrolling': {
-        return [
-          {
-            ...model,
-            isScrolling: msg.value,
-          },
-          Cmd.none(),
-          null,
-        ]
       }
 
       case 'GetMorePrevData': {
@@ -331,10 +272,7 @@ export const update =
       // ----------------------------------------------------
       case 'SetState':
         return [
-          setOrKeepContainerChangeEvent(
-            config.refs,
-            msg.containerChangeEvent,
-          )({ ...msg.value, pendingChange: model.pendingChange }),
+          msg.value,
           Cmd.none(),
           msg.routeUpdater ? msg.routeUpdater : null,
         ]
@@ -364,25 +302,6 @@ export const update =
         >(networkStatus, config, msg.dataSourceId, msg.cache, model)
         return [m, cmd, null]
       }
-      case 'RestoreDone': {
-        if (msg.dataSourceId === model.mode.dataSourceId) {
-          return [
-            {
-              ...model,
-              // Ends a restore's hiding, not a scroll's that started since:
-              // that scroll's end shows the list
-              visibility:
-                model.visibility._tag === 'HiddenForRestore'
-                  ? { _tag: 'Visible' }
-                  : model.visibility,
-              isScrolling: false,
-            },
-            Cmd.none(),
-            null,
-          ]
-        } else return [model, Cmd.none(), null]
-      }
-
       case 'GetInitialDataFromApiResponse': {
         const [m, cmd] = getInitialDataFromApiResponseHandler<
           Item,
@@ -393,24 +312,48 @@ export const update =
         return [m, cmd, null]
       }
 
-      case 'ScrollToCurrentDone': {
-        // Only the scroll that hid the list shows it: not one that a newer
-        // hidden scroll replaced. A target changed without a new scroll
-        // (`setSelectedKey`) doesn't matter.
-        if (
-          model.mode.dataSourceId === msg.dataSourceId &&
-          model.visibility._tag === 'HiddenForScroll' &&
-          model.visibility.key === msg.selectedKey
+      case 'ScrollContainerMsg': {
+        const subMsg = msg.subMsg
+        const readerScrolling =
+          subMsg._tag === 'ReaderScrolled'
+            ? true
+            : subMsg._tag === 'ScrollSettled'
+              ? false
+              : model.readerScrolling
+        const [m, cmd] = pipe(
+          scrollContainerMsgHandler<Item, Parent, ItemMsg, Route>(
+            config,
+            msg.subMsg,
+          )({ ...model, readerScrolling }),
+          updateAndCmd(endOpenOnReaderHandler(msg.subMsg)),
+          updateAndCmd(
+            loadAtEdgeHandler<Item, Parent, ItemMsg, Route>(
+              networkStatus,
+              config,
+              msg.subMsg,
+            ),
+          ),
         )
-          return [
-            {
-              ...model,
-              visibility: { _tag: 'Visible' },
+        // At rest: the pages that arrived while the reader moved the list go
+        // in now, in order, the position kept by the engine as for any page
+        const held = subMsg._tag === 'ScrollSettled' ? (m.heldPages ?? []) : []
+        if (held.length === 0) {
+          return [m, cmd, null]
+        } else {
+          const [replayed, cmds] = held.reduce<
+            [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>[]]
+          >(
+            ([acc, done], heldPage) => {
+              const [next, next_cmd] = update<Item, Parent, ItemMsg, Route>(
+                networkStatus,
+                config,
+              )(parentModel, heldPage, acc)
+              return [next, [...done, next_cmd]]
             },
-            Cmd.none(),
-            null,
-          ]
-        else return [model, Cmd.none(), null]
+            [{ ...m, heldPages: [] }, [cmd]],
+          )
+          return [replayed, Cmd.batch(cmds), null]
+        }
       }
 
       case 'ChildMsg': {
@@ -421,16 +364,13 @@ export const update =
         if (i._tag === 'Some') {
           const currentItem = model.mode.overallData.value[i.value]
           if (currentItem !== undefined) {
-            const [childModel, childCmd, containerChangeEvent] = config.update(
+            const [childModel, childCmd] = config.update(
               parentModel,
               msg.subMsg,
               currentItem,
             )
             return [
-              setContainerChangeEvent(
-                config.refs,
-                containerChangeEvent,
-              )({
+              {
                 ...model,
                 mode: {
                   ...model.mode,
@@ -439,7 +379,7 @@ export const update =
                     SUA.updateAtOrKeep(i.value, childModel),
                   ),
                 },
-              }),
+              },
               childCmd.map((subMsg) => ({
                 _tag: 'ChildMsg',
                 childId: msg.childId,

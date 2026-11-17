@@ -26,6 +26,7 @@ SOFTWARE. */
 import * as RD from '@devexperts/remote-data-ts'
 import { mkHttpError } from '@rinn7e/tea-cup-prelude/type/http-error'
 import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
+import * as ScrollContainer from '@rinn7e/tea-cup-scroll-container'
 import * as E from 'fp-ts/lib/Either'
 import * as S from 'fp-ts/lib/string'
 import { describe, expect, it } from 'vitest'
@@ -46,7 +47,8 @@ import {
   defaultMode,
   mkRefs,
 } from '../src/type'
-import { reopenEdge } from '../src/util'
+import { update } from '../src/update'
+import { isEdgeWatched, reopenEdge } from '../src/util'
 
 type Item = { id: string }
 
@@ -77,10 +79,9 @@ const model = (prev: Edge, next: Edge): Model<Item> => ({
     prev,
     next,
   },
-  pendingChange: { _tag: 'None' },
-  visibility: { _tag: 'Visible' },
-  isScrolling: false,
+  flash: null,
   initialScroll: { _tag: 'Done' },
+  scrollContainer: ScrollContainer.init(),
 })
 
 const idle: Edge = { _tag: 'Idle' }
@@ -117,6 +118,61 @@ describe('loading an end', () => {
       mode: { ...model(idle, idle).mode, initial: { _tag: 'Loading' } },
     }
     expect(getMorePrevDataHandler(true, start)[0]).toBe(start)
+  })
+})
+
+// The scroll container reports its header or footer coming into view
+// (`EdgeShown`); the list loads the end shown there
+describe('an edge of the scroll container shown', () => {
+  const shown = (
+    edge: ScrollContainer.Edge,
+    isReversed: boolean,
+    start: Model<Item>,
+  ): Model<Item> =>
+    update<Item, unknown, never, never>(true, { ...config, isReversed })(
+      null,
+      { _tag: 'ScrollContainerMsg', subMsg: { _tag: 'EdgeShown', edge } },
+      start,
+    )[0]
+
+  it('loads the older end at the start of a reversed list, the newer at its end', () => {
+    expect(shown('Start', true, model(idle, idle)).mode).toMatchObject({
+      prev: loading,
+      next: idle,
+    })
+    expect(shown('End', true, model(idle, idle)).mode).toMatchObject({
+      prev: idle,
+      next: loading,
+    })
+  })
+
+  it('loads the newer end at the start of a list with its newest on top', () => {
+    expect(shown('Start', false, model(idle, idle)).mode).toMatchObject({
+      prev: idle,
+      next: loading,
+    })
+    expect(shown('End', false, model(idle, idle)).mode).toMatchObject({
+      prev: loading,
+      next: idle,
+    })
+  })
+
+  it('retries no failed end: only its Retry does', () => {
+    const start = model(failed, failed)
+    expect(shown('Start', true, start).mode).toEqual(start.mode)
+    expect(shown('End', true, start).mode).toEqual(start.mode)
+  })
+
+  it('is watched only for an idle end once the first page is loaded', () => {
+    expect(isEdgeWatched(model(idle, idle), idle)).toBe(true)
+    for (const edge of [loading, failed, exhausted]) {
+      expect(isEdgeWatched(model(edge, edge), edge)).toBe(false)
+    }
+    const cached: Model<Item> = {
+      ...model(idle, idle),
+      mode: { ...model(idle, idle).mode, initial: { _tag: 'Cached' } },
+    }
+    expect(isEdgeWatched(cached, idle)).toBe(false)
   })
 })
 

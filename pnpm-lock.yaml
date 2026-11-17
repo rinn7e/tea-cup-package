@@ -467,6 +467,9 @@ importers:
       globals:
         specifier: ^16.2.0
         version: 16.5.0
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
       madge:
         specifier: ^8.0.0
         version: 8.0.0(typescript@5.9.3)
@@ -488,6 +491,9 @@ importers:
       typescript-eslint:
         specifier: ^8.34.1
         version: 8.59.3(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@25.9.1)(jsdom@26.1.0)(vite@8.0.13(@types/node@25.9.1)(esbuild@0.27.7)(jiti@2.7.0))
 
   package/tea-cup-intersection-observer/app/example-app:
     dependencies:
@@ -604,12 +610,15 @@ importers:
       '@eslint/js':
         specifier: ^9.29.0
         version: 9.39.4
-      '@rinn7e/tea-cup-intersection-observer':
-        specifier: workspace:*
-        version: link:../tea-cup-intersection-observer
       '@rinn7e/tea-cup-prelude':
         specifier: workspace:*
         version: link:../tea-cup-prelude
+      '@rinn7e/tea-cup-scroll-container':
+        specifier: workspace:*
+        version: link:../tea-cup-scroll-container
+      '@tanstack/virtual-core':
+        specifier: ^3.19.7
+        version: 3.19.11
       '@trivago/prettier-plugin-sort-imports':
         specifier: ^6.0.2
         version: 6.0.2(@vue/compiler-sfc@3.5.40)(prettier@3.8.3)
@@ -643,6 +652,9 @@ importers:
       globals:
         specifier: ^16.2.0
         version: 16.5.0
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
       madge:
         specifier: ^8.0.0
         version: 8.0.0(typescript@5.9.3)
@@ -688,6 +700,9 @@ importers:
       '@rinn7e/tea-cup-router':
         specifier: workspace:*
         version: link:../../../tea-cup-router
+      '@rinn7e/tea-cup-scroll-container':
+        specifier: workspace:*
+        version: link:../../../tea-cup-scroll-container
       '@subframe7536/sqlite-wasm':
         specifier: ^1.1.1
         version: 1.1.1
@@ -1734,6 +1749,90 @@ importers:
         specifier: ^8.59.0
         version: 8.59.3(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
 
+  package/tea-cup-scroll-container:
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.29.0
+        version: 9.39.4
+      '@rinn7e/tea-cup-prelude':
+        specifier: workspace:*
+        version: link:../tea-cup-prelude
+      '@tanstack/virtual-core':
+        specifier: ^3.19.7
+        version: 3.19.11
+      '@trivago/prettier-plugin-sort-imports':
+        specifier: ^6.0.2
+        version: 6.0.2(@vue/compiler-sfc@3.5.40)(prettier@3.8.3)
+      '@types/react':
+        specifier: ^19.2.7
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      eslint:
+        specifier: ^9.29.0
+        version: 9.39.4(jiti@2.7.0)
+      eslint-plugin-import:
+        specifier: ^2.32.0
+        version: 2.32.0(@typescript-eslint/parser@8.59.3(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))
+      eslint-plugin-react-dom:
+        specifier: ^1.52.2
+        version: 1.53.1(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+      eslint-plugin-react-hooks:
+        specifier: ^5.2.0
+        version: 5.2.0(eslint@9.39.4(jiti@2.7.0))
+      eslint-plugin-react-refresh:
+        specifier: ^0.4.22
+        version: 0.4.26(eslint@9.39.4(jiti@2.7.0))
+      eslint-plugin-react-x:
+        specifier: ^1.52.2
+        version: 1.53.1(eslint@9.39.4(jiti@2.7.0))(ts-api-utils@2.5.0(typescript@5.9.3))(typescript@5.9.3)
+      eslint-plugin-unused-imports:
+        specifier: ^4.4.1
+        version: 4.4.1(@typescript-eslint/eslint-plugin@8.59.3(@typescript-eslint/parser@8.59.3(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))
+      fp-ts:
+        specifier: ^2.16.11
+        version: 2.16.11
+      globals:
+        specifier: ^16.2.0
+        version: 16.5.0
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
+      madge:
+        specifier: ^8.0.0
+        version: 8.0.0(typescript@5.9.3)
+      prettier:
+        specifier: ^3.8.1
+        version: 3.8.3
+      prettier-plugin-tailwindcss:
+        specifier: ^0.7.2
+        version: 0.7.4(@trivago/prettier-plugin-sort-imports@6.0.2(@vue/compiler-sfc@3.5.40)(prettier@3.8.3))(prettier@3.8.3)
+      react:
+        specifier: ^19.2.0
+        version: 19.2.6
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.6(react@19.2.6)
+      rimraf:
+        specifier: ^6.1.2
+        version: 6.1.3
+      tea-cup-fp:
+        specifier: ^1.1.1
+        version: 1.1.1
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.25)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      typescript-eslint:
+        specifier: ^8.34.1
+        version: 8.59.3(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@25.9.1)(jsdom@26.1.0)(vite@8.0.13(@types/node@25.9.1)(esbuild@0.27.7)(jiti@2.7.0))
+
 packages:
 
   '@asamuzakjp/css-color@3.2.0':
@@ -2511,6 +2610,9 @@ packages:
     resolution: {integrity: sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw==}
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
+
+  '@tanstack/virtual-core@3.19.11':
+    resolution: {integrity: sha512-/5iHb0RHBvj8Di59FDs4ESNm45jls33aZAi4zccVXZjc/6ZvwQP6nzEYeT6weXjTf9E6/vrp2JhYWRyO+ZP13A==}
 
   '@testing-library/dom@10.4.2':
     resolution: {integrity: sha512-yzr2S9HyAIdhz2/6qHgbs665Q7PKVcDF05vsOlHPxG1mo36gKVesdYVeDLnXgfjJ03CrKRk08knc6+E/9m8v2Q==}
@@ -5641,6 +5743,8 @@ snapshots:
       '@tailwindcss/oxide': 4.3.0
       tailwindcss: 4.3.0
       vite: 7.3.3(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)
+
+  '@tanstack/virtual-core@3.19.11': {}
 
   '@testing-library/dom@10.4.2':
     dependencies:

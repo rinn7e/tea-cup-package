@@ -19,24 +19,17 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-import * as A from 'fp-ts/lib/Array'
-import * as IO from 'fp-ts/lib/IO'
+import type * as ScrollContainer from '@rinn7e/tea-cup-scroll-container'
+import type * as IO from 'fp-ts/lib/IO'
 import { type IORef, newIORef } from 'fp-ts/lib/IORef'
-import * as O from 'fp-ts/lib/Option'
-import { type Option } from 'fp-ts/lib/Option'
 import * as RM from 'fp-ts/lib/ReadonlyMap'
-import { pipe } from 'fp-ts/lib/function'
 import * as S from 'fp-ts/lib/string'
 
-import {
-  type ShouldRestoreScrollStateArg,
-  dataSourceIdAttribute,
-} from '../../type'
-
-// Where the user reads, per data source: the first item in view (`key`) and
-// its top, from the container's top edge (negative when it starts above).
-// Kept by the item, not by `scrollTop`, so a restore lands on the same item
-// after rows above it changed.
+// Where the user reads, per data source: the row at the top of the view
+// (`key`, the row covering its top edge) and its top, from the container's
+// top edge (negative when it starts above). Kept by the item, not by
+// `scrollTop`, so a restore lands on the same item after rows above it
+// changed.
 export type ScrollAnchor = { key: string; top: number }
 
 // The reading position of each list, by `dataSourceId`. A value: it changes
@@ -49,86 +42,14 @@ export const newScrollStateRef: IO.IO<IORef<ScrollStateMap>> = newIORef(
   new Map<string, ScrollAnchor>(),
 )
 
-// The share of an item that must be in view for it to count as the first one.
-const anchorVisibleShare = 0.15
-
-// The first item of `dataSourceId` in view in `container`, with its top.
-export const readScrollAnchor =
-  (
-    dataSourceId: string,
-    container: HTMLDivElement,
-  ): IO.IO<Option<ScrollAnchor>> =>
-  () => {
-    const box = container.getBoundingClientRect()
-    const rows = Array.from(
-      container.querySelectorAll<HTMLElement>(
-        `:scope .custom-ui-wrapper[${dataSourceIdAttribute}="${CSS.escape(dataSourceId)}"]`,
-      ),
-    )
-    return pipe(
-      rows,
-      A.findFirstMap((row) => {
-        const rect = row.getBoundingClientRect()
-        const shown =
-          Math.min(rect.bottom, box.bottom) - Math.max(rect.top, box.top)
-        return rect.height > 0 && shown / rect.height >= anchorVisibleShare
-          ? O.some({ key: row.id, top: rect.top - box.top })
-          : O.none
-      }),
-    )
-  }
-
-// Keep the position `container` shows for `dataSourceId`.
+// Keep `anchor`, the row the scroll container reports at the top of the
+// view of `dataSourceId` (its `onAnchor`), as that list's position.
 export const storeScrollState =
   (ref: IORef<ScrollStateMap>) =>
-  (dataSourceId: string, container: HTMLDivElement): IO.IO<void> =>
-    pipe(
-      readScrollAnchor(dataSourceId, container),
-      IO.chain(
-        O.fold(
-          () => IO.of(undefined),
-          (anchor) =>
-            ref.modify(RM.upsertAt(S.Eq)<ScrollAnchor>(dataSourceId, anchor)),
-        ),
-      ),
-    )
-
-// Scroll `container` so the stored item is at its stored top. Nothing happens
-// when the item isn't rendered, or the container can't scroll.
-export const restoreScrollState =
-  (ref: IORef<ScrollStateMap>) =>
-  (dataSourceId: string, container: HTMLDivElement): IO.IO<void> =>
-  () =>
-    pipe(
-      RM.lookup(S.Eq)(dataSourceId)(ref.read()),
-      O.chain((anchor) =>
-        pipe(
-          O.fromNullable(
-            container.querySelector<HTMLElement>(`#${CSS.escape(anchor.key)}`),
-          ),
-          O.map((row) => ({ anchor, row })),
-        ),
-      ),
-      O.filter(() => container.scrollHeight > container.clientHeight),
-      O.map(({ anchor, row }) => {
-        const top =
-          row.getBoundingClientRect().top -
-          container.getBoundingClientRect().top
-        container.scrollTo({ top: container.scrollTop + top - anchor.top })
+  (dataSourceId: string, anchor: ScrollContainer.Anchor): IO.IO<void> =>
+    ref.modify(
+      RM.upsertAt(S.Eq)<ScrollAnchor>(dataSourceId, {
+        key: anchor.key,
+        top: anchor.offset,
       }),
     )
-
-// Restores the stored position when a list is built again for a data source
-// (`init`'s `shouldRestoreScrollState`), for an owner that builds a new list
-// each time it shows one. An owner that keeps each list and shows it again
-// restores it with `restoreSavedScroll` instead.
-export const mkShouldRestoreScrollState = (
-  dataSourceId: string,
-  ref: IORef<ScrollStateMap>,
-): ShouldRestoreScrollStateArg => ({
-  checkShouldRestore: () =>
-    RM.member(S.Eq)(dataSourceId)(ref.read())
-      ? { _tag: 'ScrollState' }
-      : { _tag: 'NoOp' },
-  restore: restoreScrollState(ref),
-})

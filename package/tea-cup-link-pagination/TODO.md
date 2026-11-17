@@ -2,13 +2,13 @@
 
 ## E2E & Integration Test Scenarios
 
-- [ ] **Direct chat message navigation (direct link like in CF)**:
+- [ ] **Direct chat message navigation (a direct link to a message)**:
   - Navigating directly to a URL with a target message ID (`/room/:roomId/chat/:chatId`).
   - Verifying the targeted message is highlighted and correctly scrolled into viewport.
 
 - [ ] **Scroll to latest**:
   - Test scrolling to newest messages when sending a new chat, clicking "Scroll to bottom" button, or returning to a room without target key.
-  - Verify container scrolls smoothly to `container.scrollHeight` (`isReversed = true`).
+  - Verify the scroll container scrolls smoothly to the newest row (its `End` target when `isReversed = true`) and holds it there while rows still grow.
 
 - [ ] **Offline mode**:
   - Test UI behavior when switching network toggle to offline.

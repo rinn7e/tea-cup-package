@@ -73,7 +73,6 @@ export type Msg =
 export type Props = {
   readonly model: Model
   readonly room: Room | undefined
-  readonly refs: LinkPagination.Refs
   readonly dispatch: (msg: Msg) => void
   readonly onMarkAsRead?: () => void
   readonly totalUnreadCount?: number

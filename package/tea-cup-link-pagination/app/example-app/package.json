@@ -19,6 +19,7 @@
     "@rinn7e/tea-cup-link-pagination": "workspace:*",
     "@rinn7e/tea-cup-prelude": "workspace:*",
     "@rinn7e/tea-cup-router": "workspace:*",
+    "@rinn7e/tea-cup-scroll-container": "workspace:*",
     "@subframe7536/sqlite-wasm": "^1.1.1",
     "fp-ts": "^2.16.11",
     "io-ts": "^2.2.22",

@@ -20,14 +20,14 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 // The helpers a list's owner reads and changes the items with. They compare
-// items by key (`uniqueKeyField`), so two rows of one item can't both be
-// kept.
+// items by key (`uniqueKeyField`), so two rows of one item can't both be kept.
 import * as RD from '@devexperts/remote-data-ts'
 import { msgCmd } from '@rinn7e/tea-cup-prelude'
 import * as CacheData from '@rinn7e/tea-cup-prelude/type/cache-data'
 import { mkHttpError } from '@rinn7e/tea-cup-prelude/type/http-error'
 import { size } from '@rinn7e/tea-cup-prelude/type/size'
 import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
+import * as ScrollContainer from '@rinn7e/tea-cup-scroll-container'
 import * as E from 'fp-ts/lib/Either'
 import * as O from 'fp-ts/lib/Option'
 import { Cmd } from 'tea-cup-fp'
@@ -85,10 +85,9 @@ const model = (all: Item[]): Model<Item> => ({
     initial: { _tag: 'Loaded' },
     overallData: SUA.unsafeFromArray(all),
   },
-  pendingChange: { _tag: 'None' },
-  visibility: { _tag: 'Visible' },
-  isScrolling: false,
+  flash: null,
   initialScroll: { _tag: 'Done' },
+  scrollContainer: ScrollContainer.init(),
 })
 
 const ids = (m: Model<Item>) => items(m).map((i) => i.id)
@@ -204,20 +203,6 @@ describe('changing items', () => {
     expect(findByKey(config, 'b')(after)).toEqual(
       O.some(item('b', 2, 'bfresh')),
     )
-  })
-
-  it('keeps the pending change unless the change says where it lands', () => {
-    const pending: Model<Item> = {
-      ...list,
-      pendingChange: { _tag: 'RecordPosition' },
-    }
-    expect(removeByKey(config, 'b')(pending).pendingChange).toEqual({
-      _tag: 'RecordPosition',
-    })
-    expect(
-      removeByKey(config, 'b', { _tag: 'ElementModifyOnTop' })(pending)
-        .pendingChange,
-    ).toEqual({ _tag: 'KeepPosition', before: null })
   })
 })
 

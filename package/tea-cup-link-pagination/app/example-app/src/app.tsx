@@ -90,7 +90,6 @@ export const App = ({
                       key={roomChatPage.roomId}
                       model={chatPageOpt.value}
                       room={activeRoom}
-                      refs={model.shared.refs}
                       dispatch={(subMsg) =>
                         dispatch({
                           _tag: 'RoomChatPageMsg',

@@ -23,6 +23,7 @@ import { filterUnique } from '@rinn7e/tea-cup-prelude'
 import { type AppRouteUpdater } from '@rinn7e/tea-cup-prelude/type/app-route-updater'
 import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import { type SortedUniqueArray } from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
+import type * as ScrollContainer from '@rinn7e/tea-cup-scroll-container'
 import * as A from 'fp-ts/lib/Array'
 import type * as EqClass from 'fp-ts/lib/Eq'
 import * as O from 'fp-ts/lib/Option'
@@ -32,15 +33,12 @@ import * as Set from 'fp-ts/lib/Set'
 import { pipe } from 'fp-ts/lib/function'
 
 import {
-  type ContainerChangeEvent,
   type Edge,
+  type HeldPage,
   type LogicConfig,
   type Mode,
   type Model,
-  type PendingChange,
-  PendingChangeEq,
-  type Refs,
-  type ScrollSnapshot,
+  type Msg,
 } from './type'
 
 // -------------------------------------------
@@ -139,9 +137,9 @@ export const reopenEdge = (edge: Edge): Edge =>
   edge._tag === 'Exhausted' ? { _tag: 'Idle' } : edge
 
 // Reopen the older end.
-// Mainly used on syncing a new bundle.
-// (Since a new bundle has few items, the older end is exhausted right away.
-// When there are more old items from syncing, we have to reopen it)
+// Mainly used when a new list syncs.
+// (A new list has few items, so its older end is exhausted right away.
+// When syncing brings more old items, it has to reopen)
 export const reopenPrev = <Item>(model: Model<Item>): Model<Item> => ({
   ...model,
   mode: { ...model.mode, prev: reopenEdge(model.mode.prev) },
@@ -186,32 +184,6 @@ export const upsertWithPrevious = <Item, Parent, ItemMsg>(
   }
 }
 
-export const getChangeEvent = <Item>(
-  prevArr: SortedUniqueArray<Item>,
-  data: Item,
-  ord: Ord.Ord<Item>,
-  isReversed: boolean,
-): ContainerChangeEvent => {
-  const head = prevArr.value[0]
-  if (!head) return { _tag: 'NoChange' } as ContainerChangeEvent
-
-  // Sorts before the current head => rendered at DOM index 0 of the
-  // (possibly reversed) list.
-  const insertsAtSortHead = Ord.lt(ord)(data, head)
-
-  if (isReversed) {
-    // Chat mode: the sort head is rendered at the BOTTOM.
-    return insertsAtSortHead
-      ? ({ _tag: 'ElementModifyOnBottom' } as ContainerChangeEvent)
-      : ({ _tag: 'ElementModifyOnTop' } as ContainerChangeEvent)
-  } else {
-    // Standard mode: the sort head is rendered at the TOP.
-    return insertsAtSortHead
-      ? ({ _tag: 'ElementModifyOnTop' } as ContainerChangeEvent)
-      : ({ _tag: 'ElementModifyOnBottom' } as ContainerChangeEvent)
-  }
-}
-
 // Update an existing data with new value (identifier stays the same).
 // If the value does not exist, add it.
 export function addOrUpdateData<Item, Parent, ItemMsg>(
@@ -220,7 +192,7 @@ export function addOrUpdateData<Item, Parent, ItemMsg>(
   previousId: string | null,
   comparePreviousId: (data: Item, prevId: string) => boolean = () => false,
 ) {
-  return (model: Model<Item>): [Model<Item>, ContainerChangeEvent] => {
+  return (model: Model<Item>): Model<Item> => {
     // console.log('[MSG_STATE][] start', {
     //   previousId,
     //   data,
@@ -237,25 +209,14 @@ export function addOrUpdateData<Item, Parent, ItemMsg>(
       comparePreviousId,
     )
 
-    const event = getChangeEvent(
-      model.mode.overallData,
-      data,
-      config.ord,
-      config.isReversed,
-    )
-
     // console.log('[MSG_STATE][addOrUpdateData] result', {
     //   overallData,
-    //   event,
     // })
 
-    return [
-      {
-        ...model,
-        mode: { ...model.mode, overallData },
-      },
-      event,
-    ]
+    return {
+      ...model,
+      mode: { ...model.mode, overallData },
+    }
   }
 }
 // Given a function, run it against all the data
@@ -327,89 +288,38 @@ export const getSelectedItem = <Item, Parent, ItemMsg>(
   return selectedItem
 }
 
-// The container's snapshot, or the one the model already has: one taken for
-// an earlier change, not rendered yet, is kept, since the container hasn't
-// changed since.
-const snapshotBefore = <Item>(
-  refs: Refs,
+// Whether the newest item's "go to latest" button shows: unless the newest
+// item is loaded (nothing newer to load) and its row is shown (`view`, from
+// the scroll container: the end of a reversed list, the start of another).
+// Nothing loaded shows no button.
+export const isLatestButtonVisible = <Item>(
   model: Model<Item>,
-): ScrollSnapshot | null => {
-  const container = refs.containerRef.current
-  const pending =
-    model.pendingChange._tag === 'KeepPosition'
-      ? model.pendingChange.before
-      : null
-  return (
-    pending ??
-    (container
-      ? {
-          scrollTop: container.scrollTop,
-          scrollHeight: container.scrollHeight,
-        }
-      : null)
+  isReversed: boolean,
+  view: ScrollContainer.OverlayView,
+): boolean =>
+  model.mode.overallData.value.length > 0 &&
+  !(
+    model.mode.next._tag === 'Exhausted' &&
+    (isReversed ? view.endShown : view.startShown)
   )
+
+// The page `msg` carries, if it is one (`Model.heldPages`)
+export const heldPageOf = <Item, ItemMsg, Route>(
+  msg: Msg<Item, ItemMsg, Route>,
+): HeldPage<Item> | null => {
+  switch (msg._tag) {
+    case 'GetMorePrevDataFromCacheResponse':
+    case 'GetMorePrevDataFromApiResponse':
+    case 'GetMoreNextDataFromCacheResponse':
+    case 'GetMoreNextDataFromApiResponse':
+      return msg
+    default:
+      return null
+  }
 }
 
-// Set the change the view applies on its next render. For a change that keeps
-// the scroll position, also take the container's snapshot: the model is updated
-// before the change is rendered, so the container still shows the old rows,
-// with everything that grew since included.
-//
-// Changes made before the view draws combine, the one that keeps the position
-// winning: a change that moves nothing or lands below doesn't drop an earlier
-// change on top (with its snapshot) that isn't drawn yet. Only the view, once
-// it drew a change, clears it (`pendingChangeApplied`).
-export const setContainerChangeEvent =
-  (refs: Refs, event: ContainerChangeEvent) =>
-  <Item>(model: Model<Item>): Model<Item> => {
-    const pendingChange = ((): PendingChange => {
-      switch (event._tag) {
-        case 'NoChange':
-          return model.pendingChange
-        case 'ElementModifyOnTop':
-        case 'ForceManipulateScrollPos':
-          return { _tag: 'KeepPosition', before: snapshotBefore(refs, model) }
-        case 'ElementModifyOnBottom':
-        case 'ElementModifyInPlace':
-          return model.pendingChange._tag === 'KeepPosition'
-            ? model.pendingChange
-            : { _tag: 'RecordPosition' }
-      }
-    })()
-    return pendingChange === model.pendingChange
-      ? model
-      : { ...model, pendingChange }
-  }
-
-// The view drew `applied`: clear it, unless a newer change came since.
-export const pendingChangeApplied =
-  (applied: PendingChange) =>
-  <Item>(model: Model<Item>): Model<Item> =>
-    PendingChangeEq.equals(model.pendingChange, applied)
-      ? { ...model, pendingChange: { _tag: 'None' } }
-      : model
-
-// Keep the pending change, for a change that doesn't say where it lands. A
-// change on top without a snapshot (the list wasn't mounted) takes one now.
-export const keepPendingChange =
-  (refs: Refs) =>
-  <Item>(model: Model<Item>): Model<Item> =>
-    model.pendingChange._tag === 'KeepPosition' &&
-    model.pendingChange.before === null
-      ? {
-          ...model,
-          pendingChange: {
-            _tag: 'KeepPosition',
-            before: snapshotBefore(refs, model),
-          },
-        }
-      : model
-
-// Set the change the view applies on its next render, or keep the pending one
-// when `event` isn't given.
-export const setOrKeepContainerChangeEvent =
-  (refs: Refs, event: ContainerChangeEvent | undefined) =>
-  <Item>(model: Model<Item>): Model<Item> =>
-    event
-      ? setContainerChangeEvent(refs, event)(model)
-      : keepPendingChange(refs)(model)
+// Whether the scroll container reports its header or footer for the end
+// `edge` (`watchEdges`): an end that can load, once the first page is
+// `Loaded`. A failed end loads again only by its Retry.
+export const isEdgeWatched = <Item>(model: Model<Item>, edge: Edge): boolean =>
+  edge._tag === 'Idle' && model.mode.initial._tag === 'Loaded'

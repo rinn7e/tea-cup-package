@@ -74,19 +74,23 @@ test.describe('TEA Routing & LinkPagination E2E Suite', () => {
       timeout: 10_000,
     })
 
-    const chats = page.locator('.custom-ui-wrapper')
-    const count = await chats.count()
-    expect(count).toBeGreaterThanOrEqual(10)
+    // The list draws only the rows near the view: the oldest one drawn
+    // tells which chats are loaded above
+    const chatPage = page.getByTestId('room-chat-page')
+    const firstDrawnChat = () =>
+      chatPage
+        .locator('[data-testid^="chat-item-"]')
+        .first()
+        .getAttribute('data-testid')
+    const firstBefore = await firstDrawnChat()
 
-    // Scroll up into history
-    const scrollContainer = page.locator('.overflow-y-auto').first()
+    // Scroll up into history: the older page loads above
+    const scrollContainer = chatPage.locator('.chat-scrollbar').first()
     await scrollContainer.evaluate((el) => {
       el.scrollTop = 0
     })
 
-    await page.waitForTimeout(600)
-    const newCount = await chats.count()
-    expect(newCount).toBeGreaterThanOrEqual(count)
+    await expect.poll(firstDrawnChat).not.toBe(firstBefore)
   })
 
   test('4. ItemMsg Parent Interception: Reaction and Star toggling', async ({
@@ -295,7 +299,10 @@ test.describe('TEA Routing & LinkPagination E2E Suite', () => {
       .last()
     await expect(sseMsg).toBeAttached({ timeout: 10_000 })
 
-    const scrollContainer = page.locator('.overflow-y-auto').first()
+    const scrollContainer = page
+      .getByTestId('room-chat-page')
+      .locator('.chat-scrollbar')
+      .first()
     await scrollContainer.evaluate((el) => {
       el.scrollTop = el.scrollHeight
     })
@@ -367,16 +374,30 @@ test.describe('TEA Routing & LinkPagination E2E Suite', () => {
     await expect(page.getByTestId('repoint-repro-banner')).toBeVisible()
 
     // When the API leg settles with selectedKey: null (latest message),
-    // LinkPagination updates selectedKey and executes scrollToCurrentHandler,
-    // bringing the latest message (message-1045) smoothly into view at the bottom.
-    const message1045 = page.getByTestId('chat-item-message-1045')
-    await expect(message1045).toBeVisible({ timeout: 10_000 })
+    // LinkPagination opens at the newest message: the list rests at its end.
+    // (Only the rows near the view are drawn, and the newest message depends
+    // on what earlier tests sent, so the test checks the position.)
+    const scrollContainer = page
+      .getByTestId('room-chat-page')
+      .locator('.chat-scrollbar')
+      .first()
+    await expect
+      .poll(
+        () =>
+          scrollContainer.evaluate(
+            (el) => el.scrollHeight - el.scrollTop - el.clientHeight,
+          ),
+        { timeout: 10_000 },
+      )
+      .toBeLessThanOrEqual(1)
   })
 
   test('14. Unread Indicator Divider renders above first unread message', async ({
     page,
   }) => {
-    await page.goto('/rooms/room-general')
+    // Open at the first unread message: only the rows near the view are
+    // drawn, and earlier tests may have sent messages after it
+    await page.goto('/rooms/room-general/chats/message-1042')
     await expect(page.getByTestId('room-chat-page')).toBeVisible({
       timeout: 10_000,
     })

@@ -119,6 +119,8 @@ export const mkRoomListLinkPaginationMode = (
         : withSelectedKeyInitialHandler(activeRoomId),
     initial: { _tag: 'NotStarted' },
     selectedKey: activeRoomId,
+    // The active room opens at the top of the view
+    selectedAnchor: null,
 
     // prevHandler: loads older / more items below (bottom of list when non-reversed)
     prevHandler: (overallData) => (pageSize) =>

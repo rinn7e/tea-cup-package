@@ -22,10 +22,8 @@ SOFTWARE. */
 import * as RD from '@devexperts/remote-data-ts'
 import {
   cmdFromPromise,
-  cmdSucceed,
-  cmdSucceedWithMsg,
+  delayCmd,
   errorToString,
-  filterUnique,
   updateAndCmd,
 } from '@rinn7e/tea-cup-prelude'
 import { type AppRouteUpdater } from '@rinn7e/tea-cup-prelude/type/app-route-updater'
@@ -36,6 +34,7 @@ import {
 } from '@rinn7e/tea-cup-prelude/type/http-error'
 import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import { type SortedUniqueArray } from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
+import * as ScrollContainer from '@rinn7e/tea-cup-scroll-container'
 import * as A from 'fp-ts/lib/Array'
 import * as E from 'fp-ts/lib/Either'
 import type * as TE from 'fp-ts/lib/TaskEither'
@@ -43,7 +42,6 @@ import { identity, pipe } from 'fp-ts/lib/function'
 import { Cmd } from 'tea-cup-fp'
 
 import {
-  type ContainerChangeEvent,
   type Edge,
   type EndpointHandler,
   type InitialEndpointResponse,
@@ -51,20 +49,15 @@ import {
   type LogicConfig,
   type Model,
   type Msg,
-  type Refs,
   type ScrollToCurrentParam,
 } from './type'
 import {
   addOrUpdateData,
-  isItemEqual,
   keyEq,
-  removeElFromArray,
   reopenEdge,
   reopenPrev,
   replaceFuncActionHandler,
   replaceFuncActionHandlerAsync,
-  setContainerChangeEvent,
-  setOrKeepContainerChangeEvent,
 } from './util'
 
 /**
@@ -162,10 +155,9 @@ export const refreshInitialDataHandler =
  *   scrolls to it right away (`initialScroll` is `FromCache`). The API
  *   almost always confirms it; the API leg scrolls again only if it moved
  *   the target or the rows changed.
- * - If they don't, the cache leg doesn't show them: the list would show at
- *   a place the open won't stay at, and loading the page next to it. The
- *   loader stays until the API leg, which scrolls. The API request still
- *   gets the cached rows (to drop stale ones).
+ * - The cache is read around the target (`InitialHandler`), so its rows
+ *   always hold it, or there are none: then the loader stays until the API
+ *   leg, which scrolls.
  *
  * Without a target (the newest page), the cache leg shows its rows and
  * scrolls, and the API leg doesn't scroll again.
@@ -395,111 +387,129 @@ export const setNewSelectedKeyHandler = <Item, Parent, ItemMsg, Route>(
   } else return [model, Cmd.none()]
 }
 
-export const scrollToNewestHandler = <Item, ItemMsg, Route>(
-  refs: Refs,
-  isReversed: boolean,
+// Scroll to the newest item: the end of a reversed list, the start of
+// another. The container holds it there until it settles.
+export const scrollToNewestHandler = <Item, Parent, ItemMsg, Route>(
+  config: LogicConfig<Item, Parent, ItemMsg>,
   model: Model<Item>,
-): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
-  return [
-    model,
-    cmdSucceed(() => {
-      if (refs.containerRef.current) {
-        const container = refs.containerRef.current
-        const targetScroll = isReversed ? container.scrollHeight : 0
-        container.scroll({ top: targetScroll, behavior: 'smooth' })
-      }
-    }),
-  ]
-}
+  behavior: ScrollContainer.Behavior = 'smooth',
+): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => [
+  {
+    ...model,
+    scrollContainer: ScrollContainer.scrollToHandler(
+      config.isReversed ? { _tag: 'End' } : { _tag: 'Start' },
+      behavior,
+      Date.now(),
+    )(model.scrollContainer),
+  },
+  Cmd.none(),
+]
 
+// The scroll container's own message
+export const scrollContainerMsgHandler =
+  <Item, Parent, ItemMsg, Route>(
+    config: LogicConfig<Item, Parent, ItemMsg>,
+    subMsg: ScrollContainer.Msg,
+  ) =>
+  (model: Model<Item>): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
+    const [scrollContainer, cmd] = ScrollContainer.update(
+      config.scrollContainer,
+    )(subMsg, model.scrollContainer)
+    return [
+      { ...model, scrollContainer },
+      cmd.map(
+        (m): Msg<Item, ItemMsg, Route> => ({
+          _tag: 'ScrollContainerMsg',
+          subMsg: m,
+        }),
+      ),
+    ]
+  }
+
+// The reader took over (the scroll container's `ReaderScrolled`) from the
+// open's scroll to the cached target: the API's answer must not pull them
+// back to it
+export const endOpenOnReaderHandler =
+  <Item, ItemMsg, Route>(subMsg: ScrollContainer.Msg) =>
+  (model: Model<Item>): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => [
+    subMsg._tag === 'ReaderScrolled' && model.initialScroll._tag === 'FromCache'
+      ? { ...model, initialScroll: { _tag: 'Done' } }
+      : model,
+    Cmd.none(),
+  ]
+
+// The scroll container's header or footer came into view (`EdgeShown`):
+// load the end there, the older one at the start of a reversed list (the
+// newer one at the start of another), while it is idle. A failed end loads
+// again only by its Retry: offline, it would fail again at once.
+export const loadAtEdgeHandler =
+  <Item, Parent, ItemMsg, Route>(
+    networkStatus: boolean,
+    config: LogicConfig<Item, Parent, ItemMsg>,
+    subMsg: ScrollContainer.Msg,
+  ) =>
+  (model: Model<Item>): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
+    if (subMsg._tag === 'EdgeShown') {
+      const isPrev = (subMsg.edge === 'Start') === config.isReversed
+      const edge = isPrev ? model.mode.prev : model.mode.next
+      if (edge._tag !== 'Idle') {
+        return [model, Cmd.none()]
+      } else if (isPrev) {
+        return getMorePrevDataHandler<Item, ItemMsg, Route>(
+          networkStatus,
+          model,
+        )
+      } else {
+        return getMoreNextDataHandler<Item, ItemMsg, Route>(
+          networkStatus,
+          model,
+        )
+      }
+    } else {
+      return [model, Cmd.none()]
+    }
+  }
+
+// How long a search result's row is highlighted: as long as its fade
+// (`bg-fade-out` in `assets/style.css`, 2000 ms after a delay of 100 ms)
+export const FLASH_MS = 2100
+
+// Jump to the item `itemKey` (a search result): the container lands its row
+// under `scrollToKeyOffset` and holds it there while the rows around it grow,
+// until the reader scrolls. The row is highlighted (`flash`) for `FLASH_MS`:
+// a timer then clears it (`FlashDone` with its `seq`), whether or not the row
+// was drawn meanwhile.
 export const scrollToKeyHandler = <Item, ItemMsg, Route>(
-  refs: Refs,
   model: Model<Item>,
   itemKey: string,
 ): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
+  const seq = (model.flash?.seq ?? 0) + 1
   return [
-    model,
-    cmdSucceed(() => {
-      const element = refs.itemRefs.current[itemKey]
-
-      if (!element) {
-        return console.warn(
-          'ScrollToKey: Unable to find element with id',
-          itemKey,
-        )
-      }
-      element.classList.remove('bg-fade-out')
-      requestAnimationFrame(() => {
-        if (!refs.containerRef.current)
-          return console.warn('ScrollToMessage: Unable to find container')
-
-        const container = refs.containerRef.current
-        const elementRect = element.getBoundingClientRect()
-        const containerRect = container.getBoundingClientRect()
-
-        // compute element's top relative to container
-        const elementTop = elementRect.top - containerRect.top
-
-        // adjust for searchbar height
-        const offsetTop = container.scrollTop + elementTop - 95
-
-        container.scrollTo({
-          top: offsetTop,
-          behavior: 'smooth',
-        })
-
-        element.classList.add('bg-fade-out')
-      })
-    }),
+    {
+      ...model,
+      scrollContainer: ScrollContainer.scrollToHandler(
+        { _tag: 'Key', key: itemKey, offset: 0, onlyIfHidden: false },
+        'smooth',
+        Date.now(),
+      )(model.scrollContainer),
+      flash: { key: itemKey, seq },
+    },
+    delayCmd(FLASH_MS, { _tag: 'FlashDone', seq }),
   ]
 }
 
-export const forceScrollToHandler = <Item, ItemMsg, Route>(
-  refs: Refs,
-  model: Model<Item>,
-  msg: { top: number },
-): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
-  return [
-    { ...model, visibility: { _tag: 'HiddenForRestore' } },
-    cmdSucceedWithMsg(
-      () => {
-        if (refs.containerRef.current) {
-          const newTop = msg.top
-          const container = refs.containerRef.current
-          container.scrollTo({ top: newTop })
-        }
-      },
-      () =>
-        ({
-          _tag: 'RestoreDone',
-          dataSourceId: model.mode.dataSourceId,
-        }) satisfies Msg<Item, ItemMsg, Route>,
-    ),
-  ]
-}
-
-// Run `msg.func` against all the items; it may also change the route. Sets
-// the change the rows go through (`msg.containerChangeEvent`), or keeps the
-// pending one.
+// Run `msg.func` against all the items; it may also change the route. The
+// list's `config` fixes the type of the items `msg.func` is given.
 export const replaceFuncHandler = <Item, Parent, ItemMsg, Route>(
-  config: LogicConfig<Item, Parent, ItemMsg>,
+  _config: LogicConfig<Item, Parent, ItemMsg>,
   model: Model<Item>,
   msg: {
     func: (
       items: SortedUniqueArray<Item>,
     ) => [SortedUniqueArray<Item>, AppRouteUpdater<Route>]
-    containerChangeEvent?: ContainerChangeEvent
   },
-): [Model<Item>, AppRouteUpdater<Route>] => {
-  const [newModel, routeUpdater] = replaceFuncActionHandler(model, msg.func)
-  return [
-    setOrKeepContainerChangeEvent(
-      config.refs,
-      msg.containerChangeEvent,
-    )(newModel),
-    routeUpdater,
-  ]
-}
+): [Model<Item>, AppRouteUpdater<Route>] =>
+  replaceFuncActionHandler(model, msg.func)
 
 // `replaceFuncHandler` for a change of each item, which doesn't change the
 // route.
@@ -508,12 +518,10 @@ export const mapFuncHandler = <Item, Parent, ItemMsg>(
   model: Model<Item>,
   msg: {
     func: (item: Item) => Item
-    containerChangeEvent?: ContainerChangeEvent
   },
 ): Model<Item> => {
   const [newModel] = replaceFuncHandler(config, model, {
     func: (as) => [SUA.map(keyEq(config), config.ord)(msg.func)(as), null],
-    containerChangeEvent: msg.containerChangeEvent,
   })
   return newModel
 }
@@ -533,50 +541,19 @@ export const addOrUpdateDataHandler = <Item, Parent, ItemMsg>(
     //   msg.value,
     // )
 
-    const [resultState, resultCurrentTopElementChange] = pipe(
+    const resultState = pipe(
       msg.value,
-      A.reduce([model, 0] as [Model<Item>, number], (acc, el) => {
-        const [currentState, currentTopElementChange] = acc
-        const [newState, elementChange] = addOrUpdateData(
+      A.reduce(model, (currentState, el) =>
+        addOrUpdateData(
           config,
           el.data,
           el.previousId,
           msg.compareId,
-        )(currentState)
-        const newCurrentTopElementChange = (() => {
-          switch (elementChange._tag) {
-            case 'ElementModifyOnTop':
-              return currentTopElementChange + 1
-            default:
-              return currentTopElementChange
-          }
-        })()
-
-        // console.log('[MSG_STATE][reducer] processing element:', el, {
-        //   elementChange,
-        //   newCurrentTopElementChange,
-        // })
-
-        return [newState, newCurrentTopElementChange]
-      }),
+        )(currentState),
+      ),
     )
 
-    const containerChangeEvent = ((): ContainerChangeEvent => {
-      if (resultCurrentTopElementChange > 0)
-        return { _tag: 'ElementModifyOnTop' }
-      else if (resultCurrentTopElementChange < 0) return { _tag: 'NoChange' }
-      else return { _tag: 'ElementModifyInPlace' }
-    })()
-
-    // console.log(
-    //   '[MSG_STATE][reducer] final containerChangeEvent:',
-    //   containerChangeEvent,
-    // )
-
-    return setContainerChangeEvent(
-      config.refs,
-      containerChangeEvent,
-    )(reopenPrev(resultState))
+    return reopenPrev(resultState)
   } else return model
 }
 
@@ -665,7 +642,6 @@ export const replaceFuncAsyncCmd = <Item, ItemMsg, Route>(
     func: (
       items: SortedUniqueArray<Item>,
     ) => Promise<[SortedUniqueArray<Item>, AppRouteUpdater<Route>]>
-    containerChangeEvent?: ContainerChangeEvent
   },
 ): Cmd<Msg<Item, ItemMsg, Route>> => {
   return cmdFromPromise(
@@ -679,11 +655,10 @@ export const replaceFuncAsyncCmd = <Item, ItemMsg, Route>(
           _tag: 'SetState',
           value: r.value[0],
           routeUpdater: r.value[1],
-          containerChangeEvent: msg.containerChangeEvent,
         }
       else {
         console.warn(
-          'Error from func: getBundleFromCacheCmd: ' + errorToString(r.err),
+          'Error from func: replaceFuncAsyncCmd: ' + errorToString(r.err),
         )
         return { _tag: 'NoOp' }
       }
@@ -691,183 +666,48 @@ export const replaceFuncAsyncCmd = <Item, ItemMsg, Route>(
   )
 }
 
+// The open's scroll: to the target row (`selectedKey`), or to the newest
+// item without one, instantly. The row's top lands at the offset of
+// `selectedAnchor` when that is its anchor (a stored reading position, the
+// pixel a restore lands it at), at the top of the view otherwise. The scroll
+// container hides the list until it is there unless `isGraceful` (the API
+// changed the rows around a target already shown), and stores where it
+// landed (`onAnchor`). The container
+// holds the row while the rows around it still grow (late bodies, images
+// above it), so there is nothing to wait for. A row already in view stays
+// where it is.
 export const scrollToCurrentHandler =
   <Item, Parent, ItemMsg, Route>(
     logicConfig: LogicConfig<Item, Parent, ItemMsg>,
     param: ScrollToCurrentParam,
   ) =>
   (model: Model<Item>): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
-    const containerRef = logicConfig.refs.containerRef
-
-    if (model.shouldRestoreScrollState && containerRef.current) {
-      const containerRefCurrent = containerRef.current
-      const { checkShouldRestore, restore } = model.shouldRestoreScrollState
-
-      const shouldRestore = checkShouldRestore()
-
-      if (shouldRestore._tag === 'ScrollState') {
-        return checkVisibleAndScrollToCurrent({
-          logicConfig,
-          model,
-          param,
-          customScrollToCurrent: () =>
-            restore(model.mode.dataSourceId, containerRefCurrent)(),
-        })
-      } else if (shouldRestore._tag === 'TargetKey') {
-        return checkVisibleAndScrollToCurrent({
-          logicConfig,
-          model,
-          param,
-          elementId: shouldRestore.key,
-        })
-      }
-    }
-
-    return checkVisibleAndScrollToCurrent({ logicConfig, model, param })
-  }
-
-const waitForImagesLoadUpToCertainElement = async (
-  items: [string, HTMLElement | null][],
-  key: string,
-) => {
-  const promises: Promise<void>[] = items
-    .splice(
-      0,
-      items.findIndex(([i]) => i === key),
-    )
-    .flatMap(([, element]) => {
-      const imgs = [...(element?.querySelectorAll('img') ?? [])]
-      return imgs
-        .filter((img) => !img.complete)
-        .map(
-          (img) =>
-            new Promise<void>((resolve) => {
-              const onDone = () => {
-                img.removeEventListener('load', onDone)
-                img.removeEventListener('error', onDone)
-                resolve()
-              }
-              img.addEventListener('load', onDone)
-              img.addEventListener('error', onDone)
-            }),
-        )
-    })
-  // wait for image to load metadata
-  await Promise.all(promises)
-}
-
-export const checkVisibleAndScrollToCurrent = <
-  Item,
-  Parent,
-  ItemMsg,
-  Route,
->(args: {
-  logicConfig: LogicConfig<Item, Parent, ItemMsg>
-  model: Model<Item>
-  param: ScrollToCurrentParam
-  elementId?: string
-  customScrollToCurrent?: () => void
-}): [Model<Item>, Cmd<Msg<Item, ItemMsg, Route>>] => {
-  const { logicConfig, model, param, elementId, customScrollToCurrent } = args
-
-  const containerRef = logicConfig.refs.containerRef
-  const itemRefs = logicConfig.refs.itemRefs
-
-  const isVisible = (domElement: Element): Promise<boolean> => {
-    return new Promise((resolve) => {
-      const o = new IntersectionObserver(([entry]) => {
-        if (logicConfig.visibleStrategy._tag === 'HalfInView')
-          resolve(entry.intersectionRatio > 0.2)
-        else resolve(entry.intersectionRatio === 1)
-
-        o.disconnect()
-      })
-      o.observe(domElement)
-    })
-  }
-
-  const scrollToCurrent = async () => {
-    const refToScrollTo = (() => {
-      if (elementId && itemRefs.current[elementId])
-        return itemRefs.current[elementId]
-      else if (
-        !model.mode.selectedKey &&
-        model.mode.overallData.value.length > 0
-      ) {
-        return itemRefs.current[
-          logicConfig.uniqueKeyField(model.mode.overallData.value[0])
-        ]
-      } else if (model.mode.selectedKey) {
-        return itemRefs.current[model.mode.selectedKey]
-      }
-    })()
-
-    // console.log('SetScrollToCurrentEvent visible', currentRef.current)
-
-    if (refToScrollTo) {
-      await waitForImagesLoadUpToCertainElement(
-        Object.entries(itemRefs.current),
-        refToScrollTo.id,
-      )
-
-      const inView = await isVisible(refToScrollTo)
-
-      // Scroll to currentRef
-      if (!inView && containerRef.current) {
-        if (logicConfig.visibleStrategy._tag === 'HalfInView')
-          refToScrollTo.scrollIntoView({
-            block: 'nearest',
-            inline: 'nearest',
-          })
-        else {
-          refToScrollTo.scrollIntoView()
-        }
-      }
-    }
-  }
-
-  return [
-    {
-      ...model,
-      // If the scroll is from graceful msg, no need to turn invis
-      visibility:
-        param.isGraceful === false
-          ? { _tag: 'HiddenForScroll', key: model.mode.selectedKey }
-          : model.visibility,
-
-      // Set is scroll to true if it is not already in scrolling
-      isScrolling: model.isScrolling === false ? true : model.isScrolling,
-    },
-    cmdFromPromise(
-      async () => {
-        // This needed when we try to run `restore` func from scroll state map
-        if (customScrollToCurrent) customScrollToCurrent()
-        else await scrollToCurrent()
-
-        // Record scroll pos
-        // Note: we have to use `setTimeout` since the `containerRef.current.scrollTop`
-        // is smaller than the actual scrollTop for some reason.
-        setTimeout(() => {
-          if (containerRef.current) {
-            // Record the new scroll state into scroll_state map
-            if (model.onContainerScroll)
-              model.onContainerScroll(
-                model.mode.dataSourceId,
-                containerRef.current,
-              )()
+    const key = model.mode.selectedKey
+    const anchor = model.mode.selectedAnchor
+    const target: ScrollContainer.Target =
+      key === null
+        ? logicConfig.isReversed
+          ? { _tag: 'End' }
+          : { _tag: 'Start' }
+        : {
+            _tag: 'Key',
+            key,
+            offset: anchor !== null && anchor.key === key ? anchor.offset : 0,
+            onlyIfHidden: true,
           }
-        }, 500)
+    return [
+      {
+        ...model,
+        scrollContainer: ScrollContainer.scrollToHandler(
+          target,
+          'instant',
+          Date.now(),
+          !param.isGraceful,
+        )(model.scrollContainer),
       },
-
-      () => ({
-        _tag: 'ScrollToCurrentDone',
-        dataSourceId: model.mode.dataSourceId,
-        selectedKey: model.mode.selectedKey,
-      }),
-      // () => ({ _tag: 'None' })
-    ),
-  ]
-}
+      Cmd.none(),
+    ]
+  }
 
 export const addToPrevOverallDataHandler = <Item, Parent, ItemMsg>(
   config: LogicConfig<Item, Parent, ItemMsg>,
@@ -879,24 +719,13 @@ export const addToPrevOverallDataHandler = <Item, Parent, ItemMsg>(
     SUA.concat(keyEq(config), config.ord)(value),
   )
 
-  const uniqueIncomingData = filterUnique(
-    isItemEqual(config),
-    value,
-    model.mode.overallData.value,
-  )
-
-  return setContainerChangeEvent(
-    config.refs,
-    uniqueIncomingData.length > 0 && config.isReversed
-      ? { _tag: 'ElementModifyOnTop' }
-      : { _tag: 'NoChange' },
-  )({
+  return {
     ...model,
     mode: {
       ...model.mode,
       overallData,
     },
-  })
+  }
 }
 
 export const addToNextOverallDataHandler = <Item, Parent, ItemMsg>(
@@ -909,35 +738,13 @@ export const addToNextOverallDataHandler = <Item, Parent, ItemMsg>(
     SUA.concat(keyEq(config), config.ord)(value),
   )
 
-  const currentDataI = pipe(
-    overallData,
-    SUA.findIndex(
-      (item) => config.uniqueKeyField(item) === model.mode.selectedKey,
-    ),
-  )
-  const incomingNext =
-    currentDataI >= 0
-      ? removeElFromArray(config, overallData.value[currentDataI], value)
-      : value
-
-  const uniqueIncomingData = filterUnique(
-    isItemEqual(config),
-    incomingNext,
-    model.mode.overallData.value,
-  )
-
-  return setContainerChangeEvent(
-    config.refs,
-    uniqueIncomingData.length > 0 && !config.isReversed
-      ? { _tag: 'ElementModifyOnTop' }
-      : { _tag: 'NoChange' },
-  )({
+  return {
     ...model,
     mode: {
       ...model.mode,
       overallData,
     },
-  })
+  }
 }
 
 // Whether a load of the end can start.

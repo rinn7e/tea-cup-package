@@ -1,4 +1,3 @@
-import type * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 import type * as TeaRouter from '@rinn7e/tea-cup-router'
 import { type Cmd } from 'tea-cup-fp'
 
@@ -11,7 +10,6 @@ export type Shared = {
   readonly db: MyDB | null
   readonly networkOnline: boolean
   readonly latencyMs: number
-  readonly refs: LinkPagination.Refs
 }
 
 // In our example app, all routes are accessible without auth restrictions

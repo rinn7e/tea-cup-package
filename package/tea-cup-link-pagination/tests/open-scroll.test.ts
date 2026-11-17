@@ -20,17 +20,22 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 // The open's scroll: the list stays hidden until the scroll to its current
-// target is done, and a reader who scrolled the cached rows isn't pulled back.
+// target is placed, and a reader who scrolled the cached rows isn't pulled
+// back.
+import * as ScrollContainer from '@rinn7e/tea-cup-scroll-container'
 import * as E from 'fp-ts/lib/Either'
 import { describe, expect, it } from 'vitest'
 
-import { getInitialDataFromApiResponseHandler } from '../src/handler'
-import { setSelectedKey } from '../src/helper'
+import { newScrollStateRef } from '../src/common/type/scroll-state-map'
+import {
+  getInitialDataFromApiResponseHandler,
+  scrollToCurrentHandler,
+} from '../src/handler'
+import { restoreSavedScroll, setSelectedKey } from '../src/helper'
 import {
   type LogicConfig,
   type Model,
   type Msg,
-  type Visibility,
   defaultMode,
   mkRefs,
 } from '../src/type'
@@ -52,67 +57,87 @@ const config = {
 
 const model = (m: Partial<Model<Item>>): Model<Item> => ({
   mode: { ...defaultMode<Item>(), dataSourceId, initial: { _tag: 'Cached' } },
-  pendingChange: { _tag: 'None' },
-  visibility: { _tag: 'Visible' },
-  isScrolling: false,
+  flash: null,
   initialScroll: { _tag: 'Done' },
+  scrollContainer: ScrollContainer.init(),
   ...m,
 })
 
 const send = (msg: Msg<Item, never, never>, m: Model<Item>) =>
   update<Item, unknown, never, never>(true, config)(null, msg, m)[0]
 
-// The list hidden by a scroll is shown again by that scroll's end, and only
-// by it (see `Visibility`).
+// The list hidden by a scroll of ours is shown again by that scroll's
+// `Placed` (the scroll container's, once a frame painted it there), and only
+// by it (see `ScrollContainer.Model.placing`).
 describe('a finished scroll', () => {
-  const visible: Visibility = { _tag: 'Visible' }
-  // Hidden by the scroll to `key`, its current target
-  const hiddenFor = (key: string): Model<Item> =>
-    model({
-      mode: { ...model({}).mode, selectedKey: key },
-      visibility: { _tag: 'HiddenForScroll', key },
-    })
-  const done = (selectedKey: string, m: Model<Item>) =>
-    send(
-      {
-        _tag: 'ScrollToCurrentDone',
-        dataSourceId,
-        selectedKey,
-      },
-      m,
-    ).visibility
+  const placed = (seq: number): Msg<Item, never, never> => ({
+    _tag: 'ScrollContainerMsg',
+    subMsg: { _tag: 'Placed', seq },
+  })
+  // The open's scroll to `key`, its current target
+  const openAt = (key: string, m: Model<Item> = model({})): Model<Item> =>
+    scrollToCurrentHandler<Item, unknown, never, never>(config, {
+      isGraceful: false,
+    })(setSelectedKey(key)(m))[0]
+  const isPlacing = (m: Model<Item>) =>
+    ScrollContainer.isPlacing(m.scrollContainer)
+  const seqOf = (m: Model<Item>) => m.scrollContainer.placing!
 
-  it('shows the list when it is the scroll that hid it', () => {
-    expect(done('target', hiddenFor('target'))).toEqual(visible)
+  it('hides the list until the scroll that hid it is placed', () => {
+    const hidden = openAt('target')
+    expect(isPlacing(hidden)).toBe(true)
+    expect(isPlacing(send(placed(seqOf(hidden)), hidden))).toBe(false)
   })
 
   // Before, any finished scroll showed the list: a scroll to the cached
   // target finishing after the API moved the target showed it before the
   // newer scroll was done.
-  it('does not when a newer hidden scroll replaced it', () => {
-    const moved = hiddenFor('moved')
-    expect(done('cached', moved)).toEqual(moved.visibility)
+  it('does not show it when a newer hidden scroll replaced it', () => {
+    const cached = openAt('cached')
+    const moved = openAt('moved', cached)
+    expect(isPlacing(send(placed(seqOf(cached)), moved))).toBe(true)
+    expect(isPlacing(send(placed(seqOf(moved)), moved))).toBe(false)
   })
 
   // Comparing with `selectedKey` instead, a target changed without a new
-  // scroll (an owner calling `setSelectedKey`) left the list hidden
+  // scroll (a route change within the same view) left the list hidden
   // for good.
   it('shows the list when the target changed without a new scroll', () => {
-    expect(
-      done('target', setSelectedKey('other')(hiddenFor('target'))),
-    ).toEqual(visible)
+    const hidden = openAt('target')
+    const changed = setSelectedKey('other')(hidden)
+    expect(isPlacing(send(placed(seqOf(hidden)), changed))).toBe(false)
+  })
+
+  it('does not hide the list for a scroll after the API changed the rows', () => {
+    const [graceful] = scrollToCurrentHandler<Item, unknown, never, never>(
+      config,
+      { isGraceful: true },
+    )(setSelectedKey('target')(model({})))
+    expect(isPlacing(graceful)).toBe(false)
   })
 
   it("a restore's end doesn't show the list a scroll hid since", () => {
-    const hidden = hiddenFor('target')
-    expect(
-      send({ _tag: 'RestoreDone', dataSourceId }, hidden).visibility,
-    ).toEqual(hidden.visibility)
+    const ref = newScrollStateRef()
+    ref.write(new Map([[dataSourceId, { key: 'target', top: 0 }]]))()
+    const [restoring] = restoreSavedScroll(ref, { resetEdges: false })<
+      Item,
+      never,
+      never
+    >(model({}))
+    expect(isPlacing(restoring)).toBe(true)
+    const hidden = openAt('target', restoring)
+    expect(isPlacing(send(placed(seqOf(restoring)), hidden))).toBe(true)
   })
 })
 
 // Before, when the API changed the rows around the cached target, the list
 // scrolled back to it, even when the reader had scrolled away meanwhile.
+// The scroll container reports the reader taking over (wheel, touch, key)
+const readerScrolled: Msg<Item, never, never> = {
+  _tag: 'ScrollContainerMsg',
+  subMsg: { _tag: 'ReaderScrolled', input: 'wheel' },
+}
+
 describe('a reader scrolling the cached rows', () => {
   const fromCache = model({
     mode: {
@@ -126,25 +151,85 @@ describe('a reader scrolling the cached rows', () => {
   })
 
   it('ends the open', () => {
-    expect(send({ _tag: 'ReaderScrolled' }, fromCache).initialScroll).toEqual({
+    expect(send(readerScrolled, fromCache).initialScroll).toEqual({
       _tag: 'Done',
     })
   })
 
   it('is not pulled back when the API changes the rows', () => {
-    const read = send({ _tag: 'ReaderScrolled' }, fromCache)
+    const read = send(readerScrolled, fromCache)
     const [answered] = getInitialDataFromApiResponseHandler(
       config,
       dataSourceId,
       E.right({ dataF: () => [{ id: 'a' }, { id: 'b' }], nextIsMax: true }),
       read,
     )
-    expect(answered.isScrolling).toBe(false)
-    expect(answered.visibility).toEqual({ _tag: 'Visible' })
+    expect(ScrollContainer.isPlacing(answered.scrollContainer)).toBe(false)
+    // No scroll for the scroll container: the reader stays where they are
+    expect(answered.scrollContainer).toEqual(read.scrollContainer)
   })
 
-  it('changes nothing once the open is done', () => {
+  it('is scrolled again when the API changes the rows before the reader scrolls', () => {
+    // The control: the same answer without the reader re-aims at the target
+    const [answered] = getInitialDataFromApiResponseHandler(
+      config,
+      dataSourceId,
+      E.right({ dataF: () => [{ id: 'a' }, { id: 'b' }], nextIsMax: true }),
+      fromCache,
+    )
+    expect(answered.scrollContainer.follow._tag).toBe('Navigating')
+  })
+
+  it('changes nothing of the open once it is done', () => {
     const opened = model({})
-    expect(send({ _tag: 'ReaderScrolled' }, opened)).toBe(opened)
+    expect(send(readerScrolled, opened).initialScroll).toEqual(
+      opened.initialScroll,
+    )
+  })
+})
+
+// An open at the stored reading position lands its row where it was read (the
+// row covering the top edge, usually starting above it), as a restore of the
+// kept list does: at the start of the row, the reader saw again what they had
+// nearly passed.
+describe('an open at the stored reading position', () => {
+  const commandOf = (m: Model<Item>) => m.scrollContainer.pendingAdjust?.command
+  const openAt = (m: Model<Item>): Model<Item> =>
+    scrollToCurrentHandler<Item, unknown, never, never>(config, {
+      isGraceful: false,
+    })(m)[0]
+  const stored = { key: 'b', offset: -120 }
+  const atStored = (selectedKey: string) =>
+    model({
+      mode: {
+        ...model({}).mode,
+        selectedKey,
+        selectedAnchor: stored,
+      },
+    })
+
+  it('lands its row at the stored offset, the pixel a restore lands it at', () => {
+    expect(commandOf(openAt(atStored('b')))).toMatchObject({
+      _tag: 'ScrollToKey',
+      key: 'b',
+      offset: -120,
+    })
+    // The restore of the same stored position, for the kept list
+    const ref = newScrollStateRef()
+    ref.write(new Map([[dataSourceId, { key: 'b', top: -120 }]]))()
+    const [restoring] = restoreSavedScroll(ref, { resetEdges: false })<
+      Item,
+      never,
+      never
+    >(model({}))
+    expect(commandOf(restoring)).toMatchObject({ key: 'b', offset: -120 })
+  })
+
+  it('lands another target at the top of the view (the API moved it)', () => {
+    expect(commandOf(openAt(atStored('c')))).toMatchObject({
+      _tag: 'ScrollToKey',
+      key: 'c',
+      offset: 0,
+    })
   })
 })

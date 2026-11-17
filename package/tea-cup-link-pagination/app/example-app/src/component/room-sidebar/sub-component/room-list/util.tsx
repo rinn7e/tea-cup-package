@@ -1,4 +1,5 @@
 import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
+import * as ScrollContainer from '@rinn7e/tea-cup-scroll-container'
 import { Cmd, Sub } from 'tea-cup-fp'
 
 import * as Api from '../../../../api'
@@ -24,20 +25,18 @@ export const logicConfig: LinkPagination.LogicConfig<
   isReversed: false, // Sidebar room list is top-to-bottom
   ord: Api.RoomOrd,
   uniqueKeyField: (r: Api.Room) => r.id,
-  visibleStrategy: { _tag: 'HalfInView' },
+  // Newest at the top: the room the reader looks at stays still whatever
+  // loads at either end
+  scrollContainer: ScrollContainer.feedConfig,
   subscriptions: () => Sub.none(),
   update: (_parent, msg, room) => {
     switch (msg._tag) {
       case 'SelectRoom':
       case 'MarkAsRead':
       case 'ToggleExpand':
-        return [room, Cmd.none(), { _tag: 'NoChange' }]
+        return [room, Cmd.none()]
       case 'ToggleFavorite':
-        return [
-          { ...room, isPrivate: !room.isPrivate },
-          Cmd.none(),
-          { _tag: 'ElementModifyInPlace' },
-        ]
+        return [{ ...room, isPrivate: !room.isPrivate }, Cmd.none()]
     }
   },
 }
@@ -111,8 +110,6 @@ export const mkRoomListUiConfig = <ParentMsg,>(
         />
       )
     },
-    disableScrolling: false,
-    titleView: null,
     scrollToLatestCustomUi: null,
     loadingView: null,
     scrollbarClass: 'h-full overflow-y-auto chat-scrollbar px-1 py-1',

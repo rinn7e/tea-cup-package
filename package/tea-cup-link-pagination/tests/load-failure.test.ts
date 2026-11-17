@@ -27,6 +27,7 @@ SOFTWARE. */
 // throwing older or newer page cache left "Loading history..." up for good.
 import * as RD from '@devexperts/remote-data-ts'
 import { mkHttpError } from '@rinn7e/tea-cup-prelude/type/http-error'
+import * as ScrollContainer from '@rinn7e/tea-cup-scroll-container'
 import * as E from 'fp-ts/lib/Either'
 import type * as TE from 'fp-ts/lib/TaskEither'
 import { describe, expect, it } from 'vitest'
@@ -73,10 +74,9 @@ const model = (): Model<Item> => ({
       endpoint: () => throwingEndpoint,
     }),
   },
-  pendingChange: { _tag: 'None' },
-  visibility: { _tag: 'Visible' },
-  isScrolling: false,
+  flash: null,
   initialScroll: { _tag: 'Pending' },
+  scrollContainer: ScrollContainer.init(),
 })
 
 const config = {
@@ -140,7 +140,7 @@ describe('a load that throws still reports back', () => {
     // target. Before, the open was marked done, so a later refresh showed the
     // rows anywhere.
     expect(afterApi.initialScroll).toEqual({ _tag: 'Pending' })
-    expect(afterApi.visibility).toEqual({ _tag: 'Visible' })
+    expect(afterApi.scrollContainer.placing).toBeNull()
   })
 
   // Before, an endpoint's own error was taken for a throw: logged as one, and

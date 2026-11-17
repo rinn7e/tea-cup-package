@@ -35,6 +35,7 @@ import {
 } from '@rinn7e/tea-cup-prelude/type/size'
 import * as SUA from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
 import { type SortedUniqueArray } from '@rinn7e/tea-cup-prelude/type/sorted-unique-array'
+import * as ScrollContainer from '@rinn7e/tea-cup-scroll-container'
 import type * as E from 'fp-ts/lib/Either'
 import * as EqClass from 'fp-ts/lib/Eq'
 import { type IO } from 'fp-ts/lib/IO'
@@ -42,6 +43,7 @@ import { type Option } from 'fp-ts/lib/Option'
 import type * as OrdClass from 'fp-ts/lib/Ord'
 import * as TE from 'fp-ts/lib/TaskEither'
 import * as B from 'fp-ts/lib/boolean'
+import * as N from 'fp-ts/lib/number'
 import * as S from 'fp-ts/lib/string'
 import { type JSX } from 'react'
 import { type Cmd, type Sub } from 'tea-cup-fp'
@@ -53,12 +55,10 @@ import { type Cmd, type Sub } from 'tea-cup-fp'
 export type Refs = {
   // container ref
   containerRef: { current: HTMLDivElement | null }
-  itemRefs: { current: { [Key: string]: HTMLDivElement | null } }
 }
 
 export const mkRefs = (): Refs => ({
   containerRef: { current: null },
-  itemRefs: { current: {} },
 })
 
 export type CacheHandler<Item> = (
@@ -88,15 +88,6 @@ export type InitialEndpointHandler<Item> = (
   networkStatus: boolean,
   cacheData: Item[],
 ) => TE.TaskEither<HttpErrorString, InitialEndpointResponse<Item>>
-
-export type ContainerChangeEvent =
-  | { _tag: 'ElementModifyOnTop' } // When we want to maintain the scroll pos, knowing the new dom is added/removed on top.
-  | { _tag: 'ElementModifyOnBottom' } // Same as above but the new dom is added/removed on the bottom instead.
-  | { _tag: 'ElementModifyInPlace' }
-  // We know the container change, but we don't know if it count as
-  // element on top or bottom (i.e set current data in link mode)
-  | { _tag: 'ForceManipulateScrollPos' }
-  | { _tag: 'NoChange' }
 
 // How to load the first page. When the list opens at a target
 // (`Mode.selectedKey`), `cache` must return the cached page around the target
@@ -169,6 +160,11 @@ export type Mode<Item> = {
   // Identify current selected item using uniqueKeyField
   // Scroll to this value on initial load
   selectedKey: string | null
+  // Where the open lands the selected item: its row's top this far from the
+  // view's top edge (a stored reading position, the pixel a restore lands it
+  // at), while `key` is still `selectedKey`. null, or another key (the API
+  // moved the target): at the top of the view
+  selectedAnchor: ScrollContainer.Anchor | null
 
   nextHandler: (overallData: Item[]) => (size: Size) => {
     cache: () => Promise<CacheData.Type<Item[]>>
@@ -188,6 +184,7 @@ export function mkModeEq<Item>(itemEq: EqClass.Eq<Item>) {
     initialHandler: { equals: () => true },
     initial: InitialEq,
     selectedKey: NullableEq(S.Eq),
+    selectedAnchor: NullableEq(ScrollContainer.AnchorEq),
     nextHandler: { equals: () => true },
     next: EdgeEq,
     nextSize: SizeEq,
@@ -214,6 +211,7 @@ export function defaultMode<Item>(): Mode<Item> {
     }),
     initial: { _tag: 'NotStarted' },
     selectedKey: null,
+    selectedAnchor: null,
 
     nextHandler: () => () => {
       return {
@@ -226,17 +224,6 @@ export function defaultMode<Item>(): Mode<Item> {
   }
 }
 
-/**
- * How the data is focus when in link mode
- * `FullInView` - Only count as visible if the whole data is in view
- * `HalfInView` - Count as visible even if the data is half in view
- */
-export type VisibleStrategy = { _tag: 'FullInView' } | { _tag: 'HalfInView' }
-
-export const VisibleStrategyEq = EqClass.struct<VisibleStrategy>({
-  _tag: S.Eq,
-})
-
 export type CustomUiParam<Item, Parent> = {
   withPrevNextItem: WithPrevAndNext<Item>
   parent: Parent
@@ -244,12 +231,6 @@ export type CustomUiParam<Item, Parent> = {
   dataSourceId: string
   allItems: Item[]
 }
-
-// The attribute each row carries with its list's `dataSourceId`: rows of
-// several lists can be in the page at once (another list's rows still
-// shown during a switch, a list in a row), and the reading position is kept
-// only from rows of its own list (`readScrollAnchor`)
-export const dataSourceIdAttribute = 'data-link-pagin-datasource-id'
 
 export type LogicConfig<Item, Parent, ItemMsg> = {
   refs: Refs
@@ -259,16 +240,18 @@ export type LogicConfig<Item, Parent, ItemMsg> = {
   // The item's identity. Items with the same key are the same item
   // (`keyEq` in `util.ts`).
   uniqueKeyField: (item: Item) => string
-  visibleStrategy: VisibleStrategy
 
-  update: (
-    parent: Parent,
-    msg: ItemMsg,
-    model: Item,
-  ) => [Item, Cmd<ItemMsg>, ContainerChangeEvent]
+  update: (parent: Parent, msg: ItemMsg, model: Item) => [Item, Cmd<ItemMsg>]
   // The item's own subscriptions (e.g. its drawer). Their messages reach the
   // item through `ChildMsg`, like the ones `update` handles.
   subscriptions: (model: Item) => Sub<ItemMsg>
+  // How far below the container's top a `ScrollToKey` target lands, e.g.
+  // under a search bar floating over the list. 0 when not given.
+  scrollToKeyOffset?: (container: HTMLElement) => number
+  // How the scroll container (`tea-cup-scroll-container`, the one writer of
+  // the scroll position) keeps it: `chatConfig` for a reversed list,
+  // `feedConfig` for one with its newest items on top
+  scrollContainer: ScrollContainer.Config
 }
 
 export type WithPrevAndNext<Item> = {
@@ -280,24 +263,8 @@ export type WithPrevAndNext<Item> = {
 export type UiConfig<Item, Parent> = {
   // A function on how to render an item
   customItemUi: (param: CustomUiParam<Item, Parent>) => JSX.Element
-  // A function on how to render all items together (doesn't include prev or next loading)
-  // Only use where grouping items together in a block is a must-have (sticky date, using `position: sticky`)
-  customAllItemUi?: (
-    allItems: WithPrevAndNext<Item>[],
-    allItemUi: (data: WithPrevAndNext<Item>[]) => JSX.Element[],
-    configIsReversed: boolean,
-  ) => JSX.Element[]
-  customAllItemEffect?: (
-    containerRef: React.RefObject<HTMLDivElement | null>,
-    timerRef: React.RefObject<ReturnType<typeof setTimeout> | null>,
-    isScrolling: boolean,
-  ) => void
-
   scrollbarClass: string
 
-  // Disable link pagin scrollbar, this meant for the parent container to handle scrolling instead
-  disableScrolling: boolean
-  titleView: (() => JSX.Element) | null
   scrollToLatestCustomUi:
     | ((props: {
         parent: Parent
@@ -313,6 +280,17 @@ export type UiConfig<Item, Parent> = {
   // Shown when loading an end failed; `retry` loads it again
   prevFailedCustomView?: (parent: Parent, retry: () => void) => JSX.Element
   nextFailedCustomView?: (parent: Parent, retry: () => void) => JSX.Element
+  // Each item is a row of the scroll container, with no groups around rows
+  // (an anchor is a row, and a row growing inside a group would not count
+  // as a resize above the view): a view drawn above an item inside its row
+  // (e.g. the date of the first message of a day), and a view over the list
+  // given the item at its top and whether the reader scrolls (e.g. that
+  // date, floating)
+  itemPrefixUi?: (item: WithPrevAndNext<Item>) => JSX.Element | null
+  topItemOverlayUi?: (
+    item: Item | null,
+    isScrolling: boolean,
+  ) => JSX.Element | null
 }
 
 export type Config<Item, Parent, ItemMsg> = {
@@ -328,21 +306,18 @@ export function mkLogicConfigEq<Item, Parent, ItemMsg>(
     isReversed: B.Eq,
     ord: { equals: () => true },
     uniqueKeyField: { equals: () => true },
-    visibleStrategy: VisibleStrategyEq,
 
     update: { equals: () => true },
     subscriptions: { equals: () => true },
+    scrollToKeyOffset: { equals: () => true },
+    scrollContainer: ScrollContainer.ConfigEq,
   })
 }
 
 export function mkUiConfigEq<Item, Parent>(_eqA: EqClass.Eq<Item>) {
   return EqClass.struct<UiConfig<Item, Parent>>({
     customItemUi: { equals: () => true },
-    customAllItemUi: { equals: () => true },
-    customAllItemEffect: { equals: () => true },
     scrollbarClass: S.Eq,
-    disableScrolling: B.Eq,
-    titleView: NullableEq({ equals: () => true }),
     scrollToLatestCustomUi: NullableEq({ equals: () => true }),
     loadingView: NullableEq({ equals: () => true }),
     prevLoadingIndicatorView: { equals: () => true },
@@ -351,6 +326,8 @@ export function mkUiConfigEq<Item, Parent>(_eqA: EqClass.Eq<Item>) {
     nextIsMaxCustomView: { equals: () => true },
     prevFailedCustomView: { equals: () => true },
     nextFailedCustomView: { equals: () => true },
+    itemPrefixUi: { equals: () => true },
+    topItemOverlayUi: { equals: () => true },
   })
 }
 
@@ -361,91 +338,27 @@ export function mkConfigEq<Item, Parent, ItemMsg>(itemEq: EqClass.Eq<Item>) {
   })
 }
 
-export type ShouldRestoreScrollStateArg = {
-  /**
-   * This function can be called to check if we should restore the scroll model
-   *
-   * - `ScrollState` if we should restore the scroll model
-   * - `TargetKey` if we should scroll to a specific key (e.g. oldest unseen item)
-   * - `NoOp` if we don't restore the scroll model
-   */
-  checkShouldRestore: () =>
-    | { _tag: 'NoOp' }
-    | { _tag: 'ScrollState' }
-    | { _tag: 'TargetKey'; key: string }
-  restore: (dataSourceId: string, container: HTMLDivElement) => IO<void>
-}
+// The highlight of a search result's row (`ScrollToKey`): the row of `key`
+// fades from the highlight color while it is set, from the start of the fade
+// when it is drawn. A timer as long as the fade clears it (`FlashDone`, by
+// `seq`), so a row drawn later doesn't fade. `seq` counts the highlights: the
+// timer of an older one leaves a newer one, and the row's React key has it,
+// so a second highlight of the same row starts the fade again.
+export type Flash = { key: string; seq: number }
 
-// The container's scroll position and height.
-export type ScrollSnapshot = { scrollTop: number; scrollHeight: number }
-
-export const ScrollSnapshotEq = EqClass.struct<ScrollSnapshot>({
-  scrollTop: EqClass.eqNumber,
-  scrollHeight: EqClass.eqNumber,
+export const FlashEq: EqClass.Eq<Flash> = EqClass.struct({
+  key: S.Eq,
+  seq: N.Eq,
 })
-
-// The last change to the rows that the view still has to apply. Callers say
-// where their change lands (`ContainerChangeEvent`, through
-// `setContainerChangeEvent`); this is what the view does with it.
-export type PendingChange =
-  | { _tag: 'None' }
-  // A change on top (`ElementModifyOnTop`, `ForceManipulateScrollPos`): the
-  // view keeps the scroll position, measured against `before`, the container
-  // as it was right before the change was rendered. It is taken by `update`
-  // while the old rows are still on screen (`null` when the list wasn't
-  // mounted).
-  | { _tag: 'KeepPosition'; before: ScrollSnapshot | null }
-  // A change below or in place (`ElementModifyOnBottom`,
-  // `ElementModifyInPlace`): the view only records the new position.
-  | { _tag: 'RecordPosition' }
-
-export const PendingChangeEq: EqClass.Eq<PendingChange> = {
-  equals: (a, b) => {
-    if (a._tag === 'KeepPosition' && b._tag === 'KeepPosition') {
-      return NullableEq(ScrollSnapshotEq).equals(a.before, b.before)
-    } else {
-      return a._tag === b._tag
-    }
-  },
-}
-
-// Whether the list is shown, or hidden (`opacity-0`, the loader on top) while
-// a scroll of ours puts it in place, and by which scroll: only the end of the
-// scroll that hid it shows it again. (A boolean couldn't say which, so a
-// scroll's end either showed the list during a newer scroll, or, ignored
-// because the target changed without a new scroll, left it hidden for good.)
-export type Visibility =
-  | { _tag: 'Visible' }
-  // Hidden by the scroll to `key` (`scrollToCurrentHandler`); its
-  // `ScrollToCurrentDone` shows the list
-  | { _tag: 'HiddenForScroll'; key: string | null }
-  // Hidden while a stored position is set (a restore, `ForceScrollTo`);
-  // `RestoreDone` shows the list
-  | { _tag: 'HiddenForRestore' }
-
-export const VisibilityEq: EqClass.Eq<Visibility> = {
-  equals: (a, b) => {
-    if (a._tag === 'HiddenForScroll' && b._tag === 'HiddenForScroll') {
-      return NullableEq(S.Eq).equals(a.key, b.key)
-    } else {
-      return a._tag === b._tag
-    }
-  },
-}
 
 export type Model<Item> = {
   mode: Mode<Item>
 
-  pendingChange: PendingChange
+  // Keeps the reading position: called with the row at the top of the view
+  // the scroll container reports (`onAnchor`), on every scroll of the list
+  // shown and once a scroll of ours put it in place
+  onAnchor?: (dataSourceId: string, anchor: ScrollContainer.Anchor) => IO<void>
 
-  // scroll model handlers
-  onContainerScroll?: (dataSourceId: string, e: HTMLDivElement) => IO<void>
-  shouldRestoreScrollState?: ShouldRestoreScrollStateArg
-
-  // Turn the ui invisible while scrolling msg is going on
-  // Useful on initial load of link mode.
-  visibility: Visibility
-  isScrolling: boolean
   /**
    * Tracks the one-time initial scroll for the current mount.
    *
@@ -454,7 +367,34 @@ export type Model<Item> = {
    * in-place refresh of an already-mounted list never re-triggers a scroll.
    */
   initialScroll: InitialScroll
+  // The scroll container's state: who holds the position, the last decision
+  // for the view to apply, and whether the list is hidden while it is placed
+  scrollContainer: ScrollContainer.Model
+  // The search result's row highlighted last
+  flash: Flash | null
+  // Whether the reader moves the list now: from their scroll input
+  // (`ReaderScrolled`) until the list comes to rest (`ScrollSettled`)
+  readerScrolling?: boolean
+  // The older and newer pages that arrived while the reader moved the list,
+  // in order. They go in once it comes to rest: rows added above a list the
+  // reader moves need the position moved by their height, which iOS doesn't
+  // allow while a finger or a fling moves it, so the rows would wait out of
+  // reach above the old first row, and the reader would bounce at it with
+  // blank space above. Held, the end shows its loader until then.
+  heldPages?: HeldPage<Item>[]
 }
+
+// A page of older or newer items as it arrives (`Model.heldPages`)
+export type HeldPage<Item> = Extract<
+  Msg<Item, never, never>,
+  {
+    _tag:
+      | 'GetMorePrevDataFromCacheResponse'
+      | 'GetMorePrevDataFromApiResponse'
+      | 'GetMoreNextDataFromCacheResponse'
+      | 'GetMoreNextDataFromApiResponse'
+  }
+>
 
 export type InitialScroll =
   // Not scrolled yet: the next load that resolves the target scrolls.
@@ -475,13 +415,13 @@ export const InitialScrollEq: EqClass.Eq<InitialScroll> = {
 export function ModelEq<Item>(itemEq: EqClass.Eq<Item>) {
   return EqClass.struct<Model<Item>>({
     mode: mkModeEq(itemEq),
-    pendingChange: PendingChangeEq,
-    onContainerScroll: { equals: () => true },
-    shouldRestoreScrollState: { equals: () => true },
+    onAnchor: { equals: () => true },
 
-    visibility: VisibilityEq,
-    isScrolling: B.Eq,
     initialScroll: InitialScrollEq,
+    scrollContainer: ScrollContainer.ModelEq,
+    flash: NullableEq(FlashEq),
+    readerScrolling: { equals: (a, b) => a === b },
+    heldPages: { equals: (a, b) => a === b },
   })
 }
 
@@ -534,14 +474,11 @@ export type Msg<Item, ItemMsg, Route> =
       _tag: 'SetState'
       value: Model<Item>
       routeUpdater?: AppRouteUpdater<Route>
-      // Where the change lands; without it, the pending change is kept
-      containerChangeEvent?: ContainerChangeEvent
     }
   | {
       // Given a function, map it to each data (depends on mode)
       _tag: 'MapFunc'
       func: (item: Item) => Item
-      containerChangeEvent?: ContainerChangeEvent
     }
   | {
       // Given a function, run it against all the data
@@ -549,38 +486,25 @@ export type Msg<Item, ItemMsg, Route> =
       func: (
         items: SortedUniqueArray<Item>,
       ) => [SortedUniqueArray<Item>, AppRouteUpdater<Route>]
-      containerChangeEvent?: ContainerChangeEvent
     }
-  | { _tag: 'SetContainerChangeEvent'; value: ContainerChangeEvent }
-  // Sent by the view once it drew `change` (see `pendingChangeApplied`)
-  | { _tag: 'PendingChangeApplied'; change: PendingChange }
-  // The reader scrolled (wheel, touch or key), as opposed to a scroll of ours
-  | { _tag: 'ReaderScrolled' }
   | {
       _tag: 'ScrollToNewest'
-    }
-  // TODO: Make this more generic
-  | {
-      _tag: 'ForceScrollTo'
-      top: number
+      // Smooth when not given
+      behavior?: ScrollContainer.Behavior
     }
   | {
       _tag: 'ScrollToKey'
       key: string
     }
-  // TODO: Disabled for now since we disable prefetching
-  //  | {
-  //   _tag: 'PopulateFirstResponse'
-  //   result: E.Either<string, Item[]>
-  //   invokeTime: Date
-  // }
+  // The highlight number `seq` (`flash`) is over: its timer, as long as the
+  // row's fade (`FLASH_MS`), ran out
+  | { _tag: 'FlashDone'; seq: number }
   // TODO: broken, and nothing sends it. `replaceFuncAsyncCmd` runs `func` on
   // the items of the model as it was when this message arrived, then sends
   // `SetState` with a whole model built from that old one. So everything that
   // changed while the promise ran is lost: pages loaded meanwhile, the ends'
   // and first page's states, items updated by SSE, `initialScroll`, the
-  // scrolling flags (only `pendingChange` is taken from the current model). Do
-  // the async work in the owner's Cmd and send `ReplaceFunc` with the result
+  // scroll container's state. Do the async work in the owner's Cmd and send `ReplaceFunc` with the result
   // instead, which runs on the current items, or fix this to apply its result
   // to the current model.
   | {
@@ -590,13 +514,9 @@ export type Msg<Item, ItemMsg, Route> =
       func: (
         items: SortedUniqueArray<Item>,
       ) => Promise<[SortedUniqueArray<Item>, AppRouteUpdater<Route>]>
-      containerChangeEvent?: ContainerChangeEvent
     }
-  | {
-      _tag: 'SetIsScrolling'
-      value: boolean
-    }
-  // Triggered when the prev/next trigger buttons enter the viewport or are clicked
+  // Sent when the scroll container's header or footer comes into view
+  // (`EdgeShown`, see `loadAtEdgeHandler`), or by a Retry
   | { _tag: 'GetMorePrevData' }
   | {
       _tag: 'GetMorePrevDataFromCacheResponse'
@@ -681,26 +601,9 @@ export type Msg<Item, ItemMsg, Route> =
       result: E.Either<HttpErrorString, InitialEndpointResponse<Item>>
     }
   | {
-      _tag: 'ScrollToCurrentDone'
-      dataSourceId: string
-      // The item it scrolled to: only the end of the scroll that hid the list
-      // shows it (see `Visibility`)
-      selectedKey: string | null
-    }
-  // A stored position was set (a restore, `ForceScrollTo`): shows the list if
-  // the restore hid it (see `Visibility`)
-  | {
-      _tag: 'RestoreDone'
-      dataSourceId: string
-    }
-  | {
       _tag: 'ChildMsg'
       childId: string
       subMsg: ItemMsg
     }
-
-// Stable IDs for the prev/next InView trigger buttons, derived from the data source.
-export const prevButtonId = (dataSourceId: string): string =>
-  `link-pagin-prev-btn-${dataSourceId}`
-export const nextButtonId = (dataSourceId: string): string =>
-  `link-pagin-next-btn-${dataSourceId}`
+  // The scroll container's own messages
+  | { _tag: 'ScrollContainerMsg'; subMsg: ScrollContainer.Msg }

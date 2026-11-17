@@ -1,5 +1,6 @@
 import * as LinkPagination from '@rinn7e/tea-cup-link-pagination'
 import { cn } from '@rinn7e/tea-cup-prelude'
+import * as ScrollContainer from '@rinn7e/tea-cup-scroll-container'
 import { ArrowDown } from 'lucide-react'
 import { Cmd, Sub } from 'tea-cup-fp'
 
@@ -26,13 +27,15 @@ export const logicConfig: LinkPagination.LogicConfig<
   isReversed: true, // Chat mode: older chats at top, newer at bottom
   ord: ChatOrd,
   uniqueKeyField: (c: Chat) => c.id,
-  visibleStrategy: { _tag: 'HalfInView' },
+  // Newest at the end: the reading position is kept while older pages load
+  // above it, and the end stays in view when the composer resizes the list
+  scrollContainer: ScrollContainer.chatConfig,
   subscriptions: () => Sub.none(),
   update: (
     parent: ParentContext,
     msg: ChatItemMsg,
     chat: Chat,
-  ): [Chat, Cmd<ChatItemMsg>, LinkPagination.ContainerChangeEvent] => {
+  ): [Chat, Cmd<ChatItemMsg>] => {
     switch (msg._tag) {
       case 'ToggleReaction': {
         const existing = chat.reactions.find((r) => r.emoji === msg.emoji)
@@ -74,22 +77,14 @@ export const logicConfig: LinkPagination.LogicConfig<
           ]
         }
 
-        return [
-          { ...chat, reactions: updatedReactions },
-          Cmd.none(),
-          { _tag: 'ElementModifyInPlace' },
-        ]
+        return [{ ...chat, reactions: updatedReactions }, Cmd.none()]
       }
       case 'ToggleStar': {
-        return [
-          { ...chat, isStarred: !chat.isStarred },
-          Cmd.none(),
-          { _tag: 'ElementModifyInPlace' },
-        ]
+        return [{ ...chat, isStarred: !chat.isStarred }, Cmd.none()]
       }
       case 'Reply':
       case 'DeleteChat':
-        return [chat, Cmd.none(), { _tag: 'NoChange' }]
+        return [chat, Cmd.none()]
     }
   },
 }
@@ -111,7 +106,7 @@ export const paginDispatch =
   }
 
 // ---------------------------------------------------------------
-// Date Grouping Helper
+// Day Labels
 // ---------------------------------------------------------------
 
 export const formatChatDateGroup = (timestamp: number | string): string => {
@@ -133,42 +128,44 @@ export const formatChatDateGroup = (timestamp: number | string): string => {
   }
 }
 
-export const groupChatsByDate = (
-  allWithPrevNext: LinkPagination.WithPrevAndNext<Chat>[],
-): {
-  date: string
-  withPrevAndNextMessages: LinkPagination.WithPrevAndNext<Chat>[]
-}[] => {
-  const groups: {
-    date: string
-    withPrevAndNextMessages: LinkPagination.WithPrevAndNext<Chat>[]
-  }[] = []
+// The first chat of a day: its row shows the day above it. `prevItem` is
+// the older neighbor, drawn above it in this reversed list
+export const startsDay = (
+  withPrevNext: LinkPagination.WithPrevAndNext<Chat>,
+): boolean =>
+  withPrevNext.prevItem === null ||
+  formatChatDateGroup(withPrevNext.prevItem.timestamp) !==
+    formatChatDateGroup(withPrevNext.item.timestamp)
 
-  let currentDate = ''
-  let currentGroup: LinkPagination.WithPrevAndNext<Chat>[] = []
+const dayLabel = (label: string) => (
+  <span className='rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500'>
+    {label}
+  </span>
+)
 
-  for (const item of allWithPrevNext) {
-    const itemDate = formatChatDateGroup(item.item.timestamp)
-    if (itemDate !== currentDate) {
-      if (currentGroup.length > 0) {
-        groups.push({
-          date: currentDate,
-          withPrevAndNextMessages: currentGroup,
-        })
-      }
-      currentDate = itemDate
-      currentGroup = [item]
-    } else {
-      currentGroup.push(item)
-    }
-  }
+// The day above the first chat of a day, inside that chat's row
+export const dayLabelView = (chat: Chat) => (
+  <div
+    data-testid='chat-day-label'
+    className='flex w-full items-center justify-center pt-2 pb-1.5'
+  >
+    {dayLabel(formatChatDateGroup(chat.timestamp))}
+  </div>
+)
 
-  if (currentGroup.length > 0) {
-    groups.push({ date: currentDate, withPrevAndNextMessages: currentGroup })
-  }
-
-  return groups
-}
+// The day of the chat at the top of the view, floating over the list while
+// the reader scrolls
+export const floatingDayLabelView = (chat: Chat, isScrolling: boolean) => (
+  <div
+    data-testid='chat-floating-day-label'
+    className={cn(
+      'pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center transition-opacity duration-200',
+      isScrolling ? 'opacity-100' : 'opacity-0',
+    )}
+  >
+    {dayLabel(formatChatDateGroup(chat.timestamp))}
+  </div>
+)
 
 // ---------------------------------------------------------------
 // UI Config
@@ -198,25 +195,10 @@ export const mkUiConfig = (
   props: Props,
 ): LinkPagination.UiConfig<Chat, ParentContext> => {
   return {
-    customAllItemUi: (allItems, allItemUi, isReversed) => {
-      const dateGroups = groupChatsByDate(allItems)
-      return dateGroups.map(({ date, withPrevAndNextMessages }) => {
-        const orderedMessages = isReversed
-          ? withPrevAndNextMessages.reverse()
-          : withPrevAndNextMessages
-        return (
-          <div key={date} className='relative'>
-            {/* Sticky date header label */}
-            <div className='pointer-events-none sticky top-2 z-20 mb-1.5 flex w-full items-center justify-center'>
-              <span className='rounded-full border border-slate-200 bg-white/95 px-3 py-1 text-[11px] font-semibold text-slate-500 shadow-xs backdrop-blur-xs'>
-                {date}
-              </span>
-            </div>
-            <div>{allItemUi(orderedMessages)}</div>
-          </div>
-        )
-      })
-    },
+    itemPrefixUi: (withPrevNext) =>
+      startsDay(withPrevNext) ? dayLabelView(withPrevNext.item) : null,
+    topItemOverlayUi: (chat, isScrolling) =>
+      chat ? floatingDayLabelView(chat, isScrolling) : null,
 
     customItemUi: ({
       withPrevNextItem,
@@ -247,9 +229,6 @@ export const mkUiConfig = (
         />
       )
     },
-
-    disableScrolling: false,
-    titleView: null,
 
     scrollToLatestCustomUi: ({ onClick, isVisible }) => {
       return (

@@ -20,150 +20,54 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 // A list's reading position is kept in one place, the `ScrollStateMap` in an
-// `IORef`, as an
-// anchor: the first item in view and its top. Restoring it lands on the same
+// `IORef`, as an anchor: the row at the top of the view and its top, as the
+// scroll container reports it (`onAnchor`). Restoring it lands on the same
 // item after rows above it changed, which a stored `scrollTop` didn't.
-import * as O from 'fp-ts/lib/Option'
-import { beforeAll, describe, expect, it } from 'vitest'
+import * as ScrollContainer from '@rinn7e/tea-cup-scroll-container'
+import { describe, expect, it } from 'vitest'
 
 import {
   newScrollStateRef,
-  readScrollAnchor,
-  restoreScrollState,
   storeScrollState,
 } from '../src/common/type/scroll-state-map'
+import { scrollToCurrentHandler, scrollToNewestHandler } from '../src/handler'
 import { emptyModel, restoreSavedScroll, setSelectedKey } from '../src/helper'
 import {
   type Edge,
   type LogicConfig,
-  dataSourceIdAttribute,
+  type Mode,
   defaultMode,
-  mkRefs,
 } from '../src/type'
-
-beforeAll(() => {
-  // Node has no `CSS`; the keys here need no escaping
-  ;(globalThis as { CSS?: unknown }).CSS ??= { escape: (s: string) => s }
-})
+import { init } from '../src/update'
 
 const dataSourceId = 'list'
 
-type Box = { top: number; bottom: number; height: number }
-
-const box = (top: number, height: number): Box => ({
-  top,
-  bottom: top + height,
-  height,
-})
-
-// A container showing 0–300 px, with rows of the given ids and heights
-// stacked from `firstTop`.
-const container = (
-  rows: { id: string; height: number }[],
-  firstTop: number,
-  scrollTop = 1000,
-) => {
-  const rowEls = rows.reduce<{ els: unknown[]; top: number }>(
-    (acc, row) => ({
-      els: [
-        ...acc.els,
-        {
-          id: row.id,
-          getBoundingClientRect: () => box(acc.top, row.height),
-        },
-      ],
-      top: acc.top + row.height,
-    }),
-    { els: [], top: firstTop },
-  ).els
-  const el = {
-    scrollTop,
-    scrollHeight: 5000,
-    clientHeight: 300,
-    getBoundingClientRect: () => box(0, 300),
-    querySelectorAll: (selector: string) =>
-      selector.includes(`${dataSourceIdAttribute}="${dataSourceId}"`)
-        ? rowEls
-        : [],
-    querySelector: (selector: string) =>
-      rowEls.find((row) => `#${(row as { id: string }).id}` === selector) ??
-      null,
-    scrollTo: ({ top }: { top: number }) => {
-      el.scrollTop = top
-    },
-  }
-  return el
-}
-
-const asDiv = (el: unknown) => el as HTMLDivElement
-
 describe('the reading position', () => {
-  it('is the first item mostly in view, with its top', () => {
-    // `a` shows 10 of its 100 px (10%), `b` is the first one in view
-    const el = container(
-      [
-        { id: 'a', height: 100 },
-        { id: 'b', height: 100 },
-      ],
-      -90,
-    )
-    expect(readScrollAnchor(dataSourceId, asDiv(el))()).toEqual(
-      O.some({ key: 'b', top: 10 }),
-    )
-  })
-
-  it('counts an item with 15% in view', () => {
-    const el = container([{ id: 'a', height: 100 }], -85)
-    expect(readScrollAnchor(dataSourceId, asDiv(el))()).toEqual(
-      O.some({ key: 'a', top: -85 }),
-    )
-  })
-
-  it('is stored per data source', () => {
+  it('is the anchor the scroll container reports, stored per data source', () => {
     const ref = newScrollStateRef()
-    const store = storeScrollState(ref)(
-      dataSourceId,
-      asDiv(container([{ id: 'a', height: 100 }], 20)),
-    )
+    const store = storeScrollState(ref)(dataSourceId, {
+      key: 'b',
+      offset: -20,
+    })
     // Nothing is stored until the effect runs
     expect(ref.read().size).toBe(0)
     store()
-    expect(ref.read().get(dataSourceId)).toEqual({ key: 'a', top: 20 })
+    expect(ref.read().get(dataSourceId)).toEqual({ key: 'b', top: -20 })
     expect(ref.read().get('other')).toBeUndefined()
   })
 
-  it('is restored onto the same item after rows above it changed', () => {
+  it("is stored by the list's `onAnchor`, under its data source", () => {
+    // The owner passes `storeScrollState(ref)` to `init`; the list's view
+    // hands it every anchor its scroll container reports
     const ref = newScrollStateRef()
-    ref.write(new Map([[dataSourceId, { key: 'b', top: 10 }]]))()
-    // Rows were added above: `b` is now 400 px further down
-    const el = container(
-      [
-        { id: 'new', height: 400 },
-        { id: 'a', height: 100 },
-        { id: 'b', height: 100 },
-      ],
-      -90,
-    )
-    restoreScrollState(ref)(dataSourceId, asDiv(el))()
-    // `b` was at 410: scrolling 400 px puts it back at 10
-    expect(el.scrollTop).toBe(1400)
-  })
-
-  it('is not restored when the item is gone', () => {
-    const ref = newScrollStateRef()
-    ref.write(new Map([[dataSourceId, { key: 'gone', top: 10 }]]))()
-    const el = container([{ id: 'a', height: 100 }], 0)
-    restoreScrollState(ref)(dataSourceId, asDiv(el))()
-    expect(el.scrollTop).toBe(1000)
+    const mode: Mode<{ id: string }> = { ...defaultMode(), dataSourceId }
+    const [model] = init(true, mode, storeScrollState(ref))
+    model.onAnchor?.(dataSourceId, { key: 'a', offset: -5 })()
+    expect(ref.read().get(dataSourceId)).toEqual({ key: 'a', top: -5 })
   })
 })
 
 describe('restoring a list shown again', () => {
-  const config = {
-    refs: mkRefs(),
-    uniqueKeyField: (item: { id: string }) => item.id,
-  } as unknown as LogicConfig<{ id: string }, unknown, never>
-
   const exhausted: Edge = { _tag: 'Exhausted' }
   const model = setSelectedKey('a')(
     emptyModel({
@@ -177,40 +81,95 @@ describe('restoring a list shown again', () => {
   it('hides the list until it is back at its position', () => {
     const ref = newScrollStateRef()
     ref.write(new Map([[dataSourceId, { key: 'a', top: 0 }]]))()
-    const [after] = restoreSavedScroll(config, ref, { resetEdges: false })(
-      model,
-    )
-    expect(after.visibility).toEqual({ _tag: 'HiddenForRestore' })
+    const [after] = restoreSavedScroll(ref, { resetEdges: false })(model)
+    expect(ScrollContainer.isPlacing(after.scrollContainer)).toBe(true)
     expect(after.mode.selectedKey).toBe('a')
   })
 
+  it('has the scroll container put the stored row back at its top', () => {
+    // Kept by the item: it lands on the same row after rows above it changed
+    const ref = newScrollStateRef()
+    ref.write(new Map([[dataSourceId, { key: 'a', top: -40 }]]))()
+    const [after] = restoreSavedScroll(ref, { resetEdges: false })(model)
+    expect(after.scrollContainer.follow).toEqual({
+      _tag: 'Restoring',
+      anchor: { key: 'a', offset: -40 },
+    })
+    expect(after.scrollContainer.pendingAdjust?.command).toEqual({
+      _tag: 'ScrollToKey',
+      key: 'a',
+      offset: -40,
+      onlyIfHidden: false,
+      belowOverlay: false,
+      behavior: 'instant',
+    })
+  })
+
   it('does nothing without a stored position', () => {
-    const [after] = restoreSavedScroll(config, newScrollStateRef(), {
+    const [after] = restoreSavedScroll(newScrollStateRef(), {
       resetEdges: false,
     })(model)
     expect(after).toEqual(model)
   })
 
-  it('drops a change pending while the list was away', () => {
-    // Its snapshot is of the container as it was then (or of another list)
+  // A list opened again: a scroll of the fresh list before its restore
+  // (one of ours putting it in place) must not overwrite the position the
+  // restore brings back. The scroll container reports no anchor while the
+  // list is placed (`placing`), and the one it lands on once placed.
+  it('places the list hidden, so a scroll before its restore stores nothing', () => {
     const ref = newScrollStateRef()
-    ref.write(new Map([[dataSourceId, { key: 'a', top: 0 }]]))()
-    const [after] = restoreSavedScroll(config, ref, { resetEdges: false })({
+    ref.write(new Map([[dataSourceId, { key: 'b', top: 10 }]]))()
+    const [waiting] = restoreSavedScroll(ref, { resetEdges: false })({
       ...model,
-      pendingChange: {
-        _tag: 'KeepPosition',
-        before: { scrollTop: 900, scrollHeight: 5000 },
-      },
+      onAnchor: storeScrollState(ref),
     })
-    expect(after.pendingChange).toEqual({ _tag: 'None' })
+    expect(ScrollContainer.isPlacing(waiting.scrollContainer)).toBe(true)
+    // The scroll container puts `b` back at 10
+    expect(waiting.scrollContainer.follow).toEqual({
+      _tag: 'Restoring',
+      anchor: { key: 'b', offset: 10 },
+    })
   })
 
-  it('reopens the ends only when asked', () => {
+  it('places the list hidden while a scroll to an item puts it in place', () => {
+    const [scrolling] = scrollToCurrentHandler(
+      { isReversed: true } as LogicConfig<{ id: string }, unknown, never>,
+      { isGraceful: false },
+    )(model)
+    expect(ScrollContainer.isPlacing(scrolling.scrollContainer)).toBe(true)
+  })
+
+  it('reopens the ends only when asked (the full list, not a preview of it)', () => {
     const ref = newScrollStateRef()
-    const [reset] = restoreSavedScroll(config, ref, { resetEdges: true })(model)
+    const [reset] = restoreSavedScroll(ref, { resetEdges: true })(model)
     expect(reset.mode.prev).toEqual({ _tag: 'Idle' })
     expect(reset.mode.next).toEqual({ _tag: 'Idle' })
-    const [kept] = restoreSavedScroll(config, ref, { resetEdges: false })(model)
+    const [kept] = restoreSavedScroll(ref, { resetEdges: false })(model)
     expect(kept.mode.next).toEqual(exhausted)
+  })
+})
+
+describe('scrolling to the newest item', () => {
+  const model = emptyModel({ ...defaultMode<{ id: string }>(), dataSourceId })
+  const commandOf = (isReversed: boolean, behavior?: 'smooth' | 'instant') =>
+    scrollToNewestHandler(
+      { isReversed } as LogicConfig<{ id: string }, unknown, never>,
+      model,
+      behavior,
+    )[0].scrollContainer.pendingAdjust?.command
+
+  it('scrolls smoothly to the end of a reversed list unless asked otherwise', () => {
+    expect(commandOf(true)).toEqual({ _tag: 'ScrollToEnd', behavior: 'smooth' })
+    expect(commandOf(true, 'instant')).toEqual({
+      _tag: 'ScrollToEnd',
+      behavior: 'instant',
+    })
+  })
+
+  it('scrolls to the start of a list with its newest items on top', () => {
+    expect(commandOf(false)).toEqual({
+      _tag: 'ScrollToStart',
+      behavior: 'smooth',
+    })
   })
 })

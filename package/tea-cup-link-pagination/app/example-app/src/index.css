@@ -1,6 +1,7 @@
 @import 'tailwindcss';
-@source '../../src';
-@source '../../../package/*/src';
+/* The classes of the list packages' views */
+@source '../../../src';
+@source '../../../../tea-cup-scroll-container/src';
 
 @layer base {
   html {
@@ -54,4 +55,19 @@
 
 .chat-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 1);
+}
+
+/* The highlight of a search result's row: the list adds `bg-fade-out` to it
+   and clears it after 2100 ms (`FLASH_MS`), the length of this fade */
+@keyframes bg-fade-out {
+  from {
+    background-color: rgba(199, 210, 254, 0.8);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+.bg-fade-out {
+  animation: bg-fade-out 2000ms ease-out 100ms both;
 }

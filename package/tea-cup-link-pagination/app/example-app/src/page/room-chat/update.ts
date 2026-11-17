@@ -118,6 +118,8 @@ export const mkLinkPaginationMode = (
         : withSelectedKeyInitialHandler(selectedKey),
     initial: { _tag: 'NotStarted' },
     selectedKey,
+    // A target opens at the top of the view
+    selectedAnchor: null,
 
     prevHandler: (overallData) => (pageSize) => {
       const beforeTimestamp =
@@ -177,11 +179,12 @@ export const customScrollToNewestHandler = (
   AppRouteUpdater<AppRoute>,
 ] => {
   if (LinkPagination.isAtNewest(model)) {
-    const [m, c] = LinkPagination.scrollToNewestHandler<
+    const [m, c] = LinkPagination.scrollToNewest<
       Api.Chat,
+      ParentContext,
       ChatItemMsg,
       AppRoute
-    >(logicConfig.refs, logicConfig.isReversed, model)
+    >(logicConfig)(model)
     return [m, c, null]
   } else {
     return [
@@ -277,14 +280,10 @@ export const reInit = (
     targetChatId === null
   ) {
     // Restore the reading position, and reopen both ends
-    const [updatedLinkPagin, linkPaginCmd] = LinkPagination.restoreSavedScroll<
-      Api.Chat,
-      ParentContext,
-      ChatItemMsg,
-      AppRoute
-    >(logicConfig, oldModel.scrollStateRef, { resetEdges: true })(
-      oldModel.linkPagin,
-    )
+    const [updatedLinkPagin, linkPaginCmd] = LinkPagination.restoreSavedScroll(
+      oldModel.scrollStateRef,
+      { resetEdges: true },
+    )<Api.Chat, ChatItemMsg, AppRoute>(oldModel.linkPagin)
 
     return [
       {
@@ -355,14 +354,13 @@ export const update = (
   db: MyDB | null,
   msg: Msg,
   model: Model,
-  refs: LinkPagination.Refs,
   networkOnline: boolean = true,
 ): [Model, Cmd<Msg>] => {
   switch (msg._tag) {
     case 'NoOp':
       return [model, Cmd.none()]
     case 'LinkPaginMsg':
-      return linkPaginMsgHandler(msg.subMsg, model, refs, networkOnline)
+      return linkPaginMsgHandler(msg.subMsg, model, networkOnline)
     case 'UpdateInputDraft':
       return updateInputDraftHandler(msg.text, model)
     case 'SendChat':
@@ -380,11 +378,11 @@ export const update = (
     case 'CloseSearchDropdown':
       return closeSearchDropdownHandler(model)
     case 'JumpToChat':
-      return jumpToChatHandler(msg.chatId, model, refs)
+      return jumpToChatHandler(msg.chatId, model)
     case 'JumpToUnread':
-      return jumpToUnreadHandler(model, refs)
+      return jumpToUnreadHandler(model)
     case 'ScrollToBottom':
-      return scrollToBottomHandler(model, refs)
+      return scrollToBottomHandler(model)
   }
 }
 
@@ -395,7 +393,6 @@ export const update = (
 const linkPaginMsgHandler = (
   subMsg: Extract<Msg, { _tag: 'LinkPaginMsg' }>['subMsg'],
   model: Model,
-  _refs: LinkPagination.Refs,
   networkOnline: boolean,
 ): [Model, Cmd<Msg>] => {
   if (subMsg._tag === 'ChildMsg' && subMsg.subMsg._tag === 'DeleteChat') {
@@ -489,11 +486,13 @@ const sendChatSuccessHandler = (
     model.linkPagin,
   )
 
-  const [finalLinkPagin, scrollCmd] = LinkPagination.scrollToNewestHandler<
+  // The chat sent is the newest: the list scrolls to it
+  const [finalLinkPagin, scrollCmd] = LinkPagination.scrollToNewest<
     Api.Chat,
+    ParentContext,
     ChatItemMsg,
     AppRoute
-  >(logicConfig.refs, true, newLinkPagin)
+  >(logicConfig)(newLinkPagin)
 
   return [
     {
@@ -562,7 +561,6 @@ const deleteChatSuccessHandler = (
         SUA.filter((c: Api.Chat) => c.id !== chatId)(overallData),
         null,
       ],
-      containerChangeEvent: { _tag: 'ElementModifyInPlace' },
     },
     model.linkPagin,
   )
@@ -628,17 +626,13 @@ const closeSearchDropdownHandler = (model: Model): [Model, Cmd<Msg>] => [
   Cmd.none(),
 ]
 
-const jumpToChatHandler = (
-  chatId: string,
-  model: Model,
-  refs: LinkPagination.Refs,
-): [Model, Cmd<Msg>] => {
+const jumpToChatHandler = (chatId: string, model: Model): [Model, Cmd<Msg>] => {
   const targetChat = model.searchResults.find((m) => m.id === chatId)
   const [newLinkPagin, scrollCmd] = LinkPagination.scrollToKeyHandler<
     Api.Chat,
     ChatItemMsg,
     AppRoute
-  >(refs, model.linkPagin, chatId)
+  >(model.linkPagin, chatId)
 
   return [
     {
@@ -654,10 +648,7 @@ const jumpToChatHandler = (
   ]
 }
 
-const jumpToUnreadHandler = (
-  model: Model,
-  refs: LinkPagination.Refs,
-): [Model, Cmd<Msg>] => {
+const jumpToUnreadHandler = (model: Model): [Model, Cmd<Msg>] => {
   const firstUnread = model.linkPagin.mode.overallData.value.find(
     (c) => c.isUnread,
   )
@@ -667,7 +658,7 @@ const jumpToUnreadHandler = (
     Api.Chat,
     ChatItemMsg,
     AppRoute
-  >(refs, model.linkPagin, firstUnread.id)
+  >(model.linkPagin, firstUnread.id)
 
   return [
     {
@@ -679,15 +670,13 @@ const jumpToUnreadHandler = (
   ]
 }
 
-const scrollToBottomHandler = (
-  model: Model,
-  refs: LinkPagination.Refs,
-): [Model, Cmd<Msg>] => {
-  const [newLinkPagin, scrollCmd] = LinkPagination.scrollToNewestHandler<
+const scrollToBottomHandler = (model: Model): [Model, Cmd<Msg>] => {
+  const [newLinkPagin, scrollCmd] = LinkPagination.scrollToNewest<
     Api.Chat,
+    ParentContext,
     ChatItemMsg,
     AppRoute
-  >(refs, true, model.linkPagin)
+  >(logicConfig)(model.linkPagin)
 
   return [
     { ...model, linkPagin: newLinkPagin },
