@@ -143,10 +143,6 @@ export type Config<Item = unknown> = {
   // Focus the first focusable element on open instead of the drawer itself
   // (keep false on mobile to avoid popping the keyboard)
   autoFocus: boolean
-  // Bottom drawers only: while a text field in the drawer is focused and the
-  // on-screen keyboard is open, lift the drawer above the keyboard and cap
-  // its height to the visible area (vaul's `repositionInputs`)
-  repositionInputs: boolean
   // Fraction of the drawer size that a slow swipe has to cover to close it
   closeThreshold: number
   // px/ms above which a swipe counts as a flick
@@ -191,6 +187,12 @@ export type Press = {
   // The press started inside a scroller (up to the drawer) that takes the
   // gesture (`scrollerTakesGesture`), so it scrolls instead of dragging
   scrollerTakesGesture: boolean
+  // The press started inside a scroller (up to the drawer) that can still
+  // scroll the way an opening drag goes (`scrollerTakesOpening`)
+  scrollerTakesOpening: boolean
+  // The press started inside a scroller (up to the drawer) that scrolls
+  // across the drawer axis (`scrollsAcross`)
+  isInCrossScroller: boolean
   // A scroller in the drawer was still moving at the press (momentum or a
   // bounce past its edge: it scrolled within `scrollLockTimeout`). iOS hands
   // such a touch to the scroller, so it never drags a left or right drawer.
@@ -207,6 +209,8 @@ export const PressEq: EqClass.Eq<Press> = EqClass.struct<Press>({
   viewport: N.Eq,
   isNoDragTarget: B.Eq,
   scrollerTakesGesture: B.Eq,
+  scrollerTakesOpening: B.Eq,
+  isInCrossScroller: B.Eq,
   isContentScrolling: B.Eq,
 })
 
@@ -390,6 +394,9 @@ export type Msg<Item, ItemMsg = never> =
   // Close requested by the user (overlay tap, or a key the owner handles);
   // ignored when not dismissible
   | { _tag: 'Dismiss' }
+  // A tap outside the drawer (the `outsideTap` prop). Not handled here: the
+  // owner intercepts it and decides what it does
+  | { _tag: 'OutsideTapped' }
   | { _tag: 'SetSnap'; index: number }
   // Replace the snap points (e.g. measured from the content), keeping the
   // active index (clamped). They last until the drawer closes: every open
@@ -520,6 +527,12 @@ export type Props<Item, ItemMsg, Parent> = {
   parentEq: EqClass.Eq<Parent>
   className?: string
   overlayClassName?: string
+  // A tap (a click: not a scroll) in the drawer's container, outside the
+  // drawer and any other drawer (or its backdrop), dialog or menu, is sent
+  // as `OutsideTapped`; the tap still reaches what was tapped. For a
+  // non-modal drawer whose owner reacts to a tap outside it only in some
+  // states.
+  outsideTap?: boolean
 }
 
 export const getPropsEq = <Item, ItemMsg, Parent>(
@@ -535,4 +548,5 @@ export const getPropsEq = <Item, ItemMsg, Parent>(
     parentEq: EqAlways,
     className: UndefinableEq(S.Eq),
     overlayClassName: UndefinableEq(S.Eq),
+    outsideTap: UndefinableEq(B.Eq),
   })

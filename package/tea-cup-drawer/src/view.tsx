@@ -29,6 +29,7 @@ import { pipe } from 'fp-ts/lib/function'
 import { type CSSProperties, type JSX, type PointerEvent } from 'react'
 import { type Dispatcher } from 'tea-cup-fp'
 
+import { hasSelection } from './subscription'
 import {
   type Config,
   type ContentAttrs,
@@ -43,6 +44,7 @@ import {
   type Press,
 } from './type'
 import {
+  type ScrollBox,
   contentDomId,
   directionMultiplier,
   hasSnapPoints,
@@ -52,6 +54,10 @@ import {
   overlayOpacity,
   restDistancePx,
   scrollerTakesGesture,
+  scrollerTakesOpening,
+  scrollsAcross,
+  takesPress,
+  touchMoveDecision,
   translateCss,
 } from './util'
 
@@ -75,36 +81,42 @@ const getTranslate = (element: HTMLElement, direction: Direction): number => {
   }
 }
 
+type ScrollerFlags = Pick<
+  Press,
+  'scrollerTakesGesture' | 'scrollerTakesOpening' | 'isInCrossScroller'
+>
+
 // Whether an element between `target` and the drawer (included) takes the
-// gesture (`scrollerTakesGesture`)
-const isInGestureScroller = (
+// gesture (`scrollerTakesGesture`), can still scroll the way an opening drag
+// goes (`scrollerTakesOpening`), or scrolls across the axis (`scrollsAcross`)
+const measureScrollers = (
   target: Element,
   content: HTMLElement,
   direction: Direction,
-): boolean => {
-  let element: Element | null = target
-  let found = false
-  while (element !== null && !found) {
-    const style = window.getComputedStyle(element)
-    if (
-      scrollerTakesGesture(direction, {
-        scrollTop: element.scrollTop,
-        scrollHeight: element.scrollHeight,
-        scrollWidth: element.scrollWidth,
-        clientHeight: element.clientHeight,
-        clientWidth: element.clientWidth,
-        overflowX: style.overflowX,
-        overflowY: style.overflowY,
-      })
-    ) {
-      found = true
-    } else if (element === content) {
-      element = null
-    } else {
-      element = element.parentElement
-    }
+): ScrollerFlags => {
+  const flags: ScrollerFlags = {
+    scrollerTakesGesture: false,
+    scrollerTakesOpening: false,
+    isInCrossScroller: false,
   }
-  return found
+  let element: Element | null = target
+  while (element !== null) {
+    const style = window.getComputedStyle(element)
+    const box: ScrollBox = {
+      scrollTop: element.scrollTop,
+      scrollHeight: element.scrollHeight,
+      scrollWidth: element.scrollWidth,
+      clientHeight: element.clientHeight,
+      clientWidth: element.clientWidth,
+      overflowX: style.overflowX,
+      overflowY: style.overflowY,
+    }
+    flags.scrollerTakesGesture ||= scrollerTakesGesture(direction, box)
+    flags.scrollerTakesOpening ||= scrollerTakesOpening(direction, box)
+    flags.isInCrossScroller ||= scrollsAcross(direction, box)
+    element = element === content ? null : element.parentElement
+  }
+  return flags
 }
 
 // When a scroller in each drawer's content last scrolled (`Event.timeStamp`):
@@ -149,11 +161,7 @@ const measurePress = <Item,>(
       isNoDragTarget:
         target.tagName === 'SELECT' ||
         target.closest('[data-drawer-no-drag]') !== null,
-      scrollerTakesGesture: isInGestureScroller(
-        target,
-        content,
-        config.direction,
-      ),
+      ...measureScrollers(target, content, config.direction),
       isContentScrolling: pipe(
         O.fromNullable(lastContentScrollAt.get(content)),
         O.exists((at) => e.timeStamp - at < config.scrollLockTimeout),
@@ -165,12 +173,46 @@ const measurePress = <Item,>(
 // Attributes
 // ---------------------------------
 
-// iOS scrolls a scroller inside the drawer along with a drag: the drawer's
-// `touch-action: none` doesn't reach past it, and a drift across the drag
-// starts its native pan (which then cancels the pointer and flings the
-// content while the drawer animates). Cancel the touch moves while the drawer
-// follows the finger. React's `onTouchMove` is passive, so it is a DOM
-// listener, attached once per element (a stable ref callback).
+// The press each drawer's content last took, with the model it was pressed
+// in, for `willDrag`. `lastDragPreventedAt` follows the press as `update`'s
+// does: a move left to the content locks out dragging for a while.
+type PendingPress = {
+  model: Model<unknown>
+  press: Press
+  lastDragPreventedAt: O.Option<number>
+}
+const pendingPresses = new WeakMap<HTMLElement, PendingPress>()
+
+// `touchMoveDecision` for a touch move on the drawer's content
+const willDrag = (element: HTMLElement, e: TouchEvent): boolean => {
+  const pending = pendingPresses.get(element)
+  const touch = e.touches.item(0)
+  if (pending === undefined || touch === null) {
+    return false
+  } else {
+    const decision = touchMoveDecision(
+      { ...pending.model, lastDragPreventedAt: pending.lastDragPreventedAt },
+      pending.press,
+      { x: touch.pageX, y: touch.pageY, time: e.timeStamp },
+      hasSelection(),
+    )
+    if (O.isSome(decision)) {
+      pending.lastDragPreventedAt = decision.value.lastDragPreventedAt
+      return decision.value.allow
+    } else {
+      pendingPresses.delete(element)
+      return false
+    }
+  }
+}
+
+// A scroller inside the drawer starts its native pan on a drag from it: the
+// drawer's `touch-action: none` doesn't reach past it. The pan then cancels
+// the pointer (and on iOS flings the content while the drawer animates).
+// Cancel the touch moves while the drawer follows the finger, and before:
+// Android starts the pan on the first move past its touch slop, before the
+// press reaches `dragThreshold`. React's `onTouchMove` is passive, so it is a
+// DOM listener, attached once per element (a stable ref callback).
 const preventScrollWhileDragging = (
   element: HTMLElement | null,
 ): (() => void) | undefined => {
@@ -178,7 +220,10 @@ const preventScrollWhileDragging = (
     return undefined
   } else {
     const onTouchMove = (e: TouchEvent) => {
-      if (element.dataset.state === 'Dragging' && e.cancelable) {
+      if (
+        (element.dataset.state === 'Dragging' || willDrag(element, e)) &&
+        e.cancelable
+      ) {
         e.preventDefault()
       } else {
         // Not dragging: the content scrolls
@@ -247,7 +292,17 @@ export const contentAttrs = <Item,>(
   } as CSSProperties,
   onPointerDown: (e) => {
     const press = measurePress(model, e)
+    pendingPresses.delete(e.currentTarget)
     if (O.isSome(press)) {
+      if (takesPress(model)) {
+        pendingPresses.set(e.currentTarget, {
+          model,
+          press: press.value,
+          lastDragPreventedAt: model.lastDragPreventedAt,
+        })
+      } else {
+        // `update` ignores it: the content keeps the gesture
+      }
       dispatch({ _tag: 'PointerDown', press: press.value })
     } else if (model.swallowNextClick) {
       // Not a drag start (secondary button, outside the handle, ...), but a
@@ -304,10 +359,13 @@ export const overlayAttrs = <Item,>(
 
 const directionClassName = (direction: Direction): string => {
   switch (direction) {
+    // A share of the drawer's containing block, not of the screen (`dvh`):
+    // the page may be shorter than the screen (e.g. above the on-screen
+    // keyboard), and the drawer then fits it
     case 'bottom':
-      return 'max-h-[96dvh] rounded-t-2xl'
+      return 'max-h-[96%] rounded-t-2xl'
     case 'top':
-      return 'max-h-[96dvh] rounded-b-2xl'
+      return 'max-h-[96%] rounded-b-2xl'
     case 'left':
       return 'w-3/4 max-w-sm rounded-r-2xl'
     case 'right':

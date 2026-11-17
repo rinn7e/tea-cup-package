@@ -20,6 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
 import * as O from 'fp-ts/lib/Option'
+import { pipe } from 'fp-ts/lib/function'
 import {
   type CSSProperties,
   type ReactElement,
@@ -35,7 +36,7 @@ import {
 import { createPortal } from 'react-dom'
 
 import './drawer.css'
-import { followKeyboard, holdBodyLock, releaseDrawer } from './effect'
+import { holdBodyLock, releaseDrawer } from './effect'
 import { type Msg, type Portal, type Props, getPropsEq } from './type'
 import {
   contentDomId,
@@ -76,6 +77,7 @@ export const DrawerComponent = <Item, ItemMsg, Parent>({
   parent,
   className,
   overlayClassName,
+  outsideTap,
 }: Props<Item, ItemMsg, Parent>) => {
   // The body scroll lock is held by this view while it shows the drawer
   // (under the view's own id, see `effect.ts`), whatever closes it: a normal
@@ -115,14 +117,43 @@ export const DrawerComponent = <Item, ItemMsg, Parent>({
     }
   }, [viewId])
 
-  // Lift the drawer above the on-screen keyboard while it is shown
+  // `outsideTap`: a click (a scroll makes none), heard in the capture phase.
+  // It still reaches what was tapped, e.g. a menu button on the page.
   useEffect(() => {
-    if (isShown) {
-      return followKeyboard(latest.current.config)
+    if (isShown && outsideTap === true) {
+      const portal = latest.current.config.portal
+      const root: Document | HTMLElement = pipe(
+        portal._tag === 'Container' ? O.fromNullable(portal.get()) : O.none,
+        O.getOrElse((): Document | HTMLElement => document),
+      )
+      const onClick = (e: Event) => {
+        const target = e.target
+        const content = document.getElementById(
+          contentDomId(latest.current.config.id),
+        )
+        const otherSurface =
+          target instanceof Element
+            ? target.closest(
+                '[data-drawer], [data-drawer-overlay], [role="dialog"], [role="menu"]',
+              )
+            : null
+        if (
+          !(target instanceof Node) ||
+          content?.contains(target) ||
+          (otherSurface !== null && otherSurface !== root)
+        ) {
+          // The drawer's own, or another surface's (e.g. a sheet it opened, or
+          // its backdrop)
+        } else {
+          dispatch({ _tag: 'OutsideTapped' })
+        }
+      }
+      root.addEventListener('click', onClick, true)
+      return () => root.removeEventListener('click', onClick, true)
     } else {
       return undefined
     }
-  }, [isShown])
+  }, [isShown, outsideTap, dispatch])
 
   // While dragging, the view follows the pointer itself: each move sets the
   // drawer's position (and its overlay's opacity) on the elements, without a

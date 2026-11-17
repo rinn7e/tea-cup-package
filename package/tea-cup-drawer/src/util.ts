@@ -553,6 +553,33 @@ export const scrollerTakesGesture = (
   }
 }
 
+// Whether a top or bottom drawer's scroller can still move the way an opening
+// drag goes (a bottom sheet's text not at its end yet). Side drawers: never,
+// `scrollerTakesGesture` already gives them every swipe across a scroller.
+export const scrollerTakesOpening = (
+  direction: Direction,
+  box: ScrollBox,
+): boolean => {
+  const max = box.scrollHeight - box.clientHeight
+  return (
+    isVertical(direction) &&
+    isScrollable(box.overflowY) &&
+    max > scrollEdgeTolerance &&
+    (direction === 'bottom'
+      ? box.scrollTop < max - scrollEdgeTolerance
+      : box.scrollTop > scrollEdgeTolerance)
+  )
+}
+
+// Whether a scroller scrolls across the drawer axis (a row of attachments in
+// a bottom sheet)
+export const scrollsAcross = (direction: Direction, box: ScrollBox): boolean =>
+  isVertical(direction)
+    ? isScrollable(box.overflowX) &&
+      box.scrollWidth - box.clientWidth > scrollEdgeTolerance
+    : isScrollable(box.overflowY) &&
+      box.scrollHeight - box.clientHeight > scrollEdgeTolerance
+
 /**
  * Port of vaul's `shouldDrag`: whether a gesture should drag the drawer or be
  * left to the content (scrolling, text selection, selects). Unlike vaul, it
@@ -564,6 +591,8 @@ export const decideDrag = (
   press: Press,
   args: {
     isDraggingInDirection: boolean
+    // `activeSnapIndex` of the drawer pressed
+    snapIndex: number
     hasSelection: boolean
     time: number
     lastDragPreventedAt: O.Option<number>
@@ -590,7 +619,15 @@ export const decideDrag = (
     isVertical(config.direction) &&
     O.exists((at: number) => args.time - at < openDragDelay)(args.openedAt)
 
+  // Pushed closed from its first snap point, a drawer that can't be dismissed
+  // has nowhere to go
+  const isPastClosedEnd =
+    !config.dismissible && args.snapIndex === 0 && !args.isDraggingInDirection
+
   if (press.isNoDragTarget) {
+    return keep(false)
+  } else if (isPastClosedEnd) {
+    // The content scrolls, as on iOS
     return keep(false)
   } else if (press.isContentScrolling && !isVertical(config.direction)) {
     // A side drawer whose content was still scrolling or bouncing: the touch
@@ -601,6 +638,11 @@ export const decideDrag = (
     // Allow scrolling when animating: just opened, or just expanded to its
     // last snap point (its content may be scrollable)
     return keep(false)
+  } else if (args.isDraggingInDirection && press.scrollerTakesOpening) {
+    // Unlike vaul: pulled open from a snap point inside a scroller, the
+    // scroller scrolls to its end first (a long text in a compact editor);
+    // the next drag opens the drawer
+    return prevent
   } else if (isSwiped) {
     return keep(true)
   } else if (args.hasSelection) {
@@ -617,6 +659,88 @@ export const decideDrag = (
     return prevent
   } else {
     return keep(true)
+  }
+}
+
+// Whether `update` takes a press: a drawer at rest or sliding in that can be
+// dragged. Shared with the view's touch path (`touchMoveDecision`).
+export const takesPress = <Item>(model: Model<Item>): boolean => {
+  const canDrag =
+    !model.isDragLocked &&
+    (model.config.dismissible || hasSnapPoints(model.snap))
+  switch (model.animate._tag) {
+    case 'Visible':
+    case 'Settling':
+    case 'AnimateIn':
+      return canDrag
+    case 'Invisible':
+    case 'Mounting':
+    case 'Dragging':
+    case 'AnimateOut':
+      return false
+  }
+}
+
+export type Move = { x: number; y: number; time: number }
+
+// `decideDrag` for a move along the axis of a press on `model`
+export const decideMove = <Item>(
+  model: Model<Item>,
+  press: Press,
+  move: Move,
+  hasSelection: boolean,
+): DragDecision =>
+  decideDrag(model.config, press, {
+    isDraggingInDirection:
+      draggedDistance(model.config.direction, press, move.x, move.y) > 0,
+    snapIndex: activeSnapIndex(model.snap),
+    hasSelection,
+    time: move.time,
+    lastDragPreventedAt: model.lastDragPreventedAt,
+    openedAt: model.openedAt,
+  })
+
+/**
+ * Whether a touch move of a press not dragging yet is one `update` drags the
+ * drawer from, read from the model the press was taken in (the rendered state
+ * lags behind the move); `none` when it goes across the axis, which leaves the
+ * rest of the press to the content, as in `update`. Within `dragThreshold`,
+ * where `update` hasn't decided yet, the travel's angle so far stands for it:
+ * the browser commits to a native scroll (or not) on its first move, so a
+ * swipe across the axis must reach the content from there. Inside a scroller
+ * across the axis, that first move is too short to tell its jitter from a
+ * swipe of the scroller, so it is left to the scroller.
+ */
+export const touchMoveDecision = <Item>(
+  model: Model<Item>,
+  press: Press,
+  move: Move,
+  hasSelection: boolean,
+): O.Option<DragDecision> => {
+  const dx = move.x - press.startX
+  const dy = move.y - press.startY
+  switch (gestureStart(model.config, press.pointerType, dx, dy)._tag) {
+    case 'AcrossAxis':
+      return O.none
+    case 'Undecided': {
+      const noThreshold = {
+        ...model.config,
+        dragThreshold: { touch: 0, mouse: 0 },
+      }
+      const isAlongSoFar =
+        !press.isInCrossScroller &&
+        (dx !== 0 || dy !== 0) &&
+        gestureStart(noThreshold, press.pointerType, dx, dy)._tag ===
+          'AlongAxis'
+      // `update` decides nothing yet: no scroll lock to record
+      return O.some({
+        allow:
+          isAlongSoFar && decideMove(model, press, move, hasSelection).allow,
+        lastDragPreventedAt: model.lastDragPreventedAt,
+      })
+    }
+    case 'AlongAxis':
+      return O.some(decideMove(model, press, move, hasSelection))
   }
 }
 

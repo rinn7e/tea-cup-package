@@ -213,6 +213,7 @@ describe('contentAttrs — no native scroll during a drag', () => {
   type TouchMoveListener = (e: {
     cancelable: boolean
     preventDefault: () => void
+    touches: { item: (index: number) => null }
   }) => void
 
   // The content element, with what the ref attached to it
@@ -267,6 +268,8 @@ describe('contentAttrs — no native scroll during a drag', () => {
         preventDefault: () => {
           prevented = true
         },
+        // No press taken: no touch to read
+        touches: { item: () => null },
       }),
     )
     return prevented

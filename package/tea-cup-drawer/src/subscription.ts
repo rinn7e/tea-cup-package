@@ -27,7 +27,7 @@ import { isGestureActive } from './util'
 
 export const documentEvents = new DocumentEvents()
 
-const hasSelection = (): boolean => {
+export const hasSelection = (): boolean => {
   const selection = window.getSelection()
   return selection !== null && selection.toString().length > 0
 }

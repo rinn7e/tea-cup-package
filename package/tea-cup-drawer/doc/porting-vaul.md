@@ -37,13 +37,13 @@ buried inside event handlers that read and write refs.
 | `pointerStart`, `dragStartTime`, `isAllowedToDrag` refs                                       | `Press` (captured on pointer down) inside `Gesture.Pressed` / `Dragging`                                                                                                            |
 | `onPress` / `onDrag` / `onRelease`                                                            | `PointerDown` / `PointerMove` / `PointerUp` / `PointerCancel` messages                                                                                                              |
 | `onRelease` decision, `dampenValue`, `useSnapPoints.onRelease`                                | Pure functions in `util.ts`: `dragDistance`, `decideRelease`, `overlayOpacityAt`                                                                                                    |
-| `shouldDrag` (DOM walk + timing refs)                                                         | DOM facts measured at pointer down (`isNoDragTarget`, `scrollerTakesGesture`), timing decided by the pure `decideDrag`                                                              |
+| `shouldDrag` (DOM walk + timing refs)                                                         | DOM facts measured at pointer down (`isNoDragTarget`, `scrollerTakesGesture`, `scrollerTakesOpening`, `isInCrossScroller`), timing decided by the pure `decideDrag`                 |
 | `isDeltaInDirection` (on every move, from the first px; any move toward open counts)          | `gestureStart`: decided once, after `dragThreshold` px of travel, by its angle to the axis (`dragAngle`), like the OS's touch slop                                                  |
 | `element.style.transform = ...` during drags                                                  | Rendered from the model: `--drawer-translate` CSS variable from `translateCss(model)`                                                                                               |
 | `setTimeout(TRANSITIONS.DURATION)`                                                            | `transitionend` → `TransitionEnd`, with `AnimationTimeout` (`delayCmd`) as a fallback                                                                                               |
 | Window listeners (pointer, keyboard)                                                          | `Sub`: document pointer events only while a gesture is active; no keyboard listener (keys are the owner's)                                                                          |
 | Body `position: fixed` (Safari), scroll lock, focus restore                                   | `effect.ts`: the lock held by the drawer's view (`holdBodyLock` / `releaseDrawer`), `Cmd`s for focus (`rememberFocusCmd` / `restoreFocusCmd`, ...)                                  |
-| `repositionInputs` (`visualViewport` resize listener)                                         | `followKeyboard` in `effect.ts`, run by the view while the drawer shows: a bottom drawer sits above the keyboard while one of its text fields is focused, until the keyboard closes |
+| `repositionInputs` (`visualViewport` resize listener)                                         | Not ported: the page resizes above the keyboard itself, and the default views cap a top or bottom drawer at `max-h-[96%]` of its containing block                                   |
 | `open` / `onOpenChange` / `defaultOpen` (controlled + uncontrolled)                           | Always controlled: `Open { internal }`, `Close`, `Dismiss` messages; parents compare `isOpen` before/after `update`                                                                 |
 | Radix Dialog                                                                                  | Plain `div role="dialog"` + overlay, named by `config.aria`; Escape and the Tab trap are left to the owner                                                                          |
 | `children` as React elements (re-render with the parent)                                      | `DrawerMemo` with `renderContent(content, contentDispatch, parent)`, compared with `itemEq` / `parentEq`                                                                            |
@@ -340,8 +340,10 @@ but more code than passing a callback.
 
 - Background scaling (`shouldScaleBackground`, `setBackgroundColorOnScale`)
 - Nested drawers (`onNestedDrag`, `onNestedOpenChange`)
-- vaul's `fixed` (keyboard repositioning itself is ported as
-  `repositionInputs`, for bottom drawers)
+- The `fixed` and `repositionInputs` of vaul (keyboard repositioning): the page
+  is expected to resize above the on-screen keyboard itself, and the default
+  views cap a top or bottom drawer at `max-h-[96%]` of its containing block
+  (not `96dvh` of the screen), so the drawer fits the page that is left
 - vaul's iOS touch-move scroll prevention (`usePreventScroll`); the body lock
   and Safari `position: fixed` are ported
 - `preventScrollRestoration`

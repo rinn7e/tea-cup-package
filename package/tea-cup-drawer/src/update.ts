@@ -46,8 +46,9 @@ import {
   type Ui,
 } from './type'
 import {
+  type Move,
   activeSnapIndex,
-  decideDrag,
+  decideMove,
   decideRelease,
   dragDistance,
   draggedDistance,
@@ -57,6 +58,7 @@ import {
   replaceSnapPoints,
   selectSnap,
   snapFromConfig,
+  takesPress,
 } from './util'
 
 // Defaults (vaul's)
@@ -78,7 +80,6 @@ export const defaultConfig = <Item>(
   snap: { _tag: 'NoSnap' },
   handleOnly: false,
   autoFocus: false,
-  repositionInputs: true,
   closeThreshold: 0.25,
   velocityThreshold: 0.4,
   scrollLockTimeout: 100,
@@ -460,9 +461,7 @@ const withGesture =
 const pointerDownHandler =
   (press: Press) =>
   <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
-    const canDrag =
-      !model.isDragLocked &&
-      (model.config.dismissible || hasSnapPoints(model.snap))
+    const canDrag = takesPress(model)
     // A new press: its click is a tap until it drags
     const pressed = { ...model, swallowNextClick: false }
     const animate = model.animate
@@ -507,13 +506,12 @@ const pressedMoveHandler =
   <Item>(
     animate: Extract<AnimateState<Item>, { _tag: 'Visible' | 'Settling' }>,
     press: Press,
-    move: { x: number; y: number; time: number },
+    move: Move,
     hasSelection: boolean,
   ) =>
   (model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const config = model.config
     const dragged = draggedDistance(config.direction, press, move.x, move.y)
-    const isDraggingInDirection = dragged > 0
     const last = { x: move.x, y: move.y }
     const start = gestureStart(
       config,
@@ -535,7 +533,6 @@ const pressedMoveHandler =
       case 'AlongAxis':
         return alongAxisMoveHandler(animate, press, {
           dragged,
-          isDraggingInDirection,
           last,
           time: move.time,
           hasSelection,
@@ -551,7 +548,6 @@ const alongAxisMoveHandler =
     press: Press,
     move: {
       dragged: number
-      isDraggingInDirection: boolean
       last: PointerPosition
       time: number
       hasSelection: boolean
@@ -559,14 +555,13 @@ const alongAxisMoveHandler =
   ) =>
   (model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const config = model.config
-    const { dragged, isDraggingInDirection, last, hasSelection } = move
-    const decision = decideDrag(config, press, {
-      isDraggingInDirection,
+    const { dragged, last, hasSelection } = move
+    const decision = decideMove(
+      model,
+      press,
+      { ...last, time: move.time },
       hasSelection,
-      time: move.time,
-      lastDragPreventedAt: model.lastDragPreventedAt,
-      openedAt: model.openedAt,
-    })
+    )
     if (decision.allow) {
       // `Dragging` now holds the press
       return [
@@ -596,7 +591,7 @@ const alongAxisMoveHandler =
   }
 
 const pointerMoveHandler =
-  (move: { x: number; y: number; time: number }, hasSelection: boolean) =>
+  (move: Move, hasSelection: boolean) =>
   <Item>(model: Model<Item>): [Model<Item>, Cmd<Msg<Item>>] => {
     const animate = model.animate
     switch (animate._tag) {
@@ -718,6 +713,9 @@ const updateMsg = <Item, ItemMsg>(
       return closeHandler(model)
     case 'Dismiss':
       return dismissHandler(model)
+    case 'OutsideTapped':
+      // The owner intercepts this one
+      return [model, Cmd.none()]
     case 'SetSnap':
       return setSnapHandler(msg.index)(model)
     case 'SetSnapPoints':
