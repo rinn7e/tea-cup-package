@@ -132,7 +132,8 @@ export const throttle = <F extends (...args: any[]) => any>(
   let timeout: ReturnType<typeof setTimeout> | null
   let startTime: number = now() - waitFor
   // Callers superseded by a later call are resolved with that later call's result,
-  // so no returned promise is left pending forever.
+  // so no returned promise is left pending forever, unless `func` throws: then
+  // they stay pending.
   let pendingResolves: Array<(value: ReturnType<F>) => void> = []
 
   return (...args: Parameters<F>): Promise<ReturnType<F>> =>
@@ -163,7 +164,9 @@ export const throttle = <F extends (...args: any[]) => any>(
 
 export const mkDate = (dateString: string): Date => new Date(dateString)
 
-// Only `null` counts as missing: falsy values (`0`, `''`, `false`) are compared with `aEq`
+// Only `null` counts as missing: falsy values (`0`, `''`, `false`) are compared with `aEq`.
+// Truthiness made `null` and `''` equal, so a memoized view given `''` where it
+// had `null` kept its old render.
 export const NullableEq = <A>(aEq: EqClass.Eq<A>): EqClass.Eq<A | null> => ({
   equals: (first, second) => {
     if (first !== null && second !== null) return aEq.equals(first, second)
@@ -179,7 +182,9 @@ export const EqAlways: EqClass.Eq<any> = { equals: () => true }
 // Eq instance for Unit type (null is used as unit type)
 export const nullEq: EqClass.Eq<null> = EqAlways
 
-// Only `undefined` counts as missing: falsy values (`0`, `''`, `false`) are compared with `aEq`
+// Only `undefined` counts as missing: falsy values (`0`, `''`, `false`) are compared with `aEq`,
+// and so is `null` when `A` has it (an optional field that can be `null`:
+// `UndefinableEq(NullableEq(...))` tells "not given" from "given as none").
 export const UndefinableEq = <A>(
   aEq: EqClass.Eq<A>,
 ): EqClass.Eq<A | undefined> => ({
