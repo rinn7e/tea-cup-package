@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM"],
+    "declaration": true,
+    "outDir": "lib",
+    "strict": true,
+    "noUnusedLocals": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@rinn7e/tea-cup-api-generator": ["src/index.ts"]
+    }
+  },
+  "include": ["src", "tests"]
+}

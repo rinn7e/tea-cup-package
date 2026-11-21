@@ -1,0 +1,94 @@
+openapi: 3.0.3
+info:
+  title: Pet store
+  version: 1.0.0
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: The pets of the store, a page at a time
+      parameters:
+        - name: limit
+          in: query
+          description: How many pets to return (at most 100)
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: A page of pets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pets'
+        default:
+          description: An error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+      responses:
+        '201':
+          description: Created
+        default:
+          description: An error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /pets/{petId}:
+    get:
+      operationId: showPetById
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The pet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pet'
+        default:
+          description: An error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        tag:
+          type: string
+          nullable: true
+          description: A label the staff gave the pet
+    Pets:
+      type: array
+      items:
+        $ref: '#/components/schemas/Pet'
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+        message:
+          type: string

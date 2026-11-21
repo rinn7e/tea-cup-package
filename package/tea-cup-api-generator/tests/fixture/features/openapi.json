@@ -1,0 +1,530 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Features", "version": "1.0.0" },
+  "paths": {
+    "/pets": {
+      "get": {
+        "operationId": "listPets",
+        "parameters": [
+          { "$ref": "#/components/parameters/Limit" },
+          {
+            "name": "tags",
+            "in": "query",
+            "style": "form",
+            "explode": false,
+            "schema": { "type": "array", "items": { "type": "string" } }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "style": "deepObject",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "species": { "$ref": "#/components/schemas/Species" },
+                "minAge": { "type": "integer" }
+              }
+            }
+          },
+          {
+            "name": "X-Request-Id",
+            "in": "header",
+            "schema": { "type": "string" }
+          },
+          { "name": "theme", "in": "cookie", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Pet" }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "create-pet",
+        "requestBody": { "$ref": "#/components/requestBodies/NewPetBody" },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Pet" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pets/{petId}": {
+      "parameters": [
+        {
+          "name": "petId",
+          "in": "path",
+          "required": true,
+          "schema": { "$ref": "#/components/schemas/PetId" }
+        }
+      ],
+      "get": {
+        "summary": "One pet",
+        "description": "Answers 404 when no pet has the id.",
+        "responses": {
+          "200": {
+            "description": "The pet",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AnyPet" }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "default": {
+            "description": "An error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "renamePet",
+        "requestBody": {
+          "content": { "text/plain": { "schema": { "type": "string" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Renamed, as a unit",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "maxItems": 0, "items": {} }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deletePet",
+        "responses": { "204": { "description": "Deleted" } }
+      }
+    },
+    "/pets/{petId}/photo": {
+      "parameters": [
+        {
+          "name": "petId",
+          "in": "path",
+          "required": true,
+          "schema": { "$ref": "#/components/schemas/PetId" }
+        }
+      ],
+      "put": {
+        "operationId": "uploadPhoto",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/Upload" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Where the photo is",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["url"],
+                  "properties": { "url": { "type": "string" } }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getPhoto",
+        "responses": {
+          "200": { "description": "The photo", "content": { "image/png": {} } }
+        }
+      }
+    },
+    "/pets/{petId}/raw": {
+      "post": {
+        "operationId": "sendRaw",
+        "parameters": [
+          {
+            "name": "petId",
+            "in": "path",
+            "required": true,
+            "schema": { "$ref": "#/components/schemas/PetId" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": { "type": "string", "format": "binary" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A receipt",
+            "content": { "text/plain": { "schema": { "type": "string" } } }
+          }
+        }
+      }
+    },
+    "/search": {
+      "post": {
+        "operationId": "search",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["q"],
+                "properties": {
+                  "q": { "type": "string" },
+                  "page": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The pets found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/AnyPet" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trees": {
+      "get": {
+        "operationId": "getTree",
+        "parameters": [
+          {
+            "name": "depth",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A tree",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Tree" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files/{file-name}": {
+      "get": {
+        "operationId": "getFile",
+        "parameters": [
+          {
+            "name": "file-name",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file",
+            "content": { "text/plain": { "schema": { "type": "string" } } }
+          }
+        }
+      }
+    },
+    "/legacy": {
+      "get": {
+        "operationId": "getLegacy",
+        "summary": "The old way",
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "Old",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Legacy" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/session": {
+      "get": {
+        "operationId": "getSession",
+        "parameters": [
+          {
+            "name": "sid",
+            "in": "cookie",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "The session" } }
+      }
+    },
+    "/broken/{id}": {
+      "get": {
+        "operationId": "getBroken",
+        "responses": { "200": { "description": "Never" } }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": { "$ref": "#/components/schemas/Count" }
+      }
+    },
+    "requestBodies": {
+      "NewPetBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/NewPet" }
+          }
+        }
+      }
+    },
+    "responses": {
+      "NotFound": {
+        "description": "No such pet",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/NotFound" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "PetId": { "type": "string", "description": "The id of a pet" },
+      "Count": { "type": "integer" },
+      "Species": { "type": "string", "enum": ["cat", "dog", "guinea-pig"] },
+      "PetBase": {
+        "type": "object",
+        "required": ["name"],
+        "properties": { "name": { "type": "string" } }
+      },
+      "NewPet": {
+        "allOf": [
+          { "$ref": "#/components/schemas/PetBase" },
+          {
+            "type": "object",
+            "required": ["species"],
+            "properties": {
+              "species": { "$ref": "#/components/schemas/Species" }
+            }
+          }
+        ]
+      },
+      "Pet": {
+        "type": "object",
+        "required": ["id", "name", "species"],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/PetId" },
+          "name": { "type": "string" },
+          "species": { "$ref": "#/components/schemas/Species" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "birthday": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the pet was born"
+          },
+          "nickname": { "type": ["string", "null"] },
+          "weight": { "type": "number", "nullable": true },
+          "status": { "$ref": "#/components/schemas/Status" }
+        }
+      },
+      "Cat": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Pet" },
+          {
+            "type": "object",
+            "required": ["kind"],
+            "properties": {
+              "kind": { "const": "cat" },
+              "indoor": { "type": "boolean" }
+            }
+          }
+        ]
+      },
+      "Dog": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Pet" },
+          {
+            "type": "object",
+            "required": ["kind"],
+            "properties": {
+              "kind": { "const": "dog" },
+              "barks": { "type": "boolean" }
+            }
+          }
+        ]
+      },
+      "AnyPet": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/Cat" },
+          { "$ref": "#/components/schemas/Dog" }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": { "cat": "#/components/schemas/Cat", "dog": "Dog" }
+        }
+      },
+      "Circle": {
+        "type": "object",
+        "required": ["shape", "radius"],
+        "properties": {
+          "shape": { "const": "Circle" },
+          "radius": { "type": "number" }
+        }
+      },
+      "Square": {
+        "type": "object",
+        "required": ["shape", "side"],
+        "properties": {
+          "shape": { "const": "Square" },
+          "side": { "type": "number" }
+        }
+      },
+      "Shape": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/Circle" },
+          { "$ref": "#/components/schemas/Square" }
+        ],
+        "discriminator": { "propertyName": "shape" }
+      },
+      "Tree": {
+        "type": "object",
+        "required": ["value", "children"],
+        "properties": {
+          "value": { "type": "integer" },
+          "children": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Tree" }
+          }
+        }
+      },
+      "Expr": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/Lit" },
+          { "$ref": "#/components/schemas/Add" }
+        ]
+      },
+      "Lit": {
+        "type": "object",
+        "required": ["op", "value"],
+        "properties": {
+          "op": { "const": "lit" },
+          "value": { "type": "number" }
+        }
+      },
+      "Add": {
+        "type": "object",
+        "required": ["op", "left", "right"],
+        "properties": {
+          "op": { "const": "add" },
+          "left": { "$ref": "#/components/schemas/Expr" },
+          "right": { "$ref": "#/components/schemas/Expr" }
+        }
+      },
+      "Point": {
+        "type": "array",
+        "prefixItems": [{ "type": "number" }, { "type": "number" }]
+      },
+      "Labels": {
+        "type": "object",
+        "additionalProperties": { "type": "string" }
+      },
+      "Metadata": { "type": "object" },
+      "Anything": {},
+      "Status": { "enum": [1, 2, null] },
+      "Choice": { "anyOf": [{ "type": "string" }, { "type": "number" }] },
+      "Mixed": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/Point" },
+          { "$ref": "#/components/schemas/Labels" }
+        ]
+      },
+      "Legacy": {
+        "type": "string",
+        "deprecated": true,
+        "description": "Use PetId instead"
+      },
+      "Error": {
+        "type": "object",
+        "required": ["message"],
+        "properties": {
+          "message": { "type": "string" },
+          "code": { "type": "integer" }
+        }
+      },
+      "NotFound": {
+        "type": "object",
+        "required": ["missing"],
+        "properties": { "missing": { "type": "string" } }
+      },
+      "Upload": {
+        "type": "object",
+        "required": ["file"],
+        "properties": {
+          "file": { "type": "string", "format": "binary" },
+          "note": { "type": "string" }
+        }
+      },
+      "PetAdopted": {
+        "type": "object",
+        "required": ["_tag", "pet"],
+        "properties": {
+          "_tag": { "type": "string", "enum": ["PetAdopted"] },
+          "pet": { "$ref": "#/components/schemas/Pet" }
+        }
+      },
+      "Weird": { "type": "file" }
+    }
+  }
+}

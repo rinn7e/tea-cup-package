@@ -1,0 +1,30 @@
+{
+  "openapi": "openapi.json",
+  "asyncapi": "asyncapi.yaml",
+  "out": "out",
+  "files": {
+    "schemas": "type/generated.ts",
+    "endpoints": "handler/generated.ts"
+  },
+  "client": { "module": "../../../client", "name": "client" },
+  "naming": { "operationPrefix": "call", "operationSuffix": "Endpoint" },
+  "rename": {
+    "schemas": { "NotFound": "NotFoundError" },
+    "operations": { "getPetsByPetId": "callGetPet" }
+  },
+  "types": {
+    "formats": {
+      "date-time": {
+        "module": "../../../app-type",
+        "type": "DateTime",
+        "codec": "DateTimeJson",
+        "eq": "DateTimeEq",
+        "ord": "DateTimeOrd"
+      }
+    }
+  },
+  "channels": {
+    "events": { "name": "PetEvent", "exclude": ["ping"] },
+    "internal": false
+  }
+}

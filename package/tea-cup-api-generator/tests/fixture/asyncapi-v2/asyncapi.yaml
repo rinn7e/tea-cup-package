@@ -1,0 +1,53 @@
+asyncapi: 2.6.0
+info:
+  title: Chat
+  version: 1.0.0
+channels:
+  chat/{room}:
+    subscribe:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/Joined'
+          - $ref: '#/components/messages/Said'
+    publish:
+      message:
+        $ref: '#/components/messages/Said'
+  metrics:
+    subscribe:
+      message:
+        name: sample
+        schemaFormat: application/vnd.apache.avro;version=1.9.0
+        payload:
+          type: record
+          name: Sample
+          fields: []
+components:
+  schemas:
+    UserName:
+      type: string
+  messages:
+    Joined:
+      name: joined
+      summary: Someone joined the room
+      payload:
+        type: object
+        required: [type, user]
+        properties:
+          type:
+            type: string
+            const: joined
+          user:
+            $ref: '#/components/schemas/UserName'
+    Said:
+      name: said
+      summary: Someone said something
+      payload:
+        type: object
+        required: [type, user, text]
+        properties:
+          type:
+            const: said
+          user:
+            $ref: '#/components/schemas/UserName'
+          text:
+            type: string

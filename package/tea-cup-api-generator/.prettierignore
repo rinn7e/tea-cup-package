@@ -1,0 +1,6 @@
+dist
+node_modules
+lib
+.turbo
+src/mock/json-**
+**/src/mock/json-**

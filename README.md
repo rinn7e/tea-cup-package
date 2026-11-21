@@ -18,6 +18,7 @@ This monorepo manages the following sub-packages:
 *   **[package/tea-cup-drawer](package/tea-cup-drawer)**: Drawer / bottom sheet with swipe gestures and snap points, a TEA port of vaul.
 *   **[package/tea-cup-screen-stack](package/tea-cup-screen-stack)**: Screen stack with animated push / pop and height transitions, e.g. multi-screen drawers.
 *   **[package/tea-cup-rte-toolkit](package/tea-cup-rte-toolkit)**: Rich Text Editor toolkit built for React Tea-Cup applications.
+*   **[package/tea-cup-api-generator](package/tea-cup-api-generator)**: Generates io-ts codecs, Eq instances and TaskEither request functions from OpenAPI and AsyncAPI specs.
 
 ---
 
@@ -118,7 +119,7 @@ pnpm run publish-all
 
 This runs:
 1. `tea-cup-prelude` (Core base)
-2. `tea-cup-intersection-observer`, `tea-cup-rte-toolkit` & `tea-cup-scroll-container`
+2. `tea-cup-intersection-observer`, `tea-cup-rte-toolkit`, `tea-cup-scroll-container` & `tea-cup-api-generator`
 3. `tea-cup-router`, `tea-cup-pagination`, `tea-cup-link-pagination`, and `tea-cup-form`
 
 ### 3. Publish an Individual Package
@@ -181,7 +182,8 @@ In your host application's `package.json`, add the dependencies using relative p
   "@rinn7e/tea-cup-scroll-container": "link:../tea-cup-package/package/tea-cup-scroll-container",
   "@rinn7e/tea-cup-intersection-observer": "link:../tea-cup-package/package/tea-cup-intersection-observer",
   "@rinn7e/tea-cup-router": "link:../tea-cup-package/package/tea-cup-router",
-  "@rinn7e/tea-cup-rte-toolkit": "link:../tea-cup-package/package/tea-cup-rte-toolkit"
+  "@rinn7e/tea-cup-rte-toolkit": "link:../tea-cup-package/package/tea-cup-rte-toolkit",
+  "@rinn7e/tea-cup-api-generator": "link:../tea-cup-package/package/tea-cup-api-generator"
 }
 ```
 

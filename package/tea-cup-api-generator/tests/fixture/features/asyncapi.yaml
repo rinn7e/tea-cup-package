@@ -1,0 +1,72 @@
+asyncapi: 3.0.0
+info:
+  title: Pet events
+  version: 1.0.0
+channels:
+  events:
+    address: /events
+    description: The events of the pet store, sent as server-sent events
+    messages:
+      petAdopted:
+        $ref: '#/components/messages/PetAdopted'
+      petRenamed:
+        $ref: '#/components/messages/PetRenamed'
+      ping:
+        $ref: '#/components/messages/Ping'
+  notifications:
+    address: /push
+    messages:
+      notice:
+        $ref: '#/components/messages/Notice'
+  internal:
+    address: /internal
+    messages:
+      audit:
+        payload:
+          type: string
+components:
+  schemas:
+    # The same schema as in openapi.json, keys in another order
+    PetAdopted:
+      required: [_tag, pet]
+      type: object
+      properties:
+        pet:
+          $ref: '#/components/schemas/Pet'
+        _tag:
+          enum: [PetAdopted]
+          type: string
+    Notice:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+  messages:
+    PetAdopted:
+      summary: A pet found a home
+      payload:
+        $ref: '#/components/schemas/PetAdopted'
+    PetRenamed:
+      summary: A pet got a new name
+      payload:
+        schemaFormat: application/vnd.oai.openapi;version=3.0.0
+        schema:
+          type: object
+          required: [_tag, id, name]
+          properties:
+            _tag:
+              type: string
+              enum: [PetRenamed]
+            id:
+              $ref: '#/components/schemas/PetId'
+            name:
+              type: string
+    Ping:
+      payload:
+        type: string
+    Notice:
+      payload:
+        $ref: '#/components/schemas/Notice'

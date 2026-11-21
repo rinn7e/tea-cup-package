@@ -1,0 +1,90 @@
+{
+  "name": "@rinn7e/tea-cup-api-generator",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Generates io-ts codecs, Eq and Ord instances and TaskEither request functions from OpenAPI and AsyncAPI specs, for React Tea-Cup applications",
+  "author": "Moremi Vannak",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rinn7e/tea-cup-package.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "files": [
+    "lib",
+    "README.md",
+    "LICENSE"
+  ],
+  "bin": {
+    "tea-cup-api-generator": "./lib/cli.js"
+  },
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js",
+      "require": "./lib/index.cjs"
+    },
+    "./generator": {
+      "types": "./lib/generator/index.d.ts",
+      "import": "./lib/generator/index.js",
+      "require": "./lib/generator/index.cjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "generator": [
+        "./lib/generator/index.d.ts"
+      ]
+    }
+  },
+  "scripts": {
+    "clean": "rimraf lib",
+    "compile": "tsup",
+    "build": "pnpm run clean && pnpm run compile",
+    "check": "tsc --noEmit",
+    "check-circular": "madge --circular --ts-config ./tsconfig.json --extensions ts src/",
+    "format": "prettier --write .",
+    "lint": "eslint src tests",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "staged": "pnpm run format && pnpm run check && pnpm run check-circular && pnpm run lint && pnpm run test"
+  },
+  "dependencies": {
+    "yaml": "^2.8.1"
+  },
+  "peerDependencies": {
+    "@rinn7e/tea-cup-prelude": "^1.0.3",
+    "fp-ts": "^2.16.0",
+    "io-ts": "^2.2.0",
+    "prettier": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "prettier": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "@rinn7e/tea-cup-prelude": "workspace:*",
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "@types/node": "^25.9.1",
+    "eslint": "^9.29.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "fp-ts": "^2.16.0",
+    "globals": "^16.2.0",
+    "io-ts": "^2.2.0",
+    "madge": "^8.0.0",
+    "prettier": "^3.8.1",
+    "rimraf": "^6.1.2",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.34.1",
+    "vitest": "^4.1.11"
+  }
+}
