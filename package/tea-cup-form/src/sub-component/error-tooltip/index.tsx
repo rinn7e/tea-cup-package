@@ -26,7 +26,6 @@ import { mkObjComparable } from '../../util/common'
 import { errorTooltipContainer } from './helper'
 import { Props } from './type'
 
-// TODO: used this in `form2` hook.
 const ErrorTooltip = (props: Props) => {
   const [status, setStatus] = useState(props.config.errorText)
 

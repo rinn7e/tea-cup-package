@@ -359,7 +359,6 @@ export const getFirstLine = (text: string) => {
 }
 
 // Given an html, remove its node until it is not over the limit
-// TODO: Write test for this
 export const truncateHtml = (
   input: string,
   limit: number,

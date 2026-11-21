@@ -138,7 +138,7 @@ export const update =
           null,
         ]
       }
-      // TODO: broken (works on a stale model), see `ReplaceFuncAsync` in `type.ts`
+      // Broken (works on a stale model), see `ReplaceFuncAsync` in `type.ts`
       case 'ReplaceFuncAsync': {
         return [model, replaceFuncAsyncCmd(model, { ...msg }), null]
       }

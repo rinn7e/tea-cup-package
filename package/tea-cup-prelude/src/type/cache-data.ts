@@ -30,8 +30,9 @@ import { RemoteDataJson } from '../common'
 // Cache data type, this is meant to be used as 'import * as CacheData'.
 export type Type<A> = {
   data: RD.RemoteData<string, A>
-  // ^ TODO: instead of using RemoteData, we might consider using our own sum-type for the state
-  // which are: "NoCache", "PendingCache", "HaveCache"
+  // ^ Instead of RemoteData, an own sum type of the states ("NoCache",
+  // "PendingCache", "HaveCache") may fit better, see
+  // https://github.com/rinn7e/tea-cup-package/issues/4
 
   // Side note: We might consider not storing "pending" all together, and use react state
   // to track the pending status instead (Either in `App` or `Api` component).

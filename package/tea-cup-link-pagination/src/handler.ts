@@ -634,8 +634,8 @@ export const getInitialDataFromApiCmd = <Item, ItemMsg, Route>(
   )
 }
 
-// TODO: broken (`SetState` replaces the model with one built from `model`, as
-// it was when `ReplaceFuncAsync` arrived), see `ReplaceFuncAsync` in `type.ts`
+// Broken (`SetState` replaces the model with one built from `model`, as it
+// was when `ReplaceFuncAsync` arrived), see `ReplaceFuncAsync` in `type.ts`
 export const replaceFuncAsyncCmd = <Item, ItemMsg, Route>(
   model: Model<Item>,
   msg: {

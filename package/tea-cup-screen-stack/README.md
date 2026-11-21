@@ -18,7 +18,7 @@ Show one screen out of several and animate the switch between them, for React an
 
 ### Not tabs
 
-Tabs (a fixed set of siblings with one selected, like `UITabBarController`) look similar but are a different component: their data overlaps (a stack is a selection list with nothing after the selected item), but their messages don't (tabs have no push or pop; going back to a left tab keeps the one you left). They are planned as a separate package, see `docs/plan-tea-cup-screen-tabs.md` at the repo root.
+Tabs (a fixed set of siblings with one selected, like `UITabBarController`) look similar but are a different component: their data overlaps (a stack is a selection list with nothing after the selected item), but their messages don't (tabs have no push or pop; going back to a left tab keeps the one you left). They are planned as a separate package, see [issue #1](https://github.com/rinn7e/tea-cup-package/issues/1).
 
 ---
 

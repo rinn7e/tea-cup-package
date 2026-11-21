@@ -70,7 +70,6 @@ export type CacheHandler<Item> = (
 export type EndpointHandler<Item> = (
   networkStatus: boolean,
   cacheData: Item[],
-  // TODO: use dataF (currentOverall: Item[]) => Item[] for EndpointHandler as well
 ) => TE.TaskEither<HttpErrorString, Item[]>
 
 export type InitialEndpointResponse<Item> = {
@@ -499,18 +498,12 @@ export type Msg<Item, ItemMsg, Route> =
   // The highlight number `seq` (`flash`) is over: its timer, as long as the
   // row's fade (`FLASH_MS`), ran out
   | { _tag: 'FlashDone'; seq: number }
-  // TODO: broken, and nothing sends it. `replaceFuncAsyncCmd` runs `func` on
-  // the items of the model as it was when this message arrived, then sends
-  // `SetState` with a whole model built from that old one. So everything that
-  // changed while the promise ran is lost: pages loaded meanwhile, the ends'
-  // and first page's states, items updated by SSE, `initialScroll`, the
-  // scroll container's state. Do the async work in the owner's Cmd and send `ReplaceFunc` with the result
-  // instead, which runs on the current items, or fix this to apply its result
-  // to the current model.
+  // Broken, and nothing sends it: it overwrites the changes made while its
+  // promise runs. Do the async work in the owner's Cmd and send `ReplaceFunc`
+  // with the result instead. See
+  // https://github.com/rinn7e/tea-cup-package/issues/3
   | {
       _tag: 'ReplaceFuncAsync'
-      // TODO: setGlobalMsg is a hack to be able to call navigate in this function
-      // When link pagin become tea-cup component, we can remove this hack
       func: (
         items: SortedUniqueArray<Item>,
       ) => Promise<[SortedUniqueArray<Item>, AppRouteUpdater<Route>]>
